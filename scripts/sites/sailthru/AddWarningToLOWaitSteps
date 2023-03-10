@@ -5,12 +5,20 @@
 // @grant       none
 // @version     1.0
 // @author      Colin Whelan
-// @description Modifying 'Wait' steps in Lifecycle Optimizer flows can have SERIOUS consequences. This adds a warning message to the modal that shows when removing the step, and links to the documentation. 
+// @description Modifying 'Wait' steps in Lifecycle Optimizer flows can have SERIOUS consequences. This adds a warning message to the modal that shows when removing the step, and links to the documentation.
 // ==/UserScript==
-
 
 // Select the element to watch
 var targetNode = document.querySelector('body');
+
+ // Create the warning div
+var warningDiv = document.createElement('div');
+warningDiv.style.backgroundColor = 'red';
+warningDiv.style.borderRadius = '5px';
+warningDiv.style.padding = '10px';
+warningDiv.style.marginBottom = '10px';
+warningDiv.style.color = 'white';
+warningDiv.innerHTML = '<strong>WARNING</strong>: Modifying \'Wait\' steps can have <strong>SERIOUS</strong> consequences. <br><a href="https://getstarted.sailthru.com/lo/lifecycle-optimizer/#Edit_Flows" target="_blank" style="color:white;text-decoration:underline;">Read this for more info.</a>';
 
 // Create a new observer instance
 var observer = new MutationObserver(function(mutationsList) {
@@ -25,45 +33,24 @@ var observer = new MutationObserver(function(mutationsList) {
           // check if this modal is for a 'wait' step
           var modalTitle = addedNodes[i].querySelector('.modal-title');
           if (modalTitle && modalTitle.innerText == 'Removing a Wait Step from an Active Flow') {
-            console.log('Correct modal dialog loaded!');
-
-            // Create the warning div
-            var warningDiv = document.createElement('div');
-            warningDiv.style.backgroundColor = 'red';
-            warningDiv.style.borderRadius = '5px';
-            warningDiv.style.padding = '10px';
-            warningDiv.style.marginBottom = '10px';
-            warningDiv.style.color = 'white';
-            warningDiv.innerHTML = '<strong>WARNING</strong>: Modifying \'Wait\' steps can have <strong>SERIOUS</strong> consequences. <br><a href="https://getstarted.sailthru.com/lo/lifecycle-optimizer/#Edit_Flows" target="_blank" style="color:white;text-decoration:underline;">Read this for more info.</a>';
 
             // Add the warning div to the modal
             addedNodes[i].querySelector('.modal-header').insertAdjacentHTML("beforebegin", warningDiv.outerHTML);
           }
         }
+        if (addedNodes[i].classList && addedNodes[i].classList.contains('step-editor')) {
+           // Add the warning div to the modal
+            warningDiv.style.marginRight = '10px'
+            warningDiv.style.marginTop = '10px'
+            addedNodes[i].querySelector('.close').insertAdjacentHTML("beforebegin", warningDiv.outerHTML);
+            console.log('Side Panel Opened!');
+        }
       }
     }
+
   }
 });
 
 // Start observing the target node for configured mutations
 var config = { childList: true, subtree: true };
 observer.observe(targetNode, config);
-
-
-
-// // Create the wrapper element and the status div
-// let wrapper = document.getElementById("wrapper");
-
-// let statusDiv = document.createElement("div");
-// statusDiv.setAttribute("id", "statusBanner");
-
-
-// // Set the styles for the status div
-// statusDiv.style.backgroundColor = boxColor;
-// statusDiv.style.textAlign = 'left';
-// statusDiv.style.color = 'white';
-// statusDiv.style.fontSize = '20px';
-// statusDiv.style.fontWeight = 'bold';
-
-// statusDiv.innerHTML = `<div id="noData" style="padding:8px; font-size:18px;">Error: No data received from the RSS feed. Reload to try again.</div>`;
-// wrapper.insertAdjacentHTML("beforebegin", statusDiv.outerHTML);
