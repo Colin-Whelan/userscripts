@@ -19,9 +19,9 @@ let environtment = jq("#my-navbar-components :contains('Indigo')").text()
 let wrapper = document.getElementById("wrapper");
 
 let styles = {
-  'DEV': '10px solid indigo',
-  'QA': '10px solid green',
-  'PROD': '10px solid red',
+  'DEV': '5px solid indigo',
+  'QA': '5px solid green',
+  'PROD': '5px solid red',
 }
 
 wrapper.style.boxSizing = 'border-box'
