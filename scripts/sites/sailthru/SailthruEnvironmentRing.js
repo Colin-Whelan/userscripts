@@ -32,7 +32,7 @@ if(environtment.includes("DEV")){
 }else if(environtment.includes("QA")){
   wrapper.style.border = styles.QA
   // console.log('QA')
-}else if(environtment.includes("Indigo") && !environtment.includes("DEV") && !environtment.includes("QA")){
+}else if(!environtment.includes("DEV") && !environtment.includes("QA")){
   wrapper.style.border = styles.PROD
   // console.log('PROD')
 } else {
