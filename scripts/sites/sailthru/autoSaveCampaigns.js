@@ -8,7 +8,7 @@
 // @description Auto-saves HTML based on an interval
 // ==/UserScript==
 
-var interval = '5 min';  // set your desired interval here
+var interval = '30s';  // set your desired interval here
 
 function convertToMilliseconds(timeStr) {
   var value = parseInt(timeStr);
