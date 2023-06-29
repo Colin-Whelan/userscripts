@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Auto-save Sailthru
 // @namespace   Violentmonkey Scripts
-// @match       https://my.sailthru.com/email-composer/*
+// @match       https://my.sailthru.com/campaign*
 // @grant       none
 // @version     1.0
 // @author      Colin Whelan
