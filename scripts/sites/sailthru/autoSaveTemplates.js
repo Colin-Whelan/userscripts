@@ -23,7 +23,6 @@ function convertToMilliseconds(timeStr) {
 }
 
 var intervalMs = convertToMilliseconds(interval);
-console.log(intervalMs)
 
 setInterval(function() {
   var buttons = document.querySelectorAll("button");
