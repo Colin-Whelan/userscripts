@@ -5,7 +5,7 @@
 // @grant       none
 // @version     1.0
 // @author      Colin Whelan
-// @description Auto-saves HTML based on an interval
+// @description Auto-saves Campaigns based on an interval
 // ==/UserScript==
 
 var interval = '30s';  // set your desired interval here
