@@ -29,7 +29,7 @@ setInterval(function() {
   var divButtons = document.querySelectorAll(".action_label");
   
   for (var i = 0; i < divButtons.length; i++) {
-      var divButton = buttons[i];
+      var divButton = divButtons[i];
       if (divButton.textContent.trim() === "Save") {
           divButton.click();
           console.log('Auto-saved');
