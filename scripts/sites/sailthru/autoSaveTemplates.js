@@ -26,7 +26,7 @@ var intervalMs = convertToMilliseconds(interval);
 console.log(intervalMs)
 
 setInterval(function() {
-  var buttons = document.querySelectorAll(".Button__ButtonWrapper-sc-49mtrn-0");
+  var buttons = document.querySelectorAll("button");
   for (var i = 0; i < buttons.length; i++) {
       var button = buttons[i];
       if (button.textContent.trim() === "Save") {
