@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name SailThru Status Banner (test)
+// @name SailThru Status Banner - Compact
 // @namespace Violentmonkey Scripts
 // @match https://my.sailthru.com/*
 // @grant none
 // @version 1.0
 // @author -
-// @description Adds a status banner to the top of the page. status pulls from RSS feed and shows some details
+// @description Adds a status banner to the top of the page. status pulls from RSS feed and shows some details. Compact design, click to expand and collapse.
 // ==/UserScript==
 
 //time frame in days
