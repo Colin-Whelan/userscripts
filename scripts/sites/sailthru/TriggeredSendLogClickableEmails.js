@@ -8,14 +8,9 @@
 // @description 2023-09-21, 2:45:27 p.m.
 // ==/UserScript==
 
-let emailsLinked = false;
-
 // Function to convert emails to links
 function linkEmails() {
-  if (emailsLinked) return;
-
-  const rows = document.querySelectorAll('tr.even, tr.odd');
-  let changesMade = false;
+  const rows = document.querySelectorAll('tr.even:not(.email-linked), tr.odd:not(.email-linked)');
 
   rows.forEach((row) => {
     const emailTD = row.children[1];
@@ -31,11 +26,10 @@ function linkEmails() {
       emailTD.innerHTML = '';
       emailTD.appendChild(emailLink);
 
-      changesMade = true;
+      // Mark this row as processed
+      row.classList.add('email-linked');
     }
   });
-
-  if (changesMade) emailsLinked = true;
 }
 
 // Initialize MutationObserver
