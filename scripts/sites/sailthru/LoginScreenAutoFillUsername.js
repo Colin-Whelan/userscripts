@@ -50,7 +50,7 @@ const myEmailAddress = 'your_email_here';
 
         // Delay and then click the "Sign in" button, unless 'Esc' is pressed
         setTimeout(function() {
-            if (!cancelAutoSignIn && myEmailAddress.includes("@")) {
+            if (!cancelAutoSignIn && myEmailAddress.includes("@") && emailInput) {
                 const signInButton = document.querySelector('button._button-login-id');
                 if (signInButton) {
                     signInButton.click();
