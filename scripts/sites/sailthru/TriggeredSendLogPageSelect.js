@@ -10,9 +10,6 @@
 
 
 function addPageSelector() {
-  // Debug: Log the function call
-  // console.log("addPageSelector called");
-
   // Decode the URL to get the new 'start' value
   const decodedURL = decodeURIComponent(decodeURIComponent(window.location.href));
   const urlParams = new URLSearchParams(decodedURL.split('#')[1]);
@@ -30,6 +27,11 @@ function addPageSelector() {
   // Create a page selector
   const selector = document.createElement('select');
   selector.className = 'page-selector';
+  selector.style.fontFamily = 'Arial, sans-serif';
+  selector.style.fontSize = '14px';
+  selector.style.padding = '3px 10px';
+  selector.style.margin = '0px 10px 0px 5px';
+  selector.style.border = '1px solid #ccc';
 
   // Populate the selector with some page numbers for demonstration
   for (let i = 1; i <= 200; i++) {
@@ -53,13 +55,14 @@ function addPageSelector() {
   // Add the selector to the page (customize this based on where you want to insert it)
   const paginationDiv = document.querySelector('.pagination');
   if (paginationDiv) {
-    paginationDiv.appendChild(selector);
-    // console.log("Page selector added to .pagination div");
-  } else {
-    // console.log("No .pagination div found");
-  }
+    // Style paginationDiv
+    paginationDiv.style.display = 'flex';
+    paginationDiv.style.justifyContent = 'left';
+    paginationDiv.style.alignItems = 'center';
+    paginationDiv.style.padding = '0px 10px 10px 10px';
 
-  // console.log("Page selector added");
+    paginationDiv.appendChild(selector);
+  }
 }
 
 // Initialize MutationObserver
@@ -72,4 +75,3 @@ observer.observe(document.body, {
   childList: true,
   subtree: true
 });
-
