@@ -21,3 +21,10 @@ The easiest way to add these scripts is with the URL which allows for easy updat
 
 Now when you navigate to the page from '// @match' near the top of the script, the script will execute.
 
+## Editiing Variables
+
+Sometimes, scripts will use variables that need to be customized before they can properly run. 
+
+1. To update, go to the dashboard using the instructions above.
+2. Click on the code button for the script in question. Looks like this: </>
+3. Near the top of the file right after the information at the top should be the variables that are modifiable. - They will all use 'let' or 'const'
