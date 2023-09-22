@@ -29,37 +29,39 @@ const myEmailAddress = 'your_email_here';
     tooltip.style.color = 'white';
     tooltip.style.padding = '10px';
     tooltip.style.zIndex = '9999';
-    document.body.appendChild(tooltip);
+    if(document.querySelector('#username')) {
+      document.body.appendChild(tooltip);
 
-    // Listen for 'Esc' key press
-    document.addEventListener('keydown', function(event) {
-        if (event.key === "Escape") {
-            cancelAutoSignIn = true;
-            tooltip.innerHTML = "Auto-login has been cancelled.";
-        }
-    });
+      // Listen for 'Esc' key press
+      document.addEventListener('keydown', function(event) {
+          if (event.key === "Escape") {
+              cancelAutoSignIn = true;
+              tooltip.innerHTML = "Auto-login has been cancelled.";
+          }
+      });
 
-    // Check if form is present
-    const form = document.querySelector('form._form-login-id');
-    if (form) {
-        // Fill in the email
-        const emailInput = document.querySelector('#username');
-        if (emailInput) {
-            emailInput.value = myEmailAddress;
-        }
+      // Check if form is present
+      const form = document.querySelector('form._form-login-id');
+      if (form) {
+          // Fill in the email
+          const emailInput = document.querySelector('#username');
+          if (emailInput) {
+              emailInput.value = myEmailAddress;
+          }
 
-        // Delay and then click the "Sign in" button, unless 'Esc' is pressed
-        setTimeout(function() {
-            if (!cancelAutoSignIn && myEmailAddress.includes("@") && emailInput) {
-                const signInButton = document.querySelector('button._button-login-id');
-                if (signInButton) {
-                    signInButton.click();
-                }
-            } else {
-                tooltip.innerHTML = "Auto-login has been cancelled.";
-            }
-            // Remove tooltip after use
-            setTimeout(() => tooltip.remove(), 2000);
-        }, delay);
+          // Delay and then click the "Sign in" button, unless 'Esc' is pressed
+          setTimeout(function() {
+              if (!cancelAutoSignIn && myEmailAddress.includes("@") && emailInput) {
+                  const signInButton = document.querySelector('button._button-login-id');
+                  if (signInButton) {
+                      signInButton.click();
+                  }
+              } else {
+                  tooltip.innerHTML = "Auto-login has been cancelled.";
+              }
+              // Remove tooltip after use
+              setTimeout(() => tooltip.remove(), 2000);
+          }, delay);
+      }
     }
 })();
