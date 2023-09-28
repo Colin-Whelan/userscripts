@@ -47,9 +47,8 @@ function addPageSelector() {
   // Add a change listener to update the URL and reload the content
   selector.addEventListener('change', function () {
     const newStart = this.value;
-    urlParams.set('start', newStart);
-    const newURL = `${window.location.origin}${window.location.pathname}#${urlParams.toString()}`;
-    window.location.href = newURL;
+    urlParams.set('start', newStart);    
+    ajax.refresh(this, { start: newStart })
   });
 
   // Add the selector to the page (customize this based on where you want to insert it)
