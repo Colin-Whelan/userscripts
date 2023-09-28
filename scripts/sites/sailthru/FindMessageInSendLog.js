@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/user_profile?id=*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      -
 // @description 2023-09-28, 1:28:40 p.m.
 // ==/UserScript==
@@ -34,13 +34,46 @@ const observer = new MutationObserver(function (mutations) {
   const dataCell = document.querySelector('.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4 .legacy-components-Table-dist---Table-body-cell-align-left--1cMUg');
   const table = document.querySelector('.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4');
 
-
-  const urlParams = new URLSearchParams(window.location.search);
-  const profileId = urlParams.get('id');
-
+  //Need to test to make sure this is consistent across clients/accounts
+  const profileId = document.querySelector('#profile-overview .pv2:nth-of-type(2) .pl3 strong').innerHTML.trim();
 
   if (dataCell.innerHTML) {
     observer.disconnect(); // Stop observing
+
+    // Get the target table header cell
+    const headerCell = document.querySelector('div.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4 .legacy-components-Table-dist---Table-head-cell-align-left--3aEVX');
+    if (headerCell) {
+      // Create 'Preview All' button element
+      const previewAllButton = document.createElement('button');
+      previewAllButton.innerHTML = 'Preview All';
+      previewAllButton.id = 'previewAll';
+      previewAllButton.style.backgroundColor = "rgb(0, 169, 250)";  // Blue background
+      previewAllButton.style.color = "white";  // White text
+      previewAllButton.style.border = "none";  // No border
+      previewAllButton.style.borderRadius = "10px";  // No border
+      previewAllButton.style.padding = "10px 15px";  // Padding
+      previewAllButton.style.margin = "5px 10px";  // Margin
+      previewAllButton.style.cursor = "pointer";  // Cursor pointer
+      previewAllButton.style.position = "relative";
+
+      // Append the button to the header cell
+      headerCell.appendChild(previewAllButton);
+    }
+
+    document.getElementById('previewAll').addEventListener('click', function() {
+      const buttons = document.querySelectorAll('button.previewMessage');
+      let index = 0;
+
+      function triggerNextButton() {
+        if (index < buttons.length) {
+          buttons[index].click();
+          index++;
+          triggerNextButton();
+        }
+      }
+
+      triggerNextButton();
+    });
 
     for (let row of table.rows) {
       for (let cell of row.cells) {
@@ -62,12 +95,15 @@ const observer = new MutationObserver(function (mutations) {
           button.style.margin = "2px 10px";  // Margin
           button.style.cursor = "pointer";  // Cursor pointer
           button.style.position = "relative";
+          button.className = 'previewMessage'
 
           button.onclick = function() {
             automatedCheck(templateName, sendDate, profileId, templateCell, button);
           };
 
           templateCell.appendChild(button);
+
+
         }
       }
     }
@@ -85,12 +121,15 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
   button.appendChild(spinner);
 
   // Convert the sendDate to MM%2FDD%2FYYYY format
-  const formattedDate = encodeURIComponent(sendDate);
+  const sendDateObj = new Date(sendDate);
+  const year = sendDateObj.getFullYear();
+  const month = String(sendDateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(sendDateObj.getDate()).padStart(2, '0');
+
+  const formattedDate = `${month}%2F${day}%2F${year}`;
 
   // Construct the URL you want to navigate to
   const newURL = `https://my.sailthru.com/reports/transactional_log?start_date=${formattedDate}&end_date=${formattedDate}&template=${templateName}`;
-  // for testing not looking at template since this account doesn't have much activity
-  // const newURL = `https://my.sailthru.com/reports/transactional_log?start_date=${formattedDate}&end_date=${formattedDate}`;
 
   // Create an invisible iframe
   const iframe = document.createElement('iframe');
@@ -124,7 +163,21 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
     let rowCounter = 0; // Initialize a counter for rows checked
 
     const checkTable = function() {
+      let iframeWindow = iframe.contentWindow;
+      iframeWindow.addEventListener('error', function(event) {
+        console.log("Network error occurred, stopping future requests.");
+        clearInterval(intervalId);
+      });
+
       const targetTable = iframeDocument.querySelector('.standard');
+      const checkFailure = iframeDocument.querySelector('.row2 .row2');
+      if (checkFailure && checkFailure.textContent.includes('You have not sent')) {
+        // Reset the button here
+        button.innerHTML = "Error - Try Again";
+        console.log("Error. Probably too fast. Please click again or try a longer delay.");
+        return;
+      }
+
       if (targetTable) {
         for (let row of targetTable.rows) {
         rowCounter++; // Increment row counter
@@ -170,9 +223,6 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
             }
           `);
 
-
-          console.log(iframeDocument)
-
           // Run checkTable again after a delay
           setTimeout(checkTable, newPageDelay);
 
@@ -184,9 +234,6 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
     // Initially call checkTable
     checkTable();
   };
-
-
-
 }
 
 
