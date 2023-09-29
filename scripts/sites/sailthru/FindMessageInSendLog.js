@@ -10,7 +10,7 @@
 
 // Choose a speed to search at. The faster the search the more likely a result is to be missed and require a re-run
 const newPageDelay = 150 // (ms) How long to look at each page for before loading the next page. <100 = Fast, ~150 = normal, 200+ = slow
-const watchSearch = true // Toggle to true to watch the search for the message in real time
+const watchSearch = false // Toggle to true to watch the search for the message in real time
 
 const style = document.createElement('style');
 style.innerHTML = `
