@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name        Triggered Send Log Page Select - sailthru.com
+// @name        Triggered Send Log Page Select
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/transactional_log
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      -
 // @description 2023-09-18, 11:56:00 a.m.
 // ==/UserScript==
 
+const maxPages = 200
 
 function addPageSelector() {
   // Decode the URL to get the new 'start' value
@@ -34,7 +35,7 @@ function addPageSelector() {
   selector.style.border = '1px solid #ccc';
 
   // Populate the selector with some page numbers for demonstration
-  for (let i = 1; i <= 200; i++) {
+  for (let i = 1; i <= maxPages; i++) {
     const option = document.createElement('option');
     option.value = (i - 1) * 20;
     option.text = `Page ${i}`;
@@ -47,7 +48,8 @@ function addPageSelector() {
   // Add a change listener to update the URL and reload the content
   selector.addEventListener('change', function () {
     const newStart = this.value;
-    urlParams.set('start', newStart);    
+    urlParams.set('start', newStart);
+
     ajax.refresh(this, { start: newStart })
   });
 
