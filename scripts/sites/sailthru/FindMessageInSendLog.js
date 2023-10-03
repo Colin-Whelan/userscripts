@@ -3,13 +3,16 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/user_profile?id=*
 // @grant       none
-// @version     1.1
-// @author      -
-// @description 2023-09-28, 1:28:40 p.m.
+// @version     1.3
+// @author      Colin Whelan
+// @description Adds a button beside each 'Message' of the User Profile + a button at the top to get all at one.
+// How it works: In the background(or foreground if watchSearch is true) an iframe is made for each message which navigates to the Triggered Send Log with the date limited to that day and the message selected.
+// It then scans over each row of the table, checking to make sure all the details match the profile. When a match is found, it add the corresponding link to the User Profile.
 // ==/UserScript==
 
+// Options:
 // Choose a speed to search at. The faster the search the more likely a result is to be missed and require a re-run
-const newPageDelay = 150 // (ms) How long to look at each page for before loading the next page. <100 = Fast, ~150 = normal, 200+ = slow
+const newPageDelay = 200 // (ms) How long to look at each page for before loading the next page. <100 = Fast, ~150 = Normal, 200+ = Reliable.
 const watchSearch = false // Toggle to true to watch the search for the message in real time
 
 const style = document.createElement('style');
@@ -34,13 +37,13 @@ const observer = new MutationObserver(function (mutations) {
   const dataCell = document.querySelector('.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4 .legacy-components-Table-dist---Table-body-cell-align-left--1cMUg');
   const table = document.querySelector('.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4');
 
-  //Need to test to make sure this is consistent across clients/accounts
+  //Get the profileId from the 'Overview' tab the User Profile. TODO: Test to make sure this is consistent across clients/accounts
   const profileId = document.querySelector('#profile-overview .pv2:nth-of-type(2) .pl3 strong').innerHTML.trim();
 
   if (dataCell.innerHTML) {
     observer.disconnect(); // Stop observing
 
-    // Get the target table header cell
+    // Get the target table header cell (may need to make a better query)
     const headerCell = document.querySelector('div.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4 .legacy-components-Table-dist---Table-head-cell-align-left--3aEVX');
     if (headerCell) {
       // Create 'Preview All' button element
@@ -64,6 +67,7 @@ const observer = new MutationObserver(function (mutations) {
       const buttons = document.querySelectorAll('button.previewMessage');
       let index = 0;
 
+      // Recursively clicks all the 'Preview' buttons
       function triggerNextButton() {
         if (index < buttons.length) {
           buttons[index].click();
@@ -72,19 +76,23 @@ const observer = new MutationObserver(function (mutations) {
         }
       }
 
-      triggerNextButton();
+      triggerNextButton(); // Start the recursive clicks
     });
 
+    // Loop through each row, checking to see if the text is 'Triggered' or 'Transactional'
+    // Issues may occur if the Message/Campaign ID is either of those values
     for (let row of table.rows) {
       for (let cell of row.cells) {
         if (cell.textContent.trim() === 'Triggered' || cell.textContent.trim() === 'Transactional') {
           const rowIndex = cell.parentNode.rowIndex;
           const cellIndex = cell.cellIndex;
 
-          const templateCell = table.rows[rowIndex].cells[cellIndex - 2];
-          const templateName = templateCell.textContent.trim();
+          // Get the template name and send date from the cells relative to the current one
+          const templateNameCell = table.rows[rowIndex].cells[cellIndex - 2];
+          const templateName = templateNameCell.textContent.trim();
           const sendDate = table.rows[rowIndex].cells[cellIndex + 2].textContent.trim();
 
+          // Button Settings
           const button = document.createElement("button");
           button.innerHTML = "Preview";
           button.style.backgroundColor = "rgb(0, 169, 250)";  // Blue background
@@ -95,15 +103,13 @@ const observer = new MutationObserver(function (mutations) {
           button.style.margin = "2px 10px";  // Margin
           button.style.cursor = "pointer";  // Cursor pointer
           button.style.position = "relative";
-          button.className = 'previewMessage'
+          button.className = 'previewMessage' // class name so it can be selected later
 
           button.onclick = function() {
-            automatedCheck(templateName, sendDate, profileId, templateCell, button);
+            automatedCheck(templateName, sendDate, profileId, templateNameCell, button);
           };
 
-          templateCell.appendChild(button);
-
-
+          templateNameCell.appendChild(button);
         }
       }
     }
@@ -111,29 +117,48 @@ const observer = new MutationObserver(function (mutations) {
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
+function createDateTimeString(dateTimeObject){
+    const year = dateTimeObject.getFullYear();
+    const month = String(dateTimeObject.getMonth() + 1).padStart(2, '0');
+    const day = String(dateTimeObject.getDate()).padStart(2, '0');
+    const hour = String(dateTimeObject.getHours()).padStart(2, '0');
+    const minute = String(dateTimeObject.getMinutes()).padStart(2, '0');
+    const second = String(dateTimeObject.getSeconds()).padStart(2, '0');
 
-function automatedCheck(templateName, sendDate, profileId, templateCell, button) {
+    return `${year}${month}${day}${hour}${minute}${second}`
+}
+function automatedCheck(templateName, sendDate, profileId, templateNameCell, button) {
   button.textContent = "";
 
+  // Spinner div
   const spinner = document.createElement("div");
   spinner.className = 'spinner';
   spinner.style.position = 'relative';
   button.appendChild(spinner);
 
-  // Convert the sendDate to MM%2FDD%2FYYYY format
-  const sendDateObj = new Date(sendDate);
-  const year = sendDateObj.getFullYear();
-  const month = String(sendDateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(sendDateObj.getDate()).padStart(2, '0');
+  const startDateTime = new Date(sendDate);
+  const endDateTime = new Date(sendDate)
 
-  const formattedDate = `${month}%2F${day}%2F${year}`;
+  // since second value is missing initially, send log requires a bit of wiggle room. Increase search range by 1 minute either side
+  startDateTime.setMinutes(startDateTime.getMinutes() - 1)
+  endDateTime.setMinutes(endDateTime.getMinutes() + 1)
+
+  // end date must be 1 day behind for some reason
+  endDateTime.setDate(endDateTime.getDate() - 1);
+
+  // Convert datetime to string for Send Log: YYYYMMDDhhmmss
+  const formattedStartDateTime = createDateTimeString(startDateTime); // URL date
+  const formattedEndDateTime = createDateTimeString(endDateTime); // URL date
+
+  console.log(sendDate, formattedStartDateTime, formattedEndDateTime)
 
   // Construct the URL you want to navigate to
-  const newURL = `https://my.sailthru.com/reports/transactional_log?start_date=${formattedDate}&end_date=${formattedDate}&template=${templateName}`;
+  const newURL = `https://my.sailthru.com/reports/transactional_log?start_date=${formattedStartDateTime}&end_date=${formattedEndDateTime}&template=${templateName}`;
 
   // Create an invisible iframe
   const iframe = document.createElement('iframe');
 
+  // Show the hidden iframe if watchSearch is true. Can help with debugging, especially with a long newPageDelay
   if(watchSearch){
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -151,11 +176,10 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
   // Append iframe to body
   document.body.appendChild(iframe);
 
-
-  // Listen for load event on iframe to start AJAX refresh checks
   let matchFound = false;
   let currentPage = 0
 
+  // Listen for load event on iframe to start AJAX refresh checks
   iframe.onload = function() {
     const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
     let matchFound = false;
@@ -163,6 +187,7 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
     let rowCounter = 0; // Initialize a counter for rows checked
 
     const checkTable = function() {
+      // Create iframe
       let iframeWindow = iframe.contentWindow;
       iframeWindow.addEventListener('error', function(event) {
         console.log("Network error occurred, stopping future requests.");
@@ -171,29 +196,40 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
 
       const targetTable = iframeDocument.querySelector('.standard');
       const checkFailure = iframeDocument.querySelector('.row2 .row2');
+
+      //Check to see if the end of the list was reached. If so, reset the button
       if (checkFailure && checkFailure.textContent.includes('You have not sent')) {
-        // Reset the button here
         button.innerHTML = "Error - Try Again";
-        console.log("Error. Probably too fast. Please click again or try a longer delay.");
+        console.log("Error - Reached end of list. Please click the button again or try a longer delay.");
         return;
       }
 
       if (targetTable) {
         for (let row of targetTable.rows) {
-        rowCounter++; // Increment row counter
+          rowCounter++; // Increment row counter
+
           const cells = row.cells;
 
           const iframeTemplateName = cells[0].textContent.trim();
           const iframeProfileId = cells[1].textContent.trim();
           const iframeSendDate = cells[3].textContent.trim();
 
+          // Stop early if the search is too far back
+          if (new Date(sendDate) > new Date(iframeSendDate)){
+            button.innerHTML = "Error - Try Again";
+            console.log("Error - Past the send date. Please click the button again or try a longer delay.", iframeTemplateName, iframeSendDate, sendDate);
+
+            clearInterval(intervalId); // Stop the interval if match is found
+            return;
+          }
+
           if (iframeTemplateName === templateName.trim() && iframeProfileId === profileId.trim() && iframeSendDate === sendDate.trim()) {
-            // console.log('Match found');
             matchFound = true;
 
             const magnifierCell = row.cells[6];
             const magnifierURL = magnifierCell.querySelector('.magnifier').getAttribute('href');
 
+            // Link settings
             const templateLink = document.createElement('a');
             templateLink.href = magnifierURL;
             templateLink.target = '_blank';
@@ -204,8 +240,9 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
 
             templateLink.innerText = templateName;
 
-            templateCell.innerHTML = '';
-            templateCell.appendChild(templateLink);
+            templateNameCell.innerHTML = ''; // Remove the previous content
+
+            templateNameCell.appendChild(templateLink); // Add the new link
 
             button.removeChild(spinner);
 
@@ -219,13 +256,14 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
           let iframeWindow = iframe.contentWindow;
           iframeWindow.eval(`
             if (true) {
-              ajax.refresh(ajax.refresh(this, { start: ${(currentPage + 1) * 20} }));
+              ajax.refresh(this, { start: ${(currentPage + 1) * 20} });
             }
           `);
 
-          // Run checkTable again after a delay
+          // Run checkTable again after the delay
           setTimeout(checkTable, newPageDelay);
 
+          // Go to the next page
           currentPage++;
         }
       }
@@ -235,5 +273,3 @@ function automatedCheck(templateName, sendDate, profileId, templateCell, button)
     checkTable();
   };
 }
-
-
