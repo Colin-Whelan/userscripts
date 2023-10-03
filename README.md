@@ -21,10 +21,16 @@ The easiest way to add these scripts is with the URL which allows for easy updat
 
 Now when you navigate to the page from '// @match' near the top of the script, the script will execute.
 
-## Editiing Variables
+## Editing Variables
 
 Sometimes, scripts will use variables that need to be customized before they can properly run. 
 
 1. To update, go to the dashboard using the instructions above.
 2. Click on the code button for the script in question. Looks like this: </>
 3. Near the top of the file right after the information at the top should be the variables that are modifiable. - They will all use 'let' or 'const'
+
+## Refreshing Scripts/Pull Updates
+By default, enabled scripts will update every day.
+
+If this is disabled, or you want to check more often, head to the dashboard and click the refresh button in the top left, or the one each script to only check one at a time.
+If an update is found, the script will automatically update.
