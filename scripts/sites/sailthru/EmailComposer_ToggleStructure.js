@@ -5,7 +5,7 @@
 // @grant       none
 // @version     1.0
 // @author      -
-// @description 2023-10-03, 11:34:38 p.m.
+// @description Adds a 'Toggle Structure' button that makes differentiating between content blocks and rows easier. Doesn't affect the final send HTML.
 // ==/UserScript==
 
 let showStructureByDefault = true;
