@@ -55,7 +55,7 @@ let myBeeConfig = {
   disableLinkSanitize: true, // Doesn't work. Not enabled on server.
   disableBaseColors: true, // Disables default base colors
   disableColorHistory: false, // Disables Color History
-  defaultColors: ['#ffffff', '#000000', '#95d24f', '#ff00dd', 'transparent'], // Dosesn't work. Doesn't overrider defaults
+  defaultColors: ['#ffffff', '#000000', '#95d24f', '#ff00dd', 'transparent'], // Dosesn't work. Doesn't override defaults
   sidebarPosition: 'left', // Changes Sidebar position
   editorFonts: { // Add addtional fonts. Not sure if fallbacks can be added here.
     showDefaultFonts: true,
