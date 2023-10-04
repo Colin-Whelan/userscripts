@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Auto-Save Sailthru Templates
+// @name        Email Composer - Auto-Save
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
