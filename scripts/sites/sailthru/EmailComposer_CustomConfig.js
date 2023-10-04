@@ -29,7 +29,7 @@ let myBeeConfig = {
     type: 'mixed'
   },
   forceSanitizeHTML: false,
-  autosave: 2, // Default
+  autosave: 20, // Default
   language: 'en-US', // Default
   trackChanges: true, // Default
   preventClose: true, // Default
