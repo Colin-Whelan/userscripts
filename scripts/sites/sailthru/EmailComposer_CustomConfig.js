@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      -
 // @description 2023-10-03, 11:34:38 p.m.
 // ==/UserScript==
@@ -35,7 +35,7 @@ let myBeeConfig = {
   commentingThreadPreview: true,
   commentingNotifications: true,
   disableLinkSanitize: true,
-  disableBaseColors: false,
+  disableBaseColors: true,
   disableColorHistory: false,
   defaultColors: ['#ffffff', '#000000', '#95d24f', '#ff00dd', 'transparent'], // doesn't overrider defaults
   sidebarPosition: 'left',
@@ -53,6 +53,16 @@ let myBeeConfig = {
 },
   modulesGroups: [
   {
+    label: "Main Content",
+    collapsable: false,
+    collapsedOnLoad: false,
+    modulesNames: [
+      "Button",
+      "Html",
+      "Menu"
+    ]
+  },
+  {
     label: "Text ✏️",
     collapsable: false,
     collapsedOnLoad: false,
@@ -68,7 +78,10 @@ let myBeeConfig = {
     collapsedOnLoad: false,
     modulesNames: [
       "Video",
-      "Image"
+      "Image",
+      "Gifs",
+      "Icons",
+      "Social"
     ]
   },
   {
@@ -77,7 +90,17 @@ let myBeeConfig = {
     collapsedOnLoad: true,
     modulesNames: [
       "Stickers",
-      "Gifs"
+      "Liveclicker",
+      "Dynamiccontent"
+    ]
+  },
+  {
+    label: "Layout",
+    collapsable: true,
+    collapsedOnLoad: true,
+    modulesNames: [
+      "Divider",
+      "Spacer"
     ]
   }
 ],
@@ -98,7 +121,9 @@ let myBeeConfig = {
   },
   metadata: {
     languages: [
-       { value: 'it-IT', label: 'Italian' }
+       { value: 'en-us', label: 'English (US)' },
+       { value: 'en-ca', label: 'English (Canada)' },
+       { value: 'fr-ca', label: 'French (Canada)' }
     ]
   },
   rowDisplayConditions: [{
