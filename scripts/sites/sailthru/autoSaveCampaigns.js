@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Auto-Save Sailthru Campaigns
+// @name        Campaigns - Auto Save
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/campaign*
 // @grant       none
