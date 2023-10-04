@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Sailthru Clickmap Heatmap - sailthru.com
+// @name        Campaign Report - Color Heatmap
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/campaign*
 // @grant       none
