@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name        Login Screen Auto Fill Username - sailthru.com
+// @name        Login Screen - Auto Fill Username
 // @namespace   Violentmonkey Scripts
 // @match       https://login.sailthru.com/u/login/identifier
 // @grant       none
 // @version     1.0
 // @author      -
-// @description 2023-09-22, 3:55:28 p.m.
+// @description Auto enters your username and proceeds to the password screen. Press 'Esc' within 2 seconds to cancel the auto-login.
 // ==/UserScript==
 
 // Delay in milliseconds (e.g., 5000 milliseconds = 5 seconds)
