@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Sailthru Environment Ring
+// @name        Global - Environment Ring
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/*
 // @grant       none
