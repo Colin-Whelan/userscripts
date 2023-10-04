@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Sailthru Environment Banner
+// @name        Global - Environment Banner
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/*
 // @grant       none
