@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name SailThru Status Banner - Compact
+// @name Global - Compact Status Banner
 // @namespace Violentmonkey Scripts
 // @match https://my.sailthru.com/*
 // @grant none
