@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name        Sailthru Clickmap Heatmap - sailthru.com
 // @namespace   Violentmonkey Scripts
-// @match       https://my.sailthru.com/reports/campaign
+// @match       https://my.sailthru.com/reports/campaign*
 // @grant       none
 // @version     1.0
 // @author      -
-// @description 2023-09-19, 12:55:30 p.m.
+// @description Converts the raw values of the campaign report to a colored heat map.
 // @require https://code.jquery.com/jquery-3.6.0.min.js
 // ==/UserScript==
 
