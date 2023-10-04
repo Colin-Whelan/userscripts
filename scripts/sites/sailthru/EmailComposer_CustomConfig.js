@@ -403,9 +403,6 @@ const CONFIG_LOAD_DELAY = 1000;
    * If an error occurs during the load, an error modal will be displayed.
    */
   function setCustomConfig() {
-    // Toggle the BEE editor's structure view
-    beePluginInstance.toggleStructure();
-
     // Attempt to save the current editor state and load the new configuration
     try {
       beePluginInstance.save();
