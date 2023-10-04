@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Triggered Send Log - Clickable Emails - sailthru.com
+// @name        Triggered Send Log - Clickable Emails
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/transactional_log
 // @grant       none
