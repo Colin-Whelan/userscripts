@@ -54,7 +54,7 @@ function addPageSelector() {
     ajax.refresh(this, { start: newStart })
   });
 
-  // Add the selector to the page (customize this based on where you want to insert it)
+  // Add the selector to the page
   const paginationDiv = document.querySelector('.pagination');
   if (paginationDiv) {
     // Style paginationDiv
