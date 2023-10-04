@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
-// @version     0.2
+// @version     0.3
 // @author      -
 // @description Adds a custom config file for the BEE editor that overrides the defaults. Not all options are available. WIP
 // ==/UserScript==
@@ -17,29 +17,50 @@
 // This only needs to be done once
 const myUid = 'YourUidHere'
 
+// Don't Edit!
+let tokenCounter = 0
+let tokensAvailable = 2000
+
 // The configuration settings for the BEE editor. Edit as needed.
 let myBeeConfig = {
   uid: myUid,
   container: 'bee_plugin_container',
-  autosave: 20,
-  language: 'en-US',
-  trackChanges: true,
-  preventClose: true,
+  workspace:{ // nothing happens
+    type:'mixed'
+  },
+  forceSanitizeHTML: false,
+  autosave: 2, // Default
+  language: 'en-US', // Default
+  trackChanges: true, // Default
+  preventClose: true, // Default
   editorFonts: {},
-  contentDialog: {},
+  contentDialog: {
+  },
   defaultForm: {},
   roleHash: "",
   rowDisplayConditions: {},
-  editSingleRow: false,
-  commenting: true,
-  commentingThreadPreview: true,
-  commentingNotifications: true,
-  disableLinkSanitize: true,
-  disableBaseColors: true,
-  disableColorHistory: false,
-  defaultColors: ['#ffffff', '#000000', '#95d24f', '#ff00dd', 'transparent'], // doesn't overrider defaults
-  sidebarPosition: 'left',
-  editorFonts: {
+  editSingleRow: true,
+  commenting: true, // Doesn't work. Not enabled on server.
+  commentingThreadPreview: true, // Doesn't work. Not enabled on server.
+  commentingNotifications: true, // Doesn't work. Not enabled on server.
+  addOns: [
+      {
+        id: "ai-integration", // Doesn't work. Not enabled on server.
+        settings: {
+          tokensAvailable: tokensAvailable,
+          tokensUsed: tokenCounter,
+          tokenLabel: 'tokens',
+          isPromptDisabled: false,
+          isSuggestionsDisabled: false,
+        }
+      },
+    ],
+  disableLinkSanitize: true, // Doesn't work. Not enabled on server.
+  disableBaseColors: true, // Disables default base colors
+  disableColorHistory: false, // Disables Color History
+  defaultColors: ['#ffffff', '#000000', '#95d24f', '#ff00dd', 'transparent'], // Dosesn't work. Doesn't overrider defaults
+  sidebarPosition: 'left', // Changes Sidebar position
+  editorFonts: { // Add addtional fonts. Not sure if fallbacks can be added here.
     showDefaultFonts: true,
     customFonts: [{
         name: "Comic Sans2",
@@ -51,7 +72,7 @@ let myBeeConfig = {
         url: "https://fonts.googleapis.com/css?family=Lobster"
     }]
 },
-  modulesGroups: [
+  modulesGroups: [ // Organize the modules into groups. Choose if they are collapsable and if they are collapsed on load.
   {
     label: "Main Content",
     collapsable: false,
@@ -67,6 +88,7 @@ let myBeeConfig = {
     collapsable: false,
     collapsedOnLoad: false,
     modulesNames: [
+      "Text",
       "List",
       "Paragraph",
       "Heading"
@@ -84,17 +106,7 @@ let myBeeConfig = {
       "Social"
     ]
   },
-  {
-    label: "AddOns",
-    collapsable: true,
-    collapsedOnLoad: true,
-    modulesNames: [
-      "Stickers",
-      "Liveclicker",
-      "Dynamiccontent"
-    ]
-  },
-  {
+    {
     label: "Layout",
     collapsable: true,
     collapsedOnLoad: true,
@@ -102,11 +114,29 @@ let myBeeConfig = {
       "Divider",
       "Spacer"
     ]
+  },
+  {
+    label: "AddOns",
+    collapsable: true,
+    collapsedOnLoad: true,
+    modulesNames: [
+      "Sticker",
+      "Liveclicker",
+      "DynamicContent",
+      "Carousel",
+      "Form",
+      "QRCode"
+    ]
   }
 ],
-  customAttributes: {
+  customAttributes: { // Add custom attributes. Shows Buttons and Images. Not working for Links. Won't work for every other element.
     enableOpenFields: true,
     attributes: [
+      {
+        key: "thisIsABoolean",
+        value: true,
+        target: "link"
+      },
       {
         key: "data-segment",
         value: ['travel', 'luxury'],
@@ -119,14 +149,14 @@ let myBeeConfig = {
       }
     ]
   },
-  metadata: {
+  metadata: {  // Doesn't work. Not enabled on server.
     languages: [
        { value: 'en-us', label: 'English (US)' },
        { value: 'en-ca', label: 'English (Canada)' },
        { value: 'fr-ca', label: 'French (Canada)' }
     ]
   },
-  rowDisplayConditions: [{
+  rowDisplayConditions: [{ // Create helper Display Conditions
     type: 'Last ordered catalog',
     label: 'Women',
     description: 'Only people whose last ordered item is part of the Women catalog will see this',
@@ -145,7 +175,7 @@ let myBeeConfig = {
     before: '{% if lastOrder.catalog == \'Children\' %}',
     after: '{% endif %}',
   }],
-  advancedPermissions: {
+  advancedPermissions: { // Configure which parts of the modules are editable. If implemented well, this could be decent guardrails. Devs configure guardrails while designers build emails.
     content: {
       image: {
         properties: {
@@ -160,7 +190,7 @@ let myBeeConfig = {
       },
     },
   },
-  mergeTags: [
+  mergeTags: [  // Doesn't work.
     {
       name: 'First Name',
       value: '{first-name}'
@@ -175,7 +205,7 @@ let myBeeConfig = {
       value: '{order-date}'
     }
   ],
-  mergeContents: [
+  mergeContents: [ // Doesn't work.
     {
       name: 'Headline news',
       value: '{headlines}'
@@ -187,7 +217,7 @@ let myBeeConfig = {
       value: '{latest-products}'
     }
   ],
-  specialLinks: [
+  specialLinks: [  // Doesn't work.
     {
         type: 'Frequently used',
         label: 'Unsubscribe link(TEST)',
@@ -198,7 +228,7 @@ let myBeeConfig = {
         link: 'http://[preference_center](TEST)/'
     }
   ],
-  contentDefaults: {
+  contentDefaults: { // Not all options are working. eg. 'align' value not bein set correctly
     title: {
       hideContentOnMobile: true,
       defaultHeadingLevel: 'h3',
@@ -256,7 +286,7 @@ let myBeeConfig = {
         fontSize: "40px",
       },
     },
-    social: {
+    social: { // Works really well. there are defaults if the fields are removed/null.
       icons: [
         {
           type: 'custom',
@@ -265,11 +295,59 @@ let myBeeConfig = {
             prefix: 'https://www.facebook.com/',
             alt: 'Facebook',
             src: `https://img.icons8.com/dusk/64/000000/facebook-new--v2.png`,
-            title: 'Facebook',
+            title: '',
             href: 'https://www.facebook.com/'
           },
           text: ''
-        }
+        },
+        {
+  type: 'custom',
+  name: 'Instagram',
+  image: {
+    prefix: 'https://www.instagram.com/',
+    alt: 'Instagram',
+    src: 'https://img.icons8.com/dusk/64/000000/instagram-new.png',
+    title: '',
+    href: 'https://www.instagram.com/indigo/'
+  },
+  text: ''
+},
+{
+  type: 'custom',
+  name: 'Twitter',
+  image: {
+    prefix: 'https://twitter.com/',
+    alt: 'Twitter',
+    src: 'https://img.icons8.com/dusk/64/000000/x.png',
+    title: '',
+    href: 'https://twitter.com/chaptersindigo/'
+  },
+  text: ''
+},
+{
+  type: 'custom',
+  name: 'Pinterest',
+  image: {
+    prefix: 'https://www.pinterest.ca/',
+    alt: 'Pinterest',
+    src: 'https://img.icons8.com/dusk/64/000000/pinterest.png',
+    title: '',
+    href: 'https://www.pinterest.ca/chaptersindigo/'
+  },
+  text: ''
+},
+{
+  type: 'custom',
+  name: 'YouTube',
+  image: {
+    prefix: 'https://www.youtube.com/user/',
+    alt: 'YouTube',
+    src: 'https://img.icons8.com/dusk/64/000000/youtube.png',
+    title: '',
+    href: 'https://www.youtube.com/user/indigochapters'
+  },
+  text: ''
+}
       ],
       blockOptions: {
         align: "center",
@@ -292,6 +370,8 @@ let myBeeConfig = {
 
 // Script config options - do not modify
 const CONFIG_LOAD_DELAY = 1000;
+
+
 
 (function() {
     'use strict';
@@ -347,6 +427,8 @@ const CONFIG_LOAD_DELAY = 1000;
 
             setTimeout(() => {
                 beePluginInstance.loadConfig(myBeeConfig);
+                console.log(myBeeConfig);
+
                 setTimeout(() => {
                     // Reload the editor to apply the new configuration
                     beePluginInstance.reload();
