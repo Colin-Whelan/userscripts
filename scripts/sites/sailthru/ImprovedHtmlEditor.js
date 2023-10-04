@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Improved Ace Editor for Zephyr and HTML
+// @name        HTML Composer - Improved Ace Editor for Zephyr and HTML
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/template/*
 // @grant       none
