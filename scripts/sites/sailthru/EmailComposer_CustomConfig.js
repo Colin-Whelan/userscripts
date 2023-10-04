@@ -14,7 +14,7 @@
 // 3. Click on the 'authinfo' File, from the 'bee-auth.getbee.io' Domain
 // 4. Click on the 'Response' tab
 // 5. Find the 'Uid' value from there, and paste here.
-// This only needs to be done once
+// This only needs to be done once per client. Should be consistent between spaces of a client.
 const myUid = 'YourUidHere'
 
 // Don't Edit!
@@ -25,8 +25,8 @@ let tokensAvailable = 2000
 let myBeeConfig = {
   uid: myUid,
   container: 'bee_plugin_container',
-  workspace:{ // nothing happens
-    type:'mixed'
+  workspace: { // nothing happens
+    type: 'mixed'
   },
   forceSanitizeHTML: false,
   autosave: 2, // Default
@@ -34,8 +34,7 @@ let myBeeConfig = {
   trackChanges: true, // Default
   preventClose: true, // Default
   editorFonts: {},
-  contentDialog: {
-  },
+  contentDialog: {},
   defaultForm: {},
   roleHash: "",
   rowDisplayConditions: {},
@@ -43,18 +42,16 @@ let myBeeConfig = {
   commenting: true, // Doesn't work. Not enabled on server.
   commentingThreadPreview: true, // Doesn't work. Not enabled on server.
   commentingNotifications: true, // Doesn't work. Not enabled on server.
-  addOns: [
-      {
-        id: "ai-integration", // Doesn't work. Not enabled on server.
-        settings: {
-          tokensAvailable: tokensAvailable,
-          tokensUsed: tokenCounter,
-          tokenLabel: 'tokens',
-          isPromptDisabled: false,
-          isSuggestionsDisabled: false,
-        }
-      },
-    ],
+  addOns: [{
+    id: "ai-integration", // Doesn't work. Not enabled on server.
+    settings: {
+      tokensAvailable: tokensAvailable,
+      tokensUsed: tokenCounter,
+      tokenLabel: 'tokens',
+      isPromptDisabled: false,
+      isSuggestionsDisabled: false,
+    }
+  }, ],
   disableLinkSanitize: true, // Doesn't work. Not enabled on server.
   disableBaseColors: true, // Disables default base colors
   disableColorHistory: false, // Disables Color History
@@ -63,98 +60,94 @@ let myBeeConfig = {
   editorFonts: { // Add addtional fonts. Not sure if fallbacks can be added here.
     showDefaultFonts: true,
     customFonts: [{
-        name: "Comic Sans2",
-        fontFamily: "'Comic Sans MS', cursive, sans-serif"
-    },
-    {
-        name: "Lobster2",
-        fontFamily: "'Lobster', Georgia, Times, serif",
-        url: "https://fonts.googleapis.com/css?family=Lobster"
+      name: "Comic Sans2",
+      fontFamily: "'Comic Sans MS', cursive, sans-serif"
+    }, {
+      name: "Lobster2",
+      fontFamily: "'Lobster', Georgia, Times, serif",
+      url: "https://fonts.googleapis.com/css?family=Lobster"
     }]
-},
+  },
   modulesGroups: [ // Organize the modules into groups. Choose if they are collapsable and if they are collapsed on load.
-  {
-    label: "Main Content",
-    collapsable: false,
-    collapsedOnLoad: false,
-    modulesNames: [
-      "Button",
-      "Html",
-      "Menu"
-    ]
-  },
-  {
-    label: "Text ✏️",
-    collapsable: false,
-    collapsedOnLoad: false,
-    modulesNames: [
-      "Text",
-      "List",
-      "Paragraph",
-      "Heading"
-    ]
-  },
-  {
-    label: "Media",
-    collapsable: true,
-    collapsedOnLoad: false,
-    modulesNames: [
-      "Video",
-      "Image",
-      "Gifs",
-      "Icons",
-      "Social"
-    ]
-  },
     {
-    label: "Layout",
-    collapsable: true,
-    collapsedOnLoad: true,
-    modulesNames: [
-      "Divider",
-      "Spacer"
-    ]
-  },
-  {
-    label: "AddOns",
-    collapsable: true,
-    collapsedOnLoad: true,
-    modulesNames: [
-      "Sticker",
-      "Liveclicker",
-      "DynamicContent",
-      "Carousel",
-      "Form",
-      "QRCode"
-    ]
-  }
-],
+      label: "Main Content",
+      collapsable: false,
+      collapsedOnLoad: false,
+      modulesNames: [
+        "Button",
+        "Html",
+        "Menu"
+      ]
+    }, {
+      label: "Text ✏️",
+      collapsable: false,
+      collapsedOnLoad: false,
+      modulesNames: [
+        "Text",
+        "List",
+        "Paragraph",
+        "Heading"
+      ]
+    }, {
+      label: "Media",
+      collapsable: true,
+      collapsedOnLoad: false,
+      modulesNames: [
+        "Video",
+        "Image",
+        "Gifs",
+        "Icons",
+        "Social"
+      ]
+    }, {
+      label: "Layout",
+      collapsable: true,
+      collapsedOnLoad: true,
+      modulesNames: [
+        "Divider",
+        "Spacer"
+      ]
+    }, {
+      label: "AddOns",
+      collapsable: true,
+      collapsedOnLoad: true,
+      modulesNames: [
+        "Sticker", // Not working. Likely not enabled.
+        "Liveclicker",
+        "DynamicContent", // Don't know how this works yet. Not sure how it was enabled either.
+        "Carousel", // Not working. Likely not enabled.
+        "Form", // Not working. Likely not enabled.
+        "QRCode" // Not working. Likely not enabled.
+      ]
+    }
+  ],
   customAttributes: { // Add custom attributes. Shows Buttons and Images. Not working for Links. Won't work for every other element.
     enableOpenFields: true,
-    attributes: [
-      {
-        key: "thisIsABoolean",
-        value: true,
-        target: "link"
-      },
-      {
-        key: "data-segment",
-        value: ['travel', 'luxury'],
-        target: "link"
-      },
-      {
-        key: "class",
-        value: ['dm_darkest', 'dm_darker', 'dm_dark'],
-        target: "tag"
-      }
-    ]
+    attributes: [{
+      key: "thisIsABoolean",
+      value: true,
+      target: "link"
+    }, {
+      key: "data-segment",
+      value: ['travel', 'luxury'],
+      target: "link"
+    }, {
+      key: "class",
+      value: ['dm_darkest', 'dm_darker', 'dm_dark'],
+      target: "tag"
+    }]
   },
-  metadata: {  // Doesn't work. Not enabled on server.
-    languages: [
-       { value: 'en-us', label: 'English (US)' },
-       { value: 'en-ca', label: 'English (Canada)' },
-       { value: 'fr-ca', label: 'French (Canada)' }
-    ]
+  metadata: { // Doesn't work. Not enabled on server.
+    languages: [{
+      value: 'en-us',
+      label: 'English (US)'
+    }, {
+      value: 'en-ca',
+      label: 'English (Canada)'
+    }, {
+      value: 'fr-ca',
+      label: 'French (Canada)'
+    }]
   },
   rowDisplayConditions: [{ // Create helper Display Conditions
     type: 'Last ordered catalog',
@@ -190,7 +183,7 @@ let myBeeConfig = {
       },
     },
   },
-  mergeTags: [  // Doesn't work.
+  mergeTags: [ // Doesn't work.
     {
       name: 'First Name',
       value: '{first-name}'
@@ -217,15 +210,15 @@ let myBeeConfig = {
       value: '{latest-products}'
     }
   ],
-  specialLinks: [  // Doesn't work.
+  specialLinks: [ // Doesn't work.
     {
-        type: 'Frequently used',
-        label: 'Unsubscribe link(TEST)',
-        link: 'http://[unsubscribe](TEST)/'
-    },{
-        type: 'Frequently used',
-        label: 'Preference center link(TEST)',
-        link: 'http://[preference_center](TEST)/'
+      type: 'Frequently used',
+      label: 'Unsubscribe link(TEST)',
+      link: 'http://[unsubscribe](TEST)/'
+    }, {
+      type: 'Frequently used',
+      label: 'Preference center link(TEST)',
+      link: 'http://[preference_center](TEST)/'
     }
   ],
   contentDefaults: { // Not all options are working. eg. 'align' value not bein set correctly
@@ -287,68 +280,62 @@ let myBeeConfig = {
       },
     },
     social: { // Works really well. there are defaults if the fields are removed/null.
-      icons: [
-        {
-          type: 'custom',
-          name: 'Facebook',
-          image: {
-            prefix: 'https://www.facebook.com/',
-            alt: 'Facebook',
-            src: `https://img.icons8.com/dusk/64/000000/facebook-new--v2.png`,
-            title: '',
-            href: 'https://www.facebook.com/'
-          },
-          text: ''
+      icons: [{
+        type: 'custom',
+        name: 'Facebook',
+        image: {
+          prefix: 'https://www.facebook.com/',
+          alt: 'Facebook',
+          src: `https://img.icons8.com/dusk/64/000000/facebook-new--v2.png`,
+          title: '',
+          href: 'https://www.facebook.com/'
         },
-        {
-  type: 'custom',
-  name: 'Instagram',
-  image: {
-    prefix: 'https://www.instagram.com/',
-    alt: 'Instagram',
-    src: 'https://img.icons8.com/dusk/64/000000/instagram-new.png',
-    title: '',
-    href: 'https://www.instagram.com/indigo/'
-  },
-  text: ''
-},
-{
-  type: 'custom',
-  name: 'Twitter',
-  image: {
-    prefix: 'https://twitter.com/',
-    alt: 'Twitter',
-    src: 'https://img.icons8.com/dusk/64/000000/x.png',
-    title: '',
-    href: 'https://twitter.com/chaptersindigo/'
-  },
-  text: ''
-},
-{
-  type: 'custom',
-  name: 'Pinterest',
-  image: {
-    prefix: 'https://www.pinterest.ca/',
-    alt: 'Pinterest',
-    src: 'https://img.icons8.com/dusk/64/000000/pinterest.png',
-    title: '',
-    href: 'https://www.pinterest.ca/chaptersindigo/'
-  },
-  text: ''
-},
-{
-  type: 'custom',
-  name: 'YouTube',
-  image: {
-    prefix: 'https://www.youtube.com/user/',
-    alt: 'YouTube',
-    src: 'https://img.icons8.com/dusk/64/000000/youtube.png',
-    title: '',
-    href: 'https://www.youtube.com/user/indigochapters'
-  },
-  text: ''
-}
-      ],
+        text: ''
+      }, {
+        type: 'custom',
+        name: 'Instagram',
+        image: {
+          prefix: 'https://www.instagram.com/',
+          alt: 'Instagram',
+          src: 'https://img.icons8.com/dusk/64/000000/instagram-new.png',
+          title: '',
+          href: 'https://www.instagram.com/indigo/'
+        },
+        text: ''
+      }, {
+        type: 'custom',
+        name: 'Twitter',
+        image: {
+          prefix: 'https://twitter.com/',
+          alt: 'Twitter',
+          src: 'https://img.icons8.com/dusk/64/000000/x.png',
+          title: '',
+          href: 'https://twitter.com/chaptersindigo/'
+        },
+        text: ''
+      }, {
+        type: 'custom',
+        name: 'Pinterest',
+        image: {
+          prefix: 'https://www.pinterest.ca/',
+          alt: 'Pinterest',
+          src: 'https://img.icons8.com/dusk/64/000000/pinterest.png',
+          title: '',
+          href: 'https://www.pinterest.ca/chaptersindigo/'
+        },
+        text: ''
+      }, {
+        type: 'custom',
+        name: 'YouTube',
+        image: {
+          prefix: 'https://www.youtube.com/user/',
+          alt: 'YouTube',
+          src: 'https://img.icons8.com/dusk/64/000000/youtube.png',
+          title: '',
+          href: 'https://www.youtube.com/user/indigochapters'
+        },
+        text: ''
+      }],
       blockOptions: {
         align: "center",
         hideContentOnMobile: true,
@@ -371,85 +358,83 @@ let myBeeConfig = {
 // Script config options - do not modify
 const CONFIG_LOAD_DELAY = 1000;
 
-
-
 (function() {
-    'use strict';
+  'use strict';
 
-    function displayErrorModal(message) {
-        // Create nad style the modal's main container
-        let modalDiv = document.createElement('div');
-        modalDiv.style.position = 'fixed';
-        modalDiv.style.top = '0';
-        modalDiv.style.left = '0';
-        modalDiv.style.width = '100%';
-        modalDiv.style.height = '100%';
-        modalDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        modalDiv.style.display = 'flex';
-        modalDiv.style.alignItems = 'center';
-        modalDiv.style.justifyContent = 'center';
-        modalDiv.style.zIndex = '10000';
+  function displayErrorModal(message) {
+    // Create nad style the modal's main container
+    let modalDiv = document.createElement('div');
+    modalDiv.style.position = 'fixed';
+    modalDiv.style.top = '0';
+    modalDiv.style.left = '0';
+    modalDiv.style.width = '100%';
+    modalDiv.style.height = '100%';
+    modalDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    modalDiv.style.display = 'flex';
+    modalDiv.style.alignItems = 'center';
+    modalDiv.style.justifyContent = 'center';
+    modalDiv.style.zIndex = '10000';
 
-        // Create nad style the content container inside the modal
-        let contentDiv = document.createElement('div');
-        contentDiv.style.backgroundColor = '#fff';
-        contentDiv.style.padding = '20px';
-        contentDiv.style.borderRadius = '10px';
-        contentDiv.innerHTML = `<p>${message}</p>
+    // Create nad style the content container inside the modal
+    let contentDiv = document.createElement('div');
+    contentDiv.style.backgroundColor = '#fff';
+    contentDiv.style.padding = '20px';
+    contentDiv.style.borderRadius = '10px';
+    contentDiv.innerHTML = `<p>${message}</p>
                                  <button>Close</button>`;
 
-        // Close the modal when the close button is clicked
-        contentDiv.querySelector('button').onclick = () => modalDiv.remove();
+    // Close the modal when the close button is clicked
+    contentDiv.querySelector('button').onclick = () => modalDiv.remove();
 
-        // Close the modal when clicking outside of the contentDiv
-        modalDiv.onclick = (e) => {
-            if (e.target === modalDiv) {
-                modalDiv.remove();
-            }
-        };
+    // Close the modal when clicking outside of the contentDiv
+    modalDiv.onclick = (e) => {
+      if (e.target === modalDiv) {
+        modalDiv.remove();
+      }
+    };
 
-        // Append the content to the modal and the modal to the body
-        modalDiv.appendChild(contentDiv);
-        document.body.appendChild(modalDiv);
+    // Append the content to the modal and the modal to the body
+    modalDiv.appendChild(contentDiv);
+    document.body.appendChild(modalDiv);
+  }
+
+  /**
+   * Load the custom configuration to the BEE editor.
+   * If an error occurs during the load, an error modal will be displayed.
+   */
+  function setCustomConfig() {
+    // Toggle the BEE editor's structure view
+    beePluginInstance.toggleStructure();
+
+    // Attempt to save the current editor state and load the new configuration
+    try {
+      beePluginInstance.save();
+
+      setTimeout(() => {
+        beePluginInstance.loadConfig(myBeeConfig);
+        console.log(myBeeConfig);
+
+        setTimeout(() => {
+          // Reload the editor to apply the new configuration
+          beePluginInstance.reload();
+        }, CONFIG_LOAD_DELAY);
+      }, CONFIG_LOAD_DELAY);
+
+
+      console.log('New config loaded');
+    } catch (error) {
+      // Log the error and show an error modal to the user
+      console.error('Error loading configuration:', error);
+      displayErrorModal('Failed to load the custom configuration. Please try again or contact support.');
     }
+  }
 
-    /**
-     * Load the custom configuration to the BEE editor.
-     * If an error occurs during the load, an error modal will be displayed.
-     */
-    function setCustomConfig() {
-        // Toggle the BEE editor's structure view
-        beePluginInstance.toggleStructure();
-
-        // Attempt to save the current editor state and load the new configuration
-        try {
-            beePluginInstance.save();
-
-            setTimeout(() => {
-                beePluginInstance.loadConfig(myBeeConfig);
-                console.log(myBeeConfig);
-
-                setTimeout(() => {
-                    // Reload the editor to apply the new configuration
-                    beePluginInstance.reload();
-                }, CONFIG_LOAD_DELAY);
-            }, CONFIG_LOAD_DELAY);
-
-
-            console.log('New config loaded');
-        } catch (error) {
-            // Log the error and show an error modal to the user
-            console.error('Error loading configuration:', error);
-            displayErrorModal('Failed to load the custom configuration. Please try again or contact support.');
-        }
+  // Regularly check if the BEE plugin instance is available
+  // When available, load the custom configuration and clear the interval
+  const interval = setInterval(() => {
+    if (typeof beePluginInstance !== 'undefined' && document.querySelector('#bee_plugin_container')) {
+      setCustomConfig(() => beePluginInstance.toggleStructure());
+      clearInterval(interval);
     }
-
-    // Regularly check if the BEE plugin instance is available
-    // When available, load the custom configuration and clear the interval
-    const interval = setInterval(() => {
-        if (typeof beePluginInstance !== 'undefined' && document.querySelector('#bee_plugin_container')) {
-            setCustomConfig(() => beePluginInstance.toggleStructure());
-            clearInterval(interval);
-        }
-    }, CONFIG_LOAD_DELAY);
+  }, CONFIG_LOAD_DELAY);
 })();
