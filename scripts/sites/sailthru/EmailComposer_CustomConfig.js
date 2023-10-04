@@ -8,13 +8,20 @@
 // @description 2023-10-03, 11:34:38 p.m.
 // ==/UserScript==
 
+// Getting your Uid is a little tricky. The only way I know how is by:
+// 1. Hitting F12 to open the developer tools
+// 2. Going to the 'Network' tab (Reload the page if nothing shows up)
+// 3. Click on the 'authinfo' File, from the 'bee-auth.getbee.io' Domain
+// 4. Click on the 'Response' tab
+// 5. Find the 'Uid' value from there, and paste here.
+// This only needs to be done once
 const myUid = 'YourUidHere'
 
 // The configuration settings for the BEE editor. Edit as needed.
 let myBeeConfig = {
   uid: myUid,
   container: 'bee_plugin_container',
-  autosave: 30,
+  autosave: 20,
   language: 'en-US',
   trackChanges: true,
   preventClose: true,
