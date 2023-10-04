@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name        Triggered Send Log Page Select
+// @name        Triggered Send Log - Page Select
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/transactional_log
 // @grant       none
 // @version     1.1
 // @author      -
-// @description 2023-09-18, 11:56:00 a.m.
+// @description Add a Page Select dropdown list to make it easier to jump around large groups of send data. There's no way to know when the last page is, so this will not work all the time, but helps.
 // ==/UserScript==
 
+// Set the max pages to add to the dropdown.
 const maxPages = 200
 
 function addPageSelector() {
