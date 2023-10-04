@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name        Triggered Send Log Search Bar - sailthru.com
+// @name        Triggered Send Log - Search Bar
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/transactional_log
 // @grant       none
 // @version     1.0
 // @author      -
-// @description 2023-09-18, 12:50:24 p.m.
+// @description Add a search bar to the triggered send log. The dropdown list will be filtered to matches of the search term.
 // ==/UserScript==
 
 // Function to run once the specific DOM element is available
