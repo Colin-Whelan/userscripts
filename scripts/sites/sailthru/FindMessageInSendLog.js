@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Find That Message
+// @name        User Profile - Find Message From Send Log
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/user_profile?id=*
 // @grant       none
