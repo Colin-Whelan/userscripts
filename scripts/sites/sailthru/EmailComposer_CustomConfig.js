@@ -35,6 +35,91 @@ let myBeeConfig = {
   commentingThreadPreview: true,
   commentingNotifications: true,
   disableLinkSanitize: true,
+  disableBaseColors: false,
+  disableColorHistory: false,
+  defaultColors: ['#ffffff', '#000000', '#95d24f', '#ff00dd', 'transparent'], // doesn't overrider defaults
+  sidebarPosition: 'left',
+  editorFonts: {
+    showDefaultFonts: true,
+    customFonts: [{
+        name: "Comic Sans2",
+        fontFamily: "'Comic Sans MS', cursive, sans-serif"
+    },
+    {
+        name: "Lobster2",
+        fontFamily: "'Lobster', Georgia, Times, serif",
+        url: "https://fonts.googleapis.com/css?family=Lobster"
+    }]
+},
+  modulesGroups: [
+  {
+    label: "Text ✏️",
+    collapsable: false,
+    collapsedOnLoad: false,
+    modulesNames: [
+      "List",
+      "Paragraph",
+      "Heading"
+    ]
+  },
+  {
+    label: "Media",
+    collapsable: true,
+    collapsedOnLoad: false,
+    modulesNames: [
+      "Video",
+      "Image"
+    ]
+  },
+  {
+    label: "AddOns",
+    collapsable: true,
+    collapsedOnLoad: true,
+    modulesNames: [
+      "Stickers",
+      "Gifs"
+    ]
+  }
+],
+  customAttributes: {
+    enableOpenFields: true,
+    attributes: [
+      {
+        key: "data-segment",
+        value: ['travel', 'luxury'],
+        target: "link"
+      },
+      {
+        key: "class",
+        value: ['dm_darkest', 'dm_darker', 'dm_dark'],
+        target: "tag"
+      }
+    ]
+  },
+  metadata: {
+    languages: [
+       { value: 'it-IT', label: 'Italian' }
+    ]
+  },
+  rowDisplayConditions: [{
+    type: 'Last ordered catalog',
+    label: 'Women',
+    description: 'Only people whose last ordered item is part of the Women catalog will see this',
+    before: '{% if lastOrder.catalog == \'Women\' %}',
+    after: '{% endif %}',
+  }, {
+    type: 'Last ordered catalog',
+    label: 'Men',
+    description: 'Only people whose last ordered item is part of the Men catalog will see this',
+    before: '{% if lastOrder.catalog == \'Men\' %}',
+    after: '{% endif %}',
+  }, {
+    type: 'Last ordered catalog',
+    label: 'Children',
+    description: 'Only people whose last ordered item is part of the Children catalog will see this',
+    before: '{% if lastOrder.catalog == \'Children\' %}',
+    after: '{% endif %}',
+  }],
   advancedPermissions: {
     content: {
       image: {
@@ -50,6 +135,44 @@ let myBeeConfig = {
       },
     },
   },
+  mergeTags: [
+    {
+      name: 'First Name',
+      value: '{first-name}'
+    }, {
+      name: 'Last Name',
+      value: '{last-name}'
+    }, {
+      name: 'Email',
+      value: '{email}'
+    }, {
+      name: 'Latest order date',
+      value: '{order-date}'
+    }
+  ],
+  mergeContents: [
+    {
+      name: 'Headline news',
+      value: '{headlines}'
+    }, {
+      name: 'Lastest blog articles',
+      value: '{latest-articles}'
+    }, {
+      name: 'Latest products viewed',
+      value: '{latest-products}'
+    }
+  ],
+  specialLinks: [
+    {
+        type: 'Frequently used',
+        label: 'Unsubscribe link(TEST)',
+        link: 'http://[unsubscribe](TEST)/'
+    },{
+        type: 'Frequently used',
+        label: 'Preference center link(TEST)',
+        link: 'http://[preference_center](TEST)/'
+    }
+  ],
   contentDefaults: {
     title: {
       hideContentOnMobile: true,
@@ -204,6 +327,7 @@ const CONFIG_LOAD_DELAY = 1000;
                     beePluginInstance.reload();
                 }, CONFIG_LOAD_DELAY);
             }, CONFIG_LOAD_DELAY);
+
 
             console.log('New config loaded');
         } catch (error) {
