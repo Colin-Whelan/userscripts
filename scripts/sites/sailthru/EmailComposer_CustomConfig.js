@@ -3,9 +3,9 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
-// @version     1.1
+// @version     0.2
 // @author      -
-// @description 2023-10-03, 11:34:38 p.m.
+// @description Adds a custom config file for the BEE editor that overrides the defaults. Not all options are available. WIP
 // ==/UserScript==
 
 // Getting your Uid is a little tricky. The only way I know how is by:
