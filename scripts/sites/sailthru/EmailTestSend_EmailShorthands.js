@@ -53,6 +53,23 @@ function truncateEmails(emailStr, maxLength = shorthandPreviewChars) {
   return emailStr.substring(0, maxLength) + '...';
 }
 
+function checkForUnderscoreAndUpdateUI(modal) {
+  const sendButton = modal.querySelector('.Button__ButtonWrapper-sc-49mtrn-0.ckGjOY');
+  const emailInput = modal.querySelector('.Input-sc-18zl22b-0.lcngyG');
+
+  if (emailInput.value.includes("_")) {
+    sendButton.setAttribute('disabled', true);
+    sendButton.style.backgroundColor = '#cccccc'; // Gray out the button
+    sendButton.style.cursor = 'not-allowed'; // Indicate it's not clickable
+    emailInput.style.border = '2px solid red';
+  } else {
+    sendButton.removeAttribute('disabled');
+    sendButton.style.backgroundColor = ''; // Reset to its original color
+    sendButton.style.cursor = ''; // Reset cursor
+    emailInput.style.border = '';
+  }
+}
+
 function createDropdown(emailInput, selector, addUnderscore = false) {
   // Create the label and container for the dropdown
   const dropdownLabel = document.createElement('div');
