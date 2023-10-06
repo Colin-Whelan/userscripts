@@ -1,18 +1,17 @@
 // ==UserScript==
-// @name        Email Composer - Email Shorthands
+// @name        Test Sends - Email Shorthands
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
+// @match       https://my.sailthru.com/campaign*/design
+// @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      -
-// @description Adds a dropdown of emails for an easier time sending tests. Will add an extra '_' at the end that must be removed -> due to how React handles the event changes, at least some manual update is required.
+// @description Adds a dropdown of emails for an easier time sending tests. In the Email Composer this will add an extra '_' at the end that must be removed -> due to how React handles the event changes, at least some manual update is required.
 // ==/UserScript==
 
 //User variables. Use underscores for auto conversion to title case
 const emailConfigs = {
-  // 'me': 'clnwhelan@gmail.com',
-  // 'work': 'cwhelan@indigo.ca',
-  // 'both': 'cwhelan@indigo.ca,clnwhelan@gmail.com',
   'me': 'example@gmail.com',
   'work': 'example@workDomain.com',
   'both': 'example@workDomain.com,example@gmail.com',
@@ -132,6 +131,113 @@ function injectCustomDropdown(modal) {
   checkForUnderscoreAndUpdateUI(modal);
 }
 
+function injectDropdownForCampaignDesignPage(modal) {
+    // If modal already has the custom dropdown, exit
+  if (modal.getAttribute('data-custom-dropdown-injected')) {
+    return;
+  }
+    const emailInput = document.querySelector('.test-email-input');
+    if (!emailInput) return;
+
+    console.log(emailInput)
+
+    const dropdownLabel = document.createElement('div');
+    dropdownLabel.textContent = "Choose Shorthand...";
+    dropdownLabel.classList.add('dropdown-label');
+    styleDropdown(dropdownLabel);
+    dropdownLabel.style.width = '75%'
+
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.classList.add('custom-dropdown');
+
+    for (let shorthand in emailConfigs) {
+        const item = document.createElement('div');
+        item.classList.add('dropdown-item');
+        item.innerHTML = `<span>${formatShorthand(shorthand)}</span> <span class="preview">${truncateEmails(emailConfigs[shorthand])}</span>`;
+
+        item.addEventListener('click', () => {
+            emailInput.value = emailConfigs[shorthand];
+            dropdownContainer.style.display = 'none';
+            dropdownLabel.textContent = formatShorthand(shorthand);
+        });
+
+        dropdownContainer.appendChild(item);
+    }
+
+    dropdownContainer.style.display = 'none';
+
+    emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownLabel);
+    emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownContainer);
+
+    dropdownLabel.addEventListener('click', () => {
+        dropdownContainer.style.display = dropdownContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
+
+  // Mark the modal as modified
+  modal.setAttribute('data-custom-dropdown-injected', 'true');
+
+    document.addEventListener('click', (e) => {
+        if (!dropdownContainer.contains(e.target) && e.target !== emailInput && e.target !== dropdownLabel) {
+            dropdownContainer.style.display = 'none';
+        }
+    });
+}
+
+function injectDropdownForhtmlComposerPage(modal) {
+    // If modal already has the custom dropdown, exit
+  if (modal.getAttribute('data-custom-dropdown-injected')) {
+    return;
+  }
+    const emailInput = document.querySelector('#test-email');
+    if (!emailInput) return;
+
+    console.log(emailInput)
+
+    const dropdownLabel = document.createElement('div');
+    dropdownLabel.textContent = "Choose Shorthand...";
+    dropdownLabel.classList.add('dropdown-label');
+    styleDropdown(dropdownLabel);
+    dropdownLabel.style.width = '75%'
+    dropdownLabel.style.margin = '20px 20px 0px 20px'
+
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.classList.add('custom-dropdown');
+
+    for (let shorthand in emailConfigs) {
+        const item = document.createElement('div');
+        item.classList.add('dropdown-item');
+        item.innerHTML = `<span>${formatShorthand(shorthand)}</span> <span class="preview">${truncateEmails(emailConfigs[shorthand])}</span>`;
+
+        item.addEventListener('click', () => {
+            emailInput.value = emailConfigs[shorthand];
+            dropdownContainer.style.display = 'none';
+            dropdownLabel.textContent = formatShorthand(shorthand);
+        });
+
+        dropdownContainer.appendChild(item);
+    }
+
+    dropdownContainer.style.display = 'none';
+
+    emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownLabel);
+    emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownContainer);
+
+    dropdownLabel.addEventListener('click', () => {
+        dropdownContainer.style.display = dropdownContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
+
+  // Mark the modal as modified
+  modal.setAttribute('data-custom-dropdown-injected', 'true');
+
+    document.addEventListener('click', (e) => {
+        if (!dropdownContainer.contains(e.target) && e.target !== emailInput && e.target !== dropdownLabel) {
+            dropdownContainer.style.display = 'none';
+        }
+    });
+}
+
 // Inject styles for the dropdown items and the preview
 const style = document.createElement('style');
 style.innerHTML = `
@@ -171,14 +277,22 @@ style.innerHTML = `
 document.head.appendChild(style);
 
 const observerCallback = (mutationsList) => {
-  for (let mutation of mutationsList) {
-    if (mutation.type === 'childList') {
-      const modal = document.querySelector('.Modal__ModalContent-sc-yak2d3-2.LrNYw');
-      if (modal) {
-        injectCustomDropdown(modal);
-      }
+    for (let mutation of mutationsList) {
+        if (mutation.type === 'childList') {
+            const emailComposerModal = document.querySelector('.Modal__ModalContent-sc-yak2d3-2.LrNYw');
+            if (emailComposerModal) {
+                injectCustomDropdown(emailComposerModal);
+            }
+            const campaignDesignModal = document.querySelector('.test_send_popup');
+            if (campaignDesignModal) {
+                injectDropdownForCampaignDesignPage(campaignDesignModal);
+            }
+            const htmlComposerModal = document.querySelector('.ui-dialog.ui-widget.ui-widget-content.ui-corner-all.ui-front.ui-draggable.ui-resizable');
+            if (htmlComposerModal) {
+                injectDropdownForhtmlComposerPage(htmlComposerModal);
+            }
+        }
     }
-  }
 };
 
 const observer = new MutationObserver(observerCallback);
