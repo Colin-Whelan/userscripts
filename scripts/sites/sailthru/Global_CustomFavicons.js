@@ -7,7 +7,7 @@
 // @grant       none
 // @version     1.0
 // @author      Colin Whelan
-// @description Add a custom favicon to different Sailthru pages depending on the doomain. For could be configured with bit of know-how.
+// @description Add a custom favicon to different Sailthru pages depending on the doomain. Could be configured for other pages with bit of know-how.
 // ==/UserScript==
 
 // Downloaded from https://icons8.com/icons/. Hosted on glitch.com
