@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name        Test Sends - Email Shorthands
+// @name        Email Test Send - Email Shorthands
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @match       https://my.sailthru.com/campaign*/design
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @version     1.1
-// @author      -
+// @author      Colin Whelan
 // @description Adds a dropdown of emails for an easier time sending tests. In the Email Composer this will add an extra '_' at the end that must be removed -> due to how React handles the event changes, at least some manual update is required.
 // ==/UserScript==
 
