@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/transactional_log*
 // @grant       none
-// @version     1.1
+// @version     1.2
 // @author      Colin Whelan
 // @description Adds a time picker to the Triggered Send Log. Does an ajax refresh in the background like Native. Works with standard date values or with the raw YYYYMMDDhhmmss date string.
 // ==/UserScript==
@@ -35,8 +35,7 @@ function applyStyles() {
   document.head.appendChild(style);
 }
 
-function closestFiveMinutes() {
-  let date = new Date();
+function closestFiveMinutes(date) {
   let minutes = date.getMinutes();
   let hours = date.getHours();
   let remainder = minutes % 5;
@@ -60,6 +59,16 @@ function insertAfter(referenceNode, newNode) {
 
 function padWithZero(number) {
   return String(number).padStart(2, '0');
+}
+
+// Function to extract time from datestring format
+function getTimeFromDateString(dateString) {
+  if (dateString && dateString.length === 14) {
+    let hours = dateString.substring(8, 10);
+    let minutes = dateString.substring(10, 12);
+    return `${hours}:${minutes}`;
+  }
+  return null;
 }
 
 function isElementReady() {
@@ -93,15 +102,19 @@ function isElementReady() {
       insertAfter(document.getElementById('f_start_date'), inputStartTime);
       insertAfter(document.getElementById('f_end_date'), inputEndTime);
 
+      let defaultStartTime = getTimeFromDateString(document.querySelector("#f_start_date").value) || "00:00";
+      let defaultEndTime = getTimeFromDateString(document.querySelector("#f_end_date").value) || closestFiveMinutes(new Date());
+
+
       // Initialize Flatpickr as time picker
       flatpickr('.f_start_time', {
         enableTime: true,
         noCalendar: true,
         dateFormat: "H:i",
         time_24hr: true,
-        defaultDate: "00:00",
+        defaultDate: defaultStartTime,
         onChange: function(selectedDates, dateStr, instance) {
-          updateDateTime('f_start_date');
+          updateDateTime('f_start_date', dateStr);
         }
       });
 
@@ -110,7 +123,7 @@ function isElementReady() {
         noCalendar: true,
         dateFormat: "H:i",
         time_24hr: true,
-        defaultDate: closestFiveMinutes(), // set the default value
+        defaultDate: defaultEndTime, // set the default value
         onChange: function(selectedDates, dateStr, instance) {
           updateDateTime('f_end_date');
         }
@@ -135,6 +148,7 @@ function formatDate(dateValue, timeValue, dateInput, removeDay = false) {
     // already in the timestring
     let [hours, minutes] = timeValue.split(":").map(padWithZero);
     dateInput.value = dateInput.value.substring(0, 8) + hours + minutes + "00";
+
     return dateValue.substring(0, 8) + hours + minutes + "00";
   }
 }
