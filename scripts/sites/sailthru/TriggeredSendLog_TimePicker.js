@@ -99,7 +99,7 @@ function isElementReady() {
         noCalendar: true,
         dateFormat: "H:i",
         time_24hr: true,
-        defaultDate: "12:00",
+        defaultDate: "00:00",
         onChange: function(selectedDates, dateStr, instance) {
           updateDateTime('f_start_date');
         }
