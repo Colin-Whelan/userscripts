@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/transactional_log*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds a time picker to the Triggered Send Log. Does an ajax refresh in the background like Native. Works with standard date values or with the raw YYYYMMDDhhmmss date string.
 // ==/UserScript==
@@ -64,11 +64,8 @@ function padWithZero(number) {
 
 function isElementReady() {
   if (!document.getElementById('f_start_date')) {
-    console.log('element is NOT ready');
     setTimeout(isElementReady, 1000);
   } else {
-    console.log('element is ready');
-
     // Append Flatpickr JS
     let script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
@@ -93,8 +90,6 @@ function isElementReady() {
       inputEndTime.type = 'text';
       inputEndTime.className = 'f_end_time';
 
-      console.log(document.getElementById('f_start_date'))
-
       insertAfter(document.getElementById('f_start_date'), inputStartTime);
       insertAfter(document.getElementById('f_end_date'), inputEndTime);
 
@@ -104,8 +99,9 @@ function isElementReady() {
         noCalendar: true,
         dateFormat: "H:i",
         time_24hr: true,
+        defaultDate: "12:00",
         onChange: function(selectedDates, dateStr, instance) {
-          updateDateTime('f_start_date', dateStr);
+          updateDateTime('f_start_date');
         }
       });
 
@@ -116,48 +112,57 @@ function isElementReady() {
         time_24hr: true,
         defaultDate: closestFiveMinutes(), // set the default value
         onChange: function(selectedDates, dateStr, instance) {
-          updateDateTime('f_end_date', dateStr);
+          updateDateTime('f_end_date');
         }
       });
     };
   }
 }
 
-function updateDateTime(dateClass, timeValue) {
-  let dateInput = document.querySelector(`#${dateClass}`);
-  let timeStringFormat; // Store the time string format
+function formatDate(dateValue, timeValue, dateInput, removeDay = false) {
+  let dateParts = dateValue.split("/");
 
-  if (dateInput && dateInput.value) {
-    console.log(dateInput, dateInput.value, timeValue);
-
-    let dateParts = dateInput.value.split("/");
-
-    if (dateParts.length === 3) {
-      let days = padWithZero(dateParts[1]);
-      if (dateClass == 'f_end_date') {
-        days = padWithZero(days - 1);
-      }
-      const months = padWithZero(dateParts[0]);
-      const years = padWithZero(dateParts[2]);
-      let [hours, minutes] = timeValue.split(":").map(padWithZero);
-      timeStringFormat = `${years}${months}${days}${hours}${minutes}00`;
-    } else {
-      // already in the timestring
-      let [hours, minutes] = timeValue.split(":").map(padWithZero);
-      timeStringFormat = dateInput.value.substring(0, 8) + hours + minutes + "00";
-      dateInput.value = timeStringFormat
-      console.log(timeStringFormat);
+  if (dateParts.length === 3) {
+    let days = padWithZero(dateParts[1]);
+    if (removeDay) {
+      days = padWithZero(days - 1);
     }
-
-    // Refresh content using the AJAX function
-    ajax.refresh(dateInput, {
-      start: 0,
-      start_date: dateClass === 'f_start_date' ? timeStringFormat : document.querySelector("#f_start_date").value,
-      end_date: dateClass === 'f_end_date' ? timeStringFormat : document.querySelector("#f_end_date").value
-    });
+    const months = padWithZero(dateParts[0]);
+    const years = padWithZero(dateParts[2]);
+    let [hours, minutes] = timeValue.split(":").map(padWithZero);
+    return `${years}${months}${days}${hours}${minutes}00`;
+  } else {
+    // already in the timestring
+    let [hours, minutes] = timeValue.split(":").map(padWithZero);
+    dateInput.value = dateInput.value.substring(0, 8) + hours + minutes + "00";
+    return dateValue.substring(0, 8) + hours + minutes + "00";
   }
 }
 
+function updateDateTime(dateClass) {
+  let dateInput = document.querySelector(`#${dateClass}`);
+
+  // Always retrieve current values from both start and end date fields
+  let start_date = document.querySelector("#f_start_date").value;
+  let end_date = document.querySelector("#f_end_date").value;
+
+  let start_time = document.querySelector(".f_start_time").value;
+  let end_time = document.querySelector(".f_end_time").value;
+  let timeStringFormat; // Store the time string format
+
+  if (start_date && end_date) {
+
+    start_date = formatDate(start_date, start_time, dateInput)
+    end_date = formatDate(end_date, end_time, dateInput, true)
+
+    // Send the values to the AJAX refresh
+    ajax.refresh(dateInput, {
+      start: 0,
+      start_date: start_date,
+      end_date: end_date
+    });
+  }
+}
 
 isElementReady();
 
