@@ -8,7 +8,7 @@
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
-// Add the following:
+// Adds the following:
 // - custom IDE themes
 // - The better 'find' window by default. Supports regex
 // - Autosize editor
