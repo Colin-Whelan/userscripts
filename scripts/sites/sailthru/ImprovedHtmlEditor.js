@@ -4,14 +4,15 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.2
+// @version     1.3
 // @author      Colin Whelan
-// @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences.
+// @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
 // Add the following:
 // - custom IDE themes
 // - The better 'find' window by default. Supports regex
 // - Autosize editor
 // - Default options
+// - Keybind/Command Helper
 // ==/UserScript==
 
 // Default Options
@@ -25,40 +26,6 @@ const showPrintMargin = false
 // how far the modal needs to be dragged to be prevent commands from executing.
 // Prevents commands from running when dragging while allowing any jitter while clicking to still count as clicks
 const dragThreshold = 10
-
-function executeInPageContext(fn) {
-  if (fn) {
-    const script = document.createElement('script');
-    script.textContent = '(' + fn.toString() + ')();';
-    (document.head || document.documentElement).appendChild(script);
-    script.parentNode.removeChild(script);
-  }
-}
-
-function enableCommands(editor) {
-  var defaultCommands = ace.require("ace/commands/default_commands").commands;
-
-  var commandNames = [
-    "find", "findAll", "findNext", "findPrevious", "gotoLine", "gotoPageDown", "gotoPageUp",
-        "jumpToMatching", "navigateDown", "navigateFileEnd", "navigateFileStart",
-        "navigateLeft", "navigateLineEnd", "navigateLineStart", "navigateRight",
-        "navigateTo", "navigateUp", "navigateWordLeft", "navigateWordRight",
-        "redo", "replace", "replaceAll", "selectAll", "selectMore",
-        "selectMoreLines", "selectPageDown", "selectPageUp", "showKeyboardShortcuts",
-        "showSettingsMenu", "sortLines", "splitLine", "toLowerCase", "toUpperCase",
-        "toggleBlockComment", "toggleCommentLines", "toggleOverwrite", "transposeLetters", "undo"
-    ];
-
-  commandNames.forEach(function(name) {
-    var cmd = defaultCommands.filter(function(c) {
-      return c.name == name;
-    })[0];
-    if (cmd) {
-      // console.log(cmd.name, cmd.bindKey.win)
-      editor.commands.addCommand(cmd);
-    }
-  });
-}
 
 function improveEditor() {
   if (window.ace) {
@@ -126,13 +93,12 @@ function improveEditor() {
           enableInlineAutocompletion: true,
           enableLiveAutocompletion: true
         });
-
-        executeInPageContext(enableCommands(editor));
       };
 
       // Initial set and update on window resize
       setEditorOptions();
       window.addEventListener("resize", setEditorOptions);
+      executeInPageContext(enableCommands(editor));
       document.getElementById('editor').addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.shiftKey && event.keyCode === 32) { // 32 is the keyCode for Spacebar
           showHelper(editor);
@@ -143,58 +109,90 @@ function improveEditor() {
   }
 }
 
+function applyStyles(element, styles) {
+  for (let property in styles) {
+    if (styles.hasOwnProperty(property)) {
+      element.style[property] = styles[property];
+    }
+  }
+}
+
+const modalStyles = {
+  position: 'fixed',
+  top: '20%',
+  left: '50%',
+  transform: 'none',
+  backgroundColor: '#FFF',
+  border: '1px solid #AAA',
+  padding: '10px',
+  zIndex: '9999',
+  display: 'none',
+  maxHeight: '70vh',
+  overflowY: 'auto',
+  borderRadius: '5px',
+  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+  userSelect: 'none'
+}
+
+const closeButtonStyles = {
+  backgroundColor: '#e4e4e4',
+  border: 'none',
+  borderRadius: '5px',
+  padding: '5px 10px',
+  cursor: 'pointer',
+  marginRight: '10px'
+}
+
+const helperTextStyles = {
+  color: '#888',
+  fontSize: '0.9em'
+}
+
+const commandDivStyles = {
+  padding: '8px 12px',
+  margin: '4px 0',
+  backgroundColor: '#f9f9f9',
+  borderRadius: '3px',
+  cursor: 'pointer',
+  transition: 'background-color 0.3s'
+}
+
+const commandNameStyles = {
+  fontWeight: 'bold',
+  color: '#333',
+  textDecoration: 'underline'
+};
+
+
 function createModal() {
   const modal = document.createElement('div');
-  modal.id = 'aceEditorHelperModal';
-  modal.style.position = 'fixed';
-  modal.style.top = '20%';
-  modal.style.left = '50%';
-  modal.style.transform = 'none';
-  modal.style.backgroundColor = '#FFF';
-  modal.style.border = '1px solid #AAA';
-  modal.style.padding = '10px';
-  modal.style.zIndex = '9999';
-  modal.style.display = 'none';
-  modal.style.maxHeight = '70vh'; // 70% of the viewport height
-  modal.style.overflowY = 'auto'; // Allow scrolling if the content exceeds the max height
-  modal.style.borderRadius = '5px'; // Rounded edges
-  modal.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)'; // A subtle shadow
-  modal.style.userSelect = 'none';
+  applyStyles(modal, modalStyles);
 
   makeModalDraggable(modal);
 
   const closeButton = document.createElement('button');
   closeButton.innerHTML = 'Close';
   closeButton.onclick = () => modal.style.display = 'none';
-
-  // New styling for close button
-  closeButton.style.backgroundColor = '#e4e4e4'; // Light grey background
-  closeButton.style.border = 'none'; // Remove default border
-  closeButton.style.borderRadius = '5px'; // Rounded edges
-  closeButton.style.padding = '5px 10px'; // Padding for size
-  closeButton.style.cursor = 'pointer'; // Indicate it's clickable
-  closeButton.style.marginRight = '10px'; // Distance from helper text
+  applyStyles(closeButton, closeButtonStyles);
 
   closeButton.addEventListener('mouseover', () => {
-    closeButton.style.backgroundColor = '#d4d4d4'; // Slightly darker on hover
+    closeButton.style.backgroundColor = '#d4d4d4';
   });
 
   closeButton.addEventListener('mouseout', () => {
-    closeButton.style.backgroundColor = '#e4e4e4'; // Revert to original color
+    closeButton.style.backgroundColor = '#e4e4e4';
   });
 
   const helperText = document.createElement('span');
   helperText.innerText = 'Click on a command to execute it.';
-  helperText.style.color = '#888'; // Subdued color
-  helperText.style.fontSize = '0.9em'; // Slightly smaller than default
+  applyStyles(helperText, helperTextStyles);
 
   modal.appendChild(closeButton);
   modal.appendChild(helperText);
-
   document.body.appendChild(modal);
-
   return modal;
 }
+
 
 function showHelper(editor) {
   let modal = document.getElementById('aceEditorHelperModal');
@@ -209,19 +207,43 @@ function showHelper(editor) {
   }
 }
 
+function executeInPageContext(fn) {
+  if (fn) {
+    const script = document.createElement('script');
+    script.textContent = '(' + fn.toString() + ')();';
+    (document.head || document.documentElement).appendChild(script);
+    script.parentNode.removeChild(script);
+  }
+}
+
+function enableCommands(editor) {
+  var defaultCommands = ace.require("ace/commands/default_commands").commands;
+
+  var commandNames = [
+    "find", // Uses the better Ace editor 'find' menu by default
+  ];
+
+  // most are defined already
+  // var commandNames = [
+  //      "find", "togglecomment", "showSettingsMenu",
+  //      "gotoline", "findnext", "findprevious", "indent",
+  //      "outdent", "fold", "unfold", "foldall",
+  //      "unfoldall", "toggleBlockComment", "transposeletters",
+  //      "jumptomatching", "autoindent"
+  //  ];
+
+  commandNames.forEach(function(name) {
+    var cmd = defaultCommands.filter(function(c) {
+      return c.name == name;
+    })[0];
+    if (cmd) {
+      editor.commands.addCommand(cmd);
+    }
+  });
+}
+
 function makeModalDraggable(modal) {
   let offsetX, offsetY, isDragging = false;
-
-  modal.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    const rect = modal.getBoundingClientRect();
-    offsetX = e.clientX - rect.left;
-    offsetY = e.clientY - rect.top;
-    isDragging = true;
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  });
-
 
   function onMouseMove(e) {
     if (!isDragging) return;
@@ -234,26 +256,33 @@ function makeModalDraggable(modal) {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
   }
+
+  modal.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const rect = modal.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+    isDragging = true;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
 }
 
 function populateModalWithCommands(editor, modal) {
   const commands = editor.commands.commands;
+  const commandsToDisable = ['showSettingsMenu', 'selecttomatching', 'jumptomatching']
   let startX, startY, dragged = false;
 
   for (let commandName in commands) {
     if (commands.hasOwnProperty(commandName)) {
       const command = commands[commandName];
+      if (commandsToDisable.includes(commandName)) continue // filter out the listed commandsToDisable
 
       // Create a div for each command
       const div = document.createElement('div');
 
       // Style the div
-      div.style.padding = '8px 12px';
-      div.style.margin = '4px 0';
-      div.style.backgroundColor = '#f9f9f9';
-      div.style.borderRadius = '3px';
-      div.style.cursor = 'pointer';
-      div.style.transition = 'background-color 0.3s';
+      applyStyles(div, commandDivStyles);
 
       // Add hover effect
       div.addEventListener('mouseover', () => {
@@ -268,9 +297,10 @@ function populateModalWithCommands(editor, modal) {
       // Add command details to the div
       const commandNameSpan = document.createElement('span');
       commandNameSpan.textContent = commandName;
-      commandNameSpan.style.fontWeight = 'bold';
-      commandNameSpan.style.color = '#333';
-      commandNameSpan.style.textDecoration = 'underline';
+
+      // Style the command name
+      applyStyles(commandNameSpan, commandNameStyles);
+
       div.appendChild(commandNameSpan); // Append the styled command name to the div
 
       div.innerHTML += ` - Win: ${command.bindKey.win} :: Mac: ${command.bindKey.mac}`;
@@ -287,14 +317,13 @@ function populateModalWithCommands(editor, modal) {
 
         if (!hasMovedMoreThanDragThreshold) {
           try {
-              editor.execCommand(commandName);
-              console.log(`Executed command: ${commandName}`);
+            editor.execCommand(commandName);
+            console.log(`Executed command: ${commandName}`);
           } catch (error) {
-              console.error(`Error executing command: ${commandName}`, error);
+            console.error(`Error executing command: ${commandName}`, error);
           }
         }
       });
-
 
       modal.appendChild(div);
     }
