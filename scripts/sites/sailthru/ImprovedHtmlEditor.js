@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.5
+// @version     1.6
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -27,6 +27,12 @@ const tabSize = 2 // spaces per tab
 const dragDelay = 0 // in ms. how long before dragging text will work
 // const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
+
+const theme = 'monokai'
+// Other themes:
+// 'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt', 'dawn', 'dreamweaver', 'eclipse', 'github', 'idle_fingers', 'merbivore', 'merbivore_soft', 'mono_industrial',
+// 'monokai', 'pastel_on_dark', 'solarized_dark', 'solarized_light', 'textmate', 'tomorrow', 'tomorrow_night', 'tomorrow_night_blue', 'tomorrow_night_bright',
+// 'tomorrow_night_eighties', 'twilight', 'vibrant_ink', 'xcode'
 
 const addCustomScroll = true // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
 const scrollLines = 14 // # of lines to scroll at a time (approx)
@@ -52,16 +58,7 @@ function improveEditor() {
     editor.session.setMode("ace/mode/html");
 
     // Set theme to Monokai
-    editor.setTheme("ace/theme/monokai");
-
-    // Other options:
-    // 'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt',
-    // 'dawn', 'dreamweaver', 'eclipse',
-    // 'github', 'idle_fingers', 'merbivore', 'merbivore_soft', 'mono_industrial',
-    // 'monokai', 'pastel_on_dark', 'solarized_dark',
-    // 'solarized_light', 'textmate', 'tomorrow',
-    // 'tomorrow_night', 'tomorrow_night_blue', 'tomorrow_night_bright',
-    // 'tomorrow_night_eighties', 'twilight', 'vibrant_ink', 'xcode'
+    editor.setTheme(`ace/theme/${theme}`);
 
     const editorDiv = document.getElementById("ace-editor");
 
