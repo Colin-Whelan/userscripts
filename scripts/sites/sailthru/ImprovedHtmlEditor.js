@@ -28,14 +28,14 @@ const dragDelay = 0 // in ms. how long before dragging text will work
 // const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
 
-const fixFirefoxScroll = true // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
+const addCustomScroll = true // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
 const scrollLines = 14 // # of lines to scroll at a time (approx)
 
 const autoSaveEnabled = true // Whether the autosave is called when the editor changes
 const autoSaveDelay = 5000 // in ms
 
 // how far the keybind modal needs to be dragged to be prevent commands from executing.
-// allows dragging without executing, and any small jitter while clicking wil still count as clicks
+// allows dragging without executing, and any small jitter while clicking will still count as a clicks
 const dragThreshold = 10
 
 // Script options - DO NOT EDIT
@@ -126,7 +126,7 @@ function improveEditor() {
       addBeautifyButton(editor);
 
       if(autoSaveEnabled) autoSave(editor, autoSaveDelay)
-      if(fixFirefoxScroll) addCustomScrolling(editor)
+      if(addCustomScroll) addCustomScrolling(editor)
 
     }
   }
