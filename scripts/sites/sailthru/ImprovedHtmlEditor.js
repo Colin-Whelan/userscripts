@@ -4,8 +4,9 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.3
+// @version     1.4
 // @author      Colin Whelan
+// @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
 // Add the following:
 // - custom IDE themes
@@ -13,18 +14,27 @@
 // - Autosize editor
 // - Default options
 // - Keybind/Command Helper
+// - Autosave - After a change is detected it waits for 'autoSaveDelay' and if there were no more changes, it saves. More changes reset the delay.
+// - Prettify code - not perfect, but works better than expected. Uses 'smarty' format: https://smarty-php.github.io/smarty/4.x/designers/language-basic-syntax/
+// - Fix bug in FF with scrolling. Adds custom 'Shift+scroll' behavior for better scrolling experience.
 // ==/UserScript==
 
 // Default Options
-const fontSize = 13
-const minLines = 16
-const tabSize = 2
-const dragDelay = 0
-const fontFamily = "Fira Code"
+const fontSize = 13 // font size in px
+const minLines = 16 // min size of the editor
+const tabSize = 2 // spaces per tab
+const dragDelay = 0 // in ms. how long before dragging text will work
+// const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
 
-// how far the modal needs to be dragged to be prevent commands from executing.
-// Prevents commands from running when dragging while allowing any jitter while clicking to still count as clicks
+const fixFirefoxScroll = false // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
+const scrollSpeed = 4 // speed to scroll at. scroll distance = 20px * scrollSpeed
+
+const autoSaveEnabled = true // Whether the autosave is called when the editor changes
+const autoSaveDelay = 5000 // in ms
+
+// how far the keybind modal needs to be dragged to be prevent commands from executing.
+// allows dragging without executing, and any small jitter while clicking wil still count as clicks
 const dragThreshold = 10
 
 function improveEditor() {
@@ -54,7 +64,7 @@ function improveEditor() {
         const windowHeight = window.innerHeight;
         const editorPosition = editorDiv.getBoundingClientRect();
         const availableHeight = windowHeight - editorPosition.top - 20; // 20px padding
-        const lines = Math.floor(availableHeight / lineHeight);
+        let lines = Math.floor(availableHeight / lineHeight);
 
         if (!lines || lines < minLines) {
           lines = minLines
@@ -104,6 +114,11 @@ function improveEditor() {
           showHelper(editor);
         }
       });
+
+      addBeautifyButton(editor);
+
+      if(autoSaveEnabled) autoSave(editor, autoSaveDelay)
+      if(fixFirefoxScroll) addCustomScrolling(editor)
 
     }
   }
@@ -163,9 +178,9 @@ const commandNameStyles = {
   textDecoration: 'underline'
 };
 
-
 function createModal() {
   const modal = document.createElement('div');
+  modal.id = 'aceEditorHelperModal';
   applyStyles(modal, modalStyles);
 
   makeModalDraggable(modal);
@@ -192,7 +207,6 @@ function createModal() {
   document.body.appendChild(modal);
   return modal;
 }
-
 
 function showHelper(editor) {
   let modal = document.getElementById('aceEditorHelperModal');
@@ -329,6 +343,111 @@ function populateModalWithCommands(editor, modal) {
     }
   }
 }
+
+let saveTimeout
+let isSaving = false;  // Flag to identify save-triggered changes
+
+function autoSave(updatedEditor, autoSaveDelay = 5000) {
+
+    updatedEditor.session.on('change', function() {
+        // console.log("Change detected. State: ", isSaving);
+
+        // If the change was triggered by a save, ignore it
+        if (isSaving) {
+            // console.log("Change was triggered by a save. Ignoring this change.");
+            return;
+        }
+
+        // Clear any existing timeout
+        if (saveTimeout) {
+            // console.log("Clearing existing save timeout");
+            clearTimeout(saveTimeout);
+        }
+
+        // Start a new timeout to delay the saving
+        saveTimeout = setTimeout(() => {
+            initiateSave(autoSaveDelay);
+        }, autoSaveDelay);
+    });
+}
+
+function initiateSave(delay) {
+    isSaving = true;
+    // console.log("Initiating save...");
+    saveFunction();
+
+    // Reset the isSaving state after a delay
+    setTimeout(() => {
+        isSaving = false;
+        // console.log("Resetting save state.");
+    }, delay);
+}
+
+function saveFunction() {
+    editor.ajax.save();
+}
+
+function addBeautifyButton(editor) {
+    const controls = document.getElementById("standard-controls");
+
+    console.log(controls)
+
+    if (!controls) return;
+
+    const beautifyButton = document.createElement("button");
+    beautifyButton.id = "beautifyCode";
+    beautifyButton.innerText = "Beautify Code";
+
+    if(document.getElementById("beautifyCode")) return
+
+    controls.appendChild(beautifyButton);
+
+    // Add the event listener
+    beautifyButton.addEventListener("click", function() { beautifyEditorContent(editor); });
+}
+
+function beautifyEditorContent(editor) {
+    const content = editor.getValue();  // Assuming `editor` is the global variable for Ace Editor
+    const beautifiedContent = beautifyContent(content);
+    editor.setValue(beautifiedContent);
+}
+
+function beautifyContent(content) {
+    // Beautify content using the `js_beautify` function
+    let beautifiedHtml = html_beautify(content, {
+        indent_size: 2,
+        preserve_newlines: true,
+        unformatted: ['code', 'pre', 'em', 'strong', 'span', '{', '}'],
+        content_type: "html", // Specify the type of content being beautified
+        templating: ["smarty"] // Specify the templating language
+    });
+
+    // Further logic for Handlebars or other custom formatting can be added here...
+
+    return beautifiedHtml;
+}
+
+function addCustomScrolling(editor) {
+    editor.addEventListener('mousewheel', function(event) {
+        if (event.domEvent.shiftKey) { // Accessing the raw DOM event's shiftKey property
+            let scrollAmount = 0;
+
+            if (event.domEvent.wheelDelta) { // For Chrome and IE
+                scrollAmount = event.domEvent.wheelDelta / 40;
+            } else if (event.domEvent.detail) { // For Firefox
+                scrollAmount = -event.domEvent.detail;
+            }
+
+            // Adjust the editor's scroll position
+            editor.session.setScrollTop(editor.session.getScrollTop() - scrollAmount * 20 * scrollSpeed);
+
+            // Prevent the default behavior and stop the event propagation
+            event.domEvent.preventDefault();
+            event.domEvent.stopPropagation();
+        }
+    });
+}
+
 
 // Watch the tab editor tab and run the improvement when it's focussed
 const tabEditorDiv = document.getElementById('tab-editor');
