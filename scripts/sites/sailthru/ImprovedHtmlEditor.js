@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.4
+// @version     1.5
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -17,6 +17,7 @@
 // - Autosave - After a change is detected it waits for 'autoSaveDelay' and if there were no more changes, it saves. More changes reset the delay.
 // - Prettify code - not perfect, but works better than expected. Uses 'smarty' format: https://smarty-php.github.io/smarty/4.x/designers/language-basic-syntax/
 // - Fix bug in FF with scrolling. Adds custom 'Shift+scroll' behavior for better scrolling experience.
+// - Added smoothscrolling to FF fix
 // ==/UserScript==
 
 // Default Options
@@ -27,8 +28,8 @@ const dragDelay = 0 // in ms. how long before dragging text will work
 // const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
 
-const fixFirefoxScroll = false // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
-const scrollSpeed = 4 // speed to scroll at. scroll distance = 20px * scrollSpeed
+const fixFirefoxScroll = true // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
+const scrollLines = 14 // # of lines to scroll at a time (approx)
 
 const autoSaveEnabled = true // Whether the autosave is called when the editor changes
 const autoSaveDelay = 5000 // in ms
@@ -36,6 +37,13 @@ const autoSaveDelay = 5000 // in ms
 // how far the keybind modal needs to be dragged to be prevent commands from executing.
 // allows dragging without executing, and any small jitter while clicking wil still count as clicks
 const dragThreshold = 10
+
+// Script options - DO NOT EDIT
+const lerpFactor = 0.25; // smoothscrolling sensitivity
+
+let targetScrollTop = null;
+let currentScrollTop = null;
+let isAnimatingScroll = false;
 
 function improveEditor() {
   if (window.ace) {
@@ -429,25 +437,48 @@ function beautifyContent(content) {
 
 function addCustomScrolling(editor) {
     editor.addEventListener('mousewheel', function(event) {
-        if (event.domEvent.shiftKey) { // Accessing the raw DOM event's shiftKey property
+        if (event.domEvent.shiftKey) {
             let scrollAmount = 0;
 
-            if (event.domEvent.wheelDelta) { // For Chrome and IE
+            if (event.domEvent.wheelDelta) {
                 scrollAmount = event.domEvent.wheelDelta / 40;
-            } else if (event.domEvent.detail) { // For Firefox
+            } else if (event.domEvent.detail) {
                 scrollAmount = -event.domEvent.detail;
             }
 
-            // Adjust the editor's scroll position
-            editor.session.setScrollTop(editor.session.getScrollTop() - scrollAmount * 20 * scrollSpeed);
+            if (targetScrollTop === null) {
+                targetScrollTop = editor.session.getScrollTop();
+            }
 
-            // Prevent the default behavior and stop the event propagation
+            targetScrollTop -= scrollAmount * fontSize * 0.417 * scrollLines;
+
+            if (!isAnimatingScroll) {
+                animateScroll();
+            }
+
             event.domEvent.preventDefault();
             event.domEvent.stopPropagation();
         }
     });
-}
 
+    function animateScroll() {
+        if (currentScrollTop === null) {
+            currentScrollTop = targetScrollTop;
+        }
+
+        isAnimatingScroll = true;
+
+        if (Math.abs(currentScrollTop - targetScrollTop) > 0.5) { // Reduced threshold for sensitivity
+            currentScrollTop += (targetScrollTop - currentScrollTop) * lerpFactor;
+            editor.session.setScrollTop(currentScrollTop);
+            requestAnimationFrame(animateScroll);
+        } else {
+            currentScrollTop = targetScrollTop;
+            editor.session.setScrollTop(currentScrollTop);
+            isAnimatingScroll = false;
+        }
+    }
+}
 
 // Watch the tab editor tab and run the improvement when it's focussed
 const tabEditorDiv = document.getElementById('tab-editor');
