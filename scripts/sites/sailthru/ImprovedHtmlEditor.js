@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.6
+// @version     1.7
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -18,6 +18,7 @@
 // - Prettify code - not perfect, but works better than expected. Uses 'smarty' format: https://smarty-php.github.io/smarty/4.x/designers/language-basic-syntax/
 // - Fix bug in FF with scrolling. Adds custom 'Shift+scroll' behavior for better scrolling experience.
 // - Added smoothscrolling to FF fix
+// - Added theme previewer/switcher
 // ==/UserScript==
 
 // Default Options
@@ -28,6 +29,7 @@ const dragDelay = 0 // in ms. how long before dragging text will work
 // const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
 
+const addThemePreviewer = true // if true, shows a dropdown of all available themes for quick previewing
 const theme = 'monokai'
 // Other themes:
 // 'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt', 'dawn', 'dreamweaver', 'eclipse', 'github', 'idle_fingers', 'merbivore', 'merbivore_soft', 'mono_industrial',
@@ -50,6 +52,61 @@ const lerpFactor = 0.25; // smoothscrolling sensitivity
 let targetScrollTop = null;
 let currentScrollTop = null;
 let isAnimatingScroll = false;
+
+const themes = [
+    'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt', 'dawn', 'dreamweaver', 'eclipse', 'github', 'idle_fingers',
+    'merbivore', 'merbivore_soft', 'mono_industrial', 'monokai', 'pastel_on_dark', 'solarized_dark', 'solarized_light',
+    'textmate', 'tomorrow', 'tomorrow_night', 'tomorrow_night_blue', 'tomorrow_night_bright', 'tomorrow_night_eighties',
+    'twilight', 'vibrant_ink', 'xcode'
+];
+
+const themeButtonStyles = {
+        padding: "5px 10px",
+        border: "1px solid #aaa",
+        borderRadius: "5px",
+        backgroundColor: "#f9f9f9",
+        marginLeft: "10px",
+        boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
+        color: "#333",
+        fontSize: "14px",
+        fontWeight: "bold"
+    }
+
+function addThemeDropdown(editor) {
+    const controls = document.getElementById("standard-controls");
+    const beautifyButton = document.getElementById("beautifyCode");
+
+    if (!controls || !beautifyButton) return;
+
+    const themeDropdown = document.createElement("select");
+    themeDropdown.id = "themeSelector";
+
+    // Populate the dropdown with themes
+    themes.forEach(themeName => {
+        const option = document.createElement("option");
+        option.value = themeName;
+        option.text = themeName.charAt(0).toUpperCase() + themeName.slice(1); // Capitalize theme name for display
+
+        // Set the selected theme based on the `theme` value
+        if (themeName === theme) {
+            option.selected = true;
+        }
+
+        themeDropdown.appendChild(option);
+    });
+
+    // Add the event listener
+    themeDropdown.addEventListener("change", function() {
+        const selectedTheme = this.value;
+        editor.setTheme(`ace/theme/${selectedTheme}`);
+    });
+
+    // Apply styles to the dropdown
+    applyStyles(themeDropdown, themeButtonStyles);
+
+    // Insert the dropdown after the beautify button
+    beautifyButton.insertAdjacentElement('afterend', themeDropdown);
+}
 
 function improveEditor() {
   if (window.ace) {
@@ -124,6 +181,7 @@ function improveEditor() {
 
       if(autoSaveEnabled) autoSave(editor, autoSaveDelay)
       if(addCustomScroll) addCustomScrolling(editor)
+      if(addThemePreviewer) addThemeDropdown(editor)
 
     }
   }
