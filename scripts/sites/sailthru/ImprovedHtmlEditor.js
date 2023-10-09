@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.7
+// @version     1.8
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -19,6 +19,7 @@
 // - Fix bug in FF with scrolling. Adds custom 'Shift+scroll' behavior for better scrolling experience.
 // - Added smoothscrolling to FF fix
 // - Added theme previewer/switcher
+// - Added revision navigation - keeps the cursor locked to the same line
 // ==/UserScript==
 
 // Default Options
@@ -26,7 +27,7 @@ const fontSize = 13 // font size in px
 const minLines = 16 // min size of the editor
 const tabSize = 2 // spaces per tab
 const dragDelay = 0 // in ms. how long before dragging text will work
-// const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
+const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
 
 const addThemePreviewer = true // if true, shows a dropdown of all available themes for quick previewing
@@ -54,58 +55,58 @@ let currentScrollTop = null;
 let isAnimatingScroll = false;
 
 const themes = [
-    'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt', 'dawn', 'dreamweaver', 'eclipse', 'github', 'idle_fingers',
-    'merbivore', 'merbivore_soft', 'mono_industrial', 'monokai', 'pastel_on_dark', 'solarized_dark', 'solarized_light',
-    'textmate', 'tomorrow', 'tomorrow_night', 'tomorrow_night_blue', 'tomorrow_night_bright', 'tomorrow_night_eighties',
-    'twilight', 'vibrant_ink', 'xcode'
+  'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt', 'dawn', 'dreamweaver', 'eclipse', 'github', 'idle_fingers',
+  'merbivore', 'merbivore_soft', 'mono_industrial', 'monokai', 'pastel_on_dark', 'solarized_dark', 'solarized_light',
+  'textmate', 'tomorrow', 'tomorrow_night', 'tomorrow_night_blue', 'tomorrow_night_bright', 'tomorrow_night_eighties',
+  'twilight', 'vibrant_ink', 'xcode'
 ];
 
-const themeButtonStyles = {
-        padding: "5px 10px",
-        border: "1px solid #aaa",
-        borderRadius: "5px",
-        backgroundColor: "#f9f9f9",
-        marginLeft: "10px",
-        boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
-        color: "#333",
-        fontSize: "14px",
-        fontWeight: "bold"
-    }
+const themePreviewButtonStyles = {
+  padding: "5px 10px",
+  border: "1px solid #aaa",
+  borderRadius: "5px",
+  backgroundColor: "#f9f9f9",
+  marginLeft: "10px",
+  boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.1)",
+  color: "#333",
+  fontSize: "14px",
+  fontWeight: "bold"
+}
 
 function addThemeDropdown(editor) {
-    const controls = document.getElementById("standard-controls");
-    const beautifyButton = document.getElementById("beautifyCode");
+  const controls = document.getElementById("standard-controls");
+  const prettifyButton = document.getElementById("beautifyCode");
 
-    if (!controls || !beautifyButton) return;
+  if (!controls || !prettifyButton) return;
 
-    const themeDropdown = document.createElement("select");
-    themeDropdown.id = "themeSelector";
+  const themeDropdown = document.createElement("select");
+  themeDropdown.id = "themeSelector";
 
-    // Populate the dropdown with themes
-    themes.forEach(themeName => {
-        const option = document.createElement("option");
-        option.value = themeName;
-        option.text = themeName.charAt(0).toUpperCase() + themeName.slice(1); // Capitalize theme name for display
+  // Populate the dropdown with themes
+  themes.forEach(themeName => {
+    const option = document.createElement("option");
+    option.value = themeName;
+    option.text = themeName.charAt(0).toUpperCase() + themeName.slice(1); // Capitalize theme name for display
 
-        // Set the selected theme based on the `theme` value
-        if (themeName === theme) {
-            option.selected = true;
-        }
+    // Set the selected theme based on the `theme` value
+    if (themeName === theme) {
+      option.selected = true;
+    }
 
-        themeDropdown.appendChild(option);
-    });
+    themeDropdown.appendChild(option);
+  });
 
-    // Add the event listener
-    themeDropdown.addEventListener("change", function() {
-        const selectedTheme = this.value;
-        editor.setTheme(`ace/theme/${selectedTheme}`);
-    });
+  // Add the event listener
+  themeDropdown.addEventListener("change", function() {
+    const selectedTheme = this.value;
+    editor.setTheme(`ace/theme/${selectedTheme}`);
+  });
 
-    // Apply styles to the dropdown
-    applyStyles(themeDropdown, themeButtonStyles);
+  // Apply styles to the dropdown
+  applyStyles(themeDropdown, themePreviewButtonStyles);
 
-    // Insert the dropdown after the beautify button
-    beautifyButton.insertAdjacentElement('afterend', themeDropdown);
+  // Insert the dropdown after the beautify button
+  prettifyButton.insertAdjacentElement('afterend', themeDropdown);
 }
 
 function improveEditor() {
@@ -144,8 +145,8 @@ function improveEditor() {
           indentedSoftWrap: true, // Default: null
           animatedScroll: true, // Default: false
           dragDelay: dragDelay, // Default: 150
-          enableMultiSelect: false,
-          enableAutoIndent: false,
+          enableMultiSelect: true,
+          enableAutoIndent: true,
           selectionStyle: 'line',
 
           // Gutter
@@ -177,11 +178,12 @@ function improveEditor() {
         }
       });
 
-      addBeautifyButton(editor);
+      addPrettifyButton(editor);
 
-      if(autoSaveEnabled) autoSave(editor, autoSaveDelay)
-      if(addCustomScroll) addCustomScrolling(editor)
-      if(addThemePreviewer) addThemeDropdown(editor)
+      if (autoSaveEnabled) autoSave(editor, autoSaveDelay)
+      if (addCustomScroll) addCustomScrolling(editor)
+      if (addThemePreviewer) addThemeDropdown(editor)
+      addRevisionButtons(editor);
 
     }
   }
@@ -408,130 +410,201 @@ function populateModalWithCommands(editor, modal) {
 }
 
 let saveTimeout
-let isSaving = false;  // Flag to identify save-triggered changes
+let isSaving = false; // Flag to identify save-triggered changes
 
 function autoSave(updatedEditor, autoSaveDelay = 5000) {
 
-    updatedEditor.session.on('change', function() {
-        // console.log("Change detected. State: ", isSaving);
+  updatedEditor.session.on('change', function() {
+    // console.log("Change detected. State: ", isSaving);
 
-        // If the change was triggered by a save, ignore it
-        if (isSaving) {
-            // console.log("Change was triggered by a save. Ignoring this change.");
-            return;
-        }
+    // If the change was triggered by a save, ignore it
+    if (isSaving) {
+      // console.log("Change was triggered by a save. Ignoring this change.");
+      return;
+    }
 
-        // Clear any existing timeout
-        if (saveTimeout) {
-            // console.log("Clearing existing save timeout");
-            clearTimeout(saveTimeout);
-        }
+    // Clear any existing timeout
+    if (saveTimeout) {
+      // console.log("Clearing existing save timeout");
+      clearTimeout(saveTimeout);
+    }
 
-        // Start a new timeout to delay the saving
-        saveTimeout = setTimeout(() => {
-            initiateSave(autoSaveDelay);
-        }, autoSaveDelay);
-    });
+    // Start a new timeout to delay the saving
+    saveTimeout = setTimeout(() => {
+      initiateSave(autoSaveDelay);
+    }, autoSaveDelay);
+  });
 }
 
 function initiateSave(delay) {
-    isSaving = true;
-    // console.log("Initiating save...");
-    saveFunction();
+  isSaving = true;
+  // console.log("Initiating save...");
+  saveFunction();
 
-    // Reset the isSaving state after a delay
-    setTimeout(() => {
-        isSaving = false;
-        // console.log("Resetting save state.");
-    }, delay);
+  // Reset the isSaving state after a delay
+  setTimeout(() => {
+    isSaving = false;
+    // console.log("Resetting save state.");
+  }, delay);
 }
 
 function saveFunction() {
-    editor.ajax.save();
+  editor.ajax.save();
 }
 
-function addBeautifyButton(editor) {
-    const controls = document.getElementById("standard-controls");
+function addPrettifyButton(editor) {
+  const controls = document.getElementById("standard-controls");
 
-    console.log(controls)
+  if (!controls) return;
 
-    if (!controls) return;
+  const prettifyButton = document.createElement("button");
+  prettifyButton.id = "prettifyCode";
+  prettifyButton.innerText = "Prettify Code";
 
-    const beautifyButton = document.createElement("button");
-    beautifyButton.id = "beautifyCode";
-    beautifyButton.innerText = "Beautify Code";
+  if (document.getElementById("prettifyCode")) return
 
-    if(document.getElementById("beautifyCode")) return
+  controls.appendChild(prettifyButton);
 
-    controls.appendChild(beautifyButton);
-
-    // Add the event listener
-    beautifyButton.addEventListener("click", function() { beautifyEditorContent(editor); });
+  // Add the event listener
+  prettifyButton.addEventListener("click", function() {
+    prettifyEditorContent(editor);
+  });
 }
 
-function beautifyEditorContent(editor) {
-    const content = editor.getValue();  // Assuming `editor` is the global variable for Ace Editor
-    const beautifiedContent = beautifyContent(content);
-    editor.setValue(beautifiedContent);
+function prettifyEditorContent(editor) {
+  const content = editor.getValue(); // Assuming `editor` is the global variable for Ace Editor
+  const prettifiedContent = prettifyContent(content);
+  editor.setValue(prettifiedContent);
 }
 
-function beautifyContent(content) {
-    // Beautify content using the `js_beautify` function
-    let beautifiedHtml = html_beautify(content, {
-        indent_size: 2,
-        preserve_newlines: true,
-        unformatted: ['code', 'pre', 'em', 'strong', 'span', '{', '}'],
-        content_type: "html", // Specify the type of content being beautified
-        templating: ["smarty"] // Specify the templating language
-    });
+function prettifyContent(content) {
+  // Prettify content using the `js_beautify` function
+  let beautifiedHtml = html_beautify(content, {
+    indent_size: 2,
+    preserve_newlines: true,
+    unformatted: ['code', 'pre', 'em', 'strong', 'span', '{', '}'],
+    content_type: "html", // Specify the type of content being beautified
+    templating: ["smarty"] // Specify the templating language
+  });
 
-    // Further logic for Handlebars or other custom formatting can be added here...
+  // if needed, could add more custom formatting here
 
-    return beautifiedHtml;
+  return beautifiedHtml;
 }
 
 function addCustomScrolling(editor) {
-    editor.addEventListener('mousewheel', function(event) {
-        if (event.domEvent.shiftKey) {
-            let scrollAmount = 0;
+  editor.addEventListener('mousewheel', function(event) {
+    if (event.domEvent.shiftKey) {
+      let scrollAmount = 0;
 
-            if (event.domEvent.wheelDelta) {
-                scrollAmount = event.domEvent.wheelDelta / 40;
-            } else if (event.domEvent.detail) {
-                scrollAmount = -event.domEvent.detail;
-            }
+      if (event.domEvent.wheelDelta) {
+        scrollAmount = event.domEvent.wheelDelta / 40;
+      } else if (event.domEvent.detail) {
+        scrollAmount = -event.domEvent.detail;
+      }
 
-            if (targetScrollTop === null) {
-                targetScrollTop = editor.session.getScrollTop();
-            }
+      if (targetScrollTop === null) {
+        targetScrollTop = editor.session.getScrollTop();
+      }
 
-            targetScrollTop -= scrollAmount * fontSize * 0.417 * scrollLines;
+      targetScrollTop -= scrollAmount * fontSize * 0.417 * scrollLines;
 
-            if (!isAnimatingScroll) {
-                animateScroll();
-            }
+      if (!isAnimatingScroll) {
+        animateScroll();
+      }
 
-            event.domEvent.preventDefault();
-            event.domEvent.stopPropagation();
-        }
+      event.domEvent.preventDefault();
+      event.domEvent.stopPropagation();
+    }
+  });
+
+  function animateScroll() {
+    if (currentScrollTop === null) {
+      currentScrollTop = targetScrollTop;
+    }
+
+    isAnimatingScroll = true;
+
+    if (Math.abs(currentScrollTop - targetScrollTop) > 0.5) { // Reduced threshold for sensitivity
+      currentScrollTop += (targetScrollTop - currentScrollTop) * lerpFactor;
+      editor.session.setScrollTop(currentScrollTop);
+      requestAnimationFrame(animateScroll);
+    } else {
+      currentScrollTop = targetScrollTop;
+      editor.session.setScrollTop(currentScrollTop);
+      isAnimatingScroll = false;
+    }
+  }
+}
+
+let url = window.location.href;
+let templateId = url.split('#')[1];
+function addRevisionButtons(editor) {
+    const btnRevisions = document.getElementById("btnRevisions");
+
+    if (!btnRevisions) return;
+
+    const prevButton = document.createElement("button");
+    prevButton.id = "prevRevision";
+    prevButton.innerText = "Previous";
+
+    const nextButton = document.createElement("button");
+    nextButton.id = "nextRevision";
+    nextButton.innerText = "Next";
+
+    // Create an element for displaying the current revision number.
+    const revisionDisplay = document.createElement("span");
+    revisionDisplay.id = "currentRevisionDisplay";
+
+    // Get current revision from the select element.
+    const revisionSelect = document.getElementById("revisions_select");
+    if (revisionSelect) {
+        revisionDisplay.innerText = revisionSelect.value;
+    }
+
+    // Insert the buttons before and after the btnRevisions element.
+    btnRevisions.parentNode.insertBefore(prevButton, btnRevisions);
+    btnRevisions.parentNode.insertBefore(nextButton, btnRevisions.nextSibling);
+    btnRevisions.parentNode.insertBefore(revisionDisplay, nextButton.nextSibling);
+
+    // Event listeners remain the same as before.
+    prevButton.addEventListener("click", function() {
+        changeRevision(editor, -1);
     });
 
-    function animateScroll() {
-        if (currentScrollTop === null) {
-            currentScrollTop = targetScrollTop;
-        }
+    nextButton.addEventListener("click", function() {
+        changeRevision(editor, 1);
+    });
+}
 
-        isAnimatingScroll = true;
+function changeRevision(editor, direction) {
+    const revisionsSelect = document.getElementById("revisions_select");
+    const currentIndex = revisionsSelect.selectedIndex;
 
-        if (Math.abs(currentScrollTop - targetScrollTop) > 0.5) { // Reduced threshold for sensitivity
-            currentScrollTop += (targetScrollTop - currentScrollTop) * lerpFactor;
-            editor.session.setScrollTop(currentScrollTop);
-            requestAnimationFrame(animateScroll);
-        } else {
-            currentScrollTop = targetScrollTop;
-            editor.session.setScrollTop(currentScrollTop);
-            isAnimatingScroll = false;
-        }
+    if ((direction === -1 && currentIndex > 0) || (direction === 1 && currentIndex < revisionsSelect.length - 1)) {
+        revisionsSelect.selectedIndex = currentIndex + direction;
+        const revisionId = revisionsSelect.value;
+
+        document.getElementById('currentRevisionDisplay').innerText = revisionId
+
+        // Capture the current line number and column position.
+        const cursorPosition = editor.getCursorPosition();
+
+        // Step 4: Make an AJAX GET request.
+        fetch(`https://my.sailthru.com/template/template?template_id=${templateId}&widget=editor&action=revision&revision_id=${revisionId}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log(data)
+                editor.setValue(data.revision_html);
+
+                // Scroll to the captured line number and column position.
+                console.log(cursorPosition)
+
+                editor.clearSelection();
+                editor.scrollToLine(cursorPosition.row, true, false, function() {});
+                editor.moveCursorToPosition(cursorPosition);
+            })
+            .catch(error => console.error("Error fetching revision:", error));
     }
 }
 
