@@ -14,10 +14,9 @@
 // - Autosize editor
 // - Default options
 // - Keybind/Command Helper
-// - Autosave - After a change is detected it waits for 'autoSaveDelay' and if there were no more changes, it saves. More changes reset the delay.
+// - Optional Autosave - After a change is detected it waits for 'autoSaveDelay' and if there were no more changes, it saves. More changes reset the delay.
 // - Prettify code - not perfect, but works better than expected. Uses 'smarty' format: https://smarty-php.github.io/smarty/4.x/designers/language-basic-syntax/
 // - Fix bug in FF with scrolling. Adds custom 'Shift+scroll' behavior for better scrolling experience.
-// - Added smoothscrolling to FF fix
 // - Added theme previewer/switcher
 // - Added revision navigation - keeps the cursor locked to the same line
 // ==/UserScript==
@@ -77,6 +76,8 @@ function addThemeDropdown(editor) {
   const controls = document.getElementById("standard-controls");
   const prettifyButton = document.getElementById("beautifyCode");
 
+  console.log(controls)
+
   if (!controls || !prettifyButton) return;
 
   const themeDropdown = document.createElement("select");
@@ -107,6 +108,40 @@ function addThemeDropdown(editor) {
 
   // Insert the dropdown after the beautify button
   prettifyButton.insertAdjacentElement('afterend', themeDropdown);
+}
+function addThemeDropdown(editor) {
+    const controls = document.getElementById("standard-controls");
+
+    if (!controls) return;
+
+    const themeDropdown = document.createElement("select");
+    themeDropdown.id = "themeSelector";
+
+    // Populate the dropdown with themes
+    themes.forEach(themeName => {
+        const option = document.createElement("option");
+        option.value = themeName;
+        option.text = themeName.charAt(0).toUpperCase() + themeName.slice(1); // Capitalize theme name for display
+
+        // Set the selected theme based on the `theme` value
+        if (themeName === theme) {
+            option.selected = true;
+        }
+
+        themeDropdown.appendChild(option);
+    });
+
+    // Add the event listener
+    themeDropdown.addEventListener("change", function() {
+        const selectedTheme = this.value.toLowerCase();
+        editor.setTheme(`ace/theme/${selectedTheme}`);
+    });
+
+    // Apply styles to the dropdown
+    applyStyles(themeDropdown, themePreviewButtonStyles);
+
+    // Append the dropdown to the controls
+    controls.appendChild(themeDropdown);
 }
 
 function improveEditor() {
