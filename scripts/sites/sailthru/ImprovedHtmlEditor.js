@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.8
+// @version     1.9
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -22,7 +22,7 @@
 // ==/UserScript==
 
 // Default Options
-const fontSize = 13 // font size in px
+const fontSize = 16 // font size in px
 const minLines = 16 // min size of the editor
 const tabSize = 2 // spaces per tab
 const dragDelay = 0 // in ms. how long before dragging text will work
@@ -509,7 +509,13 @@ function addPrettifyButton(editor) {
 function prettifyEditorContent(editor) {
   const content = editor.getValue(); // Assuming `editor` is the global variable for Ace Editor
   const prettifiedContent = prettifyContent(content);
+  const cursorPosition = editor.getCursorPosition();
+
   editor.setValue(prettifiedContent);
+
+  editor.clearSelection();
+  editor.scrollToLine(cursorPosition.row, true, false, function() {});
+  editor.moveCursorToPosition(cursorPosition);
 }
 
 function prettifyContent(content) {
