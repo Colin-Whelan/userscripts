@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.9
+// @version     1.8
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -74,11 +74,8 @@ const themePreviewButtonStyles = {
 
 function addThemeDropdown(editor) {
   const controls = document.getElementById("standard-controls");
-  const prettifyButton = document.getElementById("beautifyCode");
 
-  console.log(controls)
-
-  if (!controls || !prettifyButton) return;
+  if (!controls || document.getElementById("themeSelector")) return;
 
   const themeDropdown = document.createElement("select");
   themeDropdown.id = "themeSelector";
@@ -99,49 +96,15 @@ function addThemeDropdown(editor) {
 
   // Add the event listener
   themeDropdown.addEventListener("change", function() {
-    const selectedTheme = this.value;
+    const selectedTheme = this.value.toLowerCase();
     editor.setTheme(`ace/theme/${selectedTheme}`);
   });
 
   // Apply styles to the dropdown
   applyStyles(themeDropdown, themePreviewButtonStyles);
 
-  // Insert the dropdown after the beautify button
-  prettifyButton.insertAdjacentElement('afterend', themeDropdown);
-}
-function addThemeDropdown(editor) {
-    const controls = document.getElementById("standard-controls");
-
-    if (!controls) return;
-
-    const themeDropdown = document.createElement("select");
-    themeDropdown.id = "themeSelector";
-
-    // Populate the dropdown with themes
-    themes.forEach(themeName => {
-        const option = document.createElement("option");
-        option.value = themeName;
-        option.text = themeName.charAt(0).toUpperCase() + themeName.slice(1); // Capitalize theme name for display
-
-        // Set the selected theme based on the `theme` value
-        if (themeName === theme) {
-            option.selected = true;
-        }
-
-        themeDropdown.appendChild(option);
-    });
-
-    // Add the event listener
-    themeDropdown.addEventListener("change", function() {
-        const selectedTheme = this.value.toLowerCase();
-        editor.setTheme(`ace/theme/${selectedTheme}`);
-    });
-
-    // Apply styles to the dropdown
-    applyStyles(themeDropdown, themePreviewButtonStyles);
-
-    // Append the dropdown to the controls
-    controls.appendChild(themeDropdown);
+  // Append the dropdown to the controls
+  controls.appendChild(themeDropdown);
 }
 
 function improveEditor() {
@@ -219,7 +182,6 @@ function improveEditor() {
       if (addCustomScroll) addCustomScrolling(editor)
       if (addThemePreviewer) addThemeDropdown(editor)
       addRevisionButtons(editor);
-
     }
   }
 }
@@ -580,74 +542,119 @@ function addCustomScrolling(editor) {
 
 let url = window.location.href;
 let templateId = url.split('#')[1];
+
 function addRevisionButtons(editor) {
-    const btnRevisions = document.getElementById("btnRevisions");
+  const btnRevisions = document.getElementById("btnRevisions");
 
-    if (!btnRevisions) return;
+  if (!btnRevisions) return;
 
-    const prevButton = document.createElement("button");
-    prevButton.id = "prevRevision";
-    prevButton.innerText = "Previous";
+  const prevButton = document.createElement("button");
+  prevButton.id = "prevRevision";
+  prevButton.innerText = "Previous";
 
-    const nextButton = document.createElement("button");
-    nextButton.id = "nextRevision";
-    nextButton.innerText = "Next";
+  const nextButton = document.createElement("button");
+  nextButton.id = "nextRevision";
+  nextButton.innerText = "Next";
 
-    // Create an element for displaying the current revision number.
-    const revisionDisplay = document.createElement("span");
-    revisionDisplay.id = "currentRevisionDisplay";
+  // Create an element for displaying the current revision number.
+  const revisionDisplay = document.createElement("span");
+  revisionDisplay.id = "currentRevisionDisplay";
 
-    // Get current revision from the select element.
-    const revisionSelect = document.getElementById("revisions_select");
-    if (revisionSelect) {
-        revisionDisplay.innerText = revisionSelect.value;
-    }
+  // Get current revision from the select element.
+  const revisionSelect = document.getElementById("revisions_select");
+  if (revisionSelect) {
+    revisionDisplay.innerText = revisionSelect.value;
+  }
 
-    // Insert the buttons before and after the btnRevisions element.
-    btnRevisions.parentNode.insertBefore(prevButton, btnRevisions);
-    btnRevisions.parentNode.insertBefore(nextButton, btnRevisions.nextSibling);
-    btnRevisions.parentNode.insertBefore(revisionDisplay, nextButton.nextSibling);
+  // Insert the buttons before and after the btnRevisions element.
+  btnRevisions.parentNode.insertBefore(prevButton, btnRevisions);
+  btnRevisions.parentNode.insertBefore(nextButton, btnRevisions.nextSibling);
+  btnRevisions.parentNode.insertBefore(revisionDisplay, nextButton.nextSibling);
 
-    // Event listeners remain the same as before.
-    prevButton.addEventListener("click", function() {
-        changeRevision(editor, -1);
-    });
+  // Event listeners remain the same as before.
+  prevButton.addEventListener("click", function() {
+    changeRevision(editor, -1);
+  });
 
-    nextButton.addEventListener("click", function() {
-        changeRevision(editor, 1);
-    });
+  nextButton.addEventListener("click", function() {
+    changeRevision(editor, 1);
+  });
 }
 
 function changeRevision(editor, direction) {
-    const revisionsSelect = document.getElementById("revisions_select");
-    const currentIndex = revisionsSelect.selectedIndex;
+  const revisionsSelect = document.getElementById("revisions_select");
+  const currentIndex = revisionsSelect.selectedIndex;
 
-    if ((direction === -1 && currentIndex > 0) || (direction === 1 && currentIndex < revisionsSelect.length - 1)) {
-        revisionsSelect.selectedIndex = currentIndex + direction;
-        const revisionId = revisionsSelect.value;
+  if ((direction === -1 && currentIndex > 0) || (direction === 1 && currentIndex < revisionsSelect.length - 1)) {
+    revisionsSelect.selectedIndex = currentIndex + direction;
+    const revisionId = revisionsSelect.value;
 
-        document.getElementById('currentRevisionDisplay').innerText = revisionId
+    document.getElementById('currentRevisionDisplay').innerText = revisionId
 
-        // Capture the current line number and column position.
-        const cursorPosition = editor.getCursorPosition();
+    // Capture the current line number and column position.
+    const cursorPosition = editor.getCursorPosition();
 
-        // Step 4: Make an AJAX GET request.
-        fetch(`https://my.sailthru.com/template/template?template_id=${templateId}&widget=editor&action=revision&revision_id=${revisionId}`)
-            .then(response => response.json())
-            .then(data => {
-                console.log(data)
-                editor.setValue(data.revision_html);
+    // Step 4: Make an AJAX GET request.
+    fetch(`https://my.sailthru.com/template/template?template_id=${templateId}&widget=editor&action=revision&revision_id=${revisionId}`)
+      .then(response => response.json())
+      .then(data => {
+        console.log(data)
+        editor.setValue(data.revision_html);
 
-                // Scroll to the captured line number and column position.
-                console.log(cursorPosition)
+        // Scroll to the captured line number and column position.
+        console.log(cursorPosition)
 
-                editor.clearSelection();
-                editor.scrollToLine(cursorPosition.row, true, false, function() {});
-                editor.moveCursorToPosition(cursorPosition);
-            })
-            .catch(error => console.error("Error fetching revision:", error));
-    }
+        editor.clearSelection();
+        editor.scrollToLine(cursorPosition.row, true, false, function() {});
+        editor.moveCursorToPosition(cursorPosition);
+      })
+      .catch(error => console.error("Error fetching revision:", error));
+  }
 }
+
+// Function to adjust the iframe size
+function adjustIframe() {
+  let iframe = document.querySelector('iframe');
+  if (iframe) {
+    console.log(iframe)
+    const windowHeight = window.innerHeight;
+    const editorPosition = iframe.getBoundingClientRect();
+    const availableHeight = windowHeight - editorPosition.top - 20; // 20px padding
+    console.log(availableHeight)
+
+    // Math to approximate fill the availe frame
+    iframe.style.height = availableHeight * 0.85 + 40 + 'px';
+    iframeObserver.disconnect();
+  }
+}
+
+// Set up the MutationObserver to watch for style changes on the target element
+const iframeTargetNode = document.getElementById('tab-preview');
+
+const iframeConfig = {
+  attributes: true,
+  childList: false,
+  subtree: false,
+  attributeFilter: ['style'] // only observe style changes
+};
+
+const callback = function(mutationsList) {
+  for (const mutation of mutationsList) {
+    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+      const displayStyle = iframeTargetNode.style.display;
+      if (displayStyle === 'block') {
+        adjustIframe();
+        window.addEventListener('resize', adjustIframe);
+
+      }
+    }
+  }
+};
+
+const iframeObserver = new MutationObserver(callback);
+
+// Start observing for iframe
+iframeObserver.observe(iframeTargetNode, iframeConfig);
 
 // Watch the tab editor tab and run the improvement when it's focussed
 const tabEditorDiv = document.getElementById('tab-editor');
@@ -662,10 +669,10 @@ const observer = new MutationObserver((mutations) => {
   });
 });
 
-const config = {
+const observerConfig = {
   attributes: true,
   childList: false,
   subtree: false
 };
 
-observer.observe(tabEditorDiv, config);
+observer.observe(tabEditorDiv, observerConfig);
