@@ -16,7 +16,6 @@ function getSizeAndAppend(iframe, targetDiv) {
   const blob = new Blob([iframeContent], {
     type: 'text/html'
   });
-  console.log(blob)
   const sizeInKB = (blob.size / 1024).toFixed(2); // Convert bytes to KB and keep 2 decimal places
 
   // Create a new div for the size text with styling
