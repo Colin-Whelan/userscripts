@@ -5,7 +5,7 @@
 // @grant       none
 // @version     1.0
 // @author      Colin Whelan
-// @description Show total size of the email in KB on the 'Preview' screen
+// @description Show the approximate total size of the email in KB on the 'Preview' screen
 // ==/UserScript==
 function getSizeAndAppend(iframe, targetDiv) {
   previewIframeObserver.disconnect();
