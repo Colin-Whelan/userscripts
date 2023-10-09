@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.10
+// @version     1.11
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -20,6 +20,7 @@
 // - Added theme previewer/switcher
 // - Added revision navigation - keeps the cursor locked to the same line
 // - 'Preview' tab view autoresizes to fill viewport (approx)
+// - 'Advanced' tab setup area autoresizes to fill viewport (approx)
 // ==/UserScript==
 
 // Default Options
@@ -53,6 +54,8 @@ const lerpFactor = 0.25; // smoothscrolling sensitivity
 let targetScrollTop = null;
 let currentScrollTop = null;
 let isAnimatingScroll = false;
+
+const lineHeight = fontSize * 1.3; // Height of each line in px
 
 const themes = [
   'ambiance', 'chaos', 'clouds', 'clouds_midnight', 'cobalt', 'dawn', 'dreamweaver', 'eclipse', 'github', 'idle_fingers',
@@ -120,8 +123,6 @@ function improveEditor() {
     const editorDiv = document.getElementById("ace-editor");
 
     if (editorDiv) {
-      const lineHeight = fontSize * 1.3; // Height of each line in px
-
       const setEditorOptions = () => {
         const windowHeight = window.innerHeight;
         const editorPosition = editorDiv.getBoundingClientRect();
@@ -599,11 +600,10 @@ function changeRevision(editor, direction) {
     fetch(`https://my.sailthru.com/template/template?template_id=${templateId}&widget=editor&action=revision&revision_id=${revisionId}`)
       .then(response => response.json())
       .then(data => {
-        console.log(data)
         editor.setValue(data.revision_html);
 
         // Scroll to the captured line number and column position.
-        console.log(cursorPosition)
+        // console.log(cursorPosition)
 
         editor.clearSelection();
         editor.scrollToLine(cursorPosition.row, true, false, function() {});
@@ -617,11 +617,9 @@ function changeRevision(editor, direction) {
 function adjustIframe() {
   let iframe = document.querySelector('iframe');
   if (iframe) {
-    console.log(iframe)
     const windowHeight = window.innerHeight;
     const editorPosition = iframe.getBoundingClientRect();
     const availableHeight = windowHeight - editorPosition.top - 20; // 20px padding
-    console.log(availableHeight)
 
     // Math to approximate fill the availe frame
     iframe.style.height = availableHeight * 0.85 + 40 + 'px';
@@ -659,12 +657,12 @@ iframeObserver.observe(iframeTargetNode, iframeConfig);
 
 // Watch the tab editor tab and run the improvement when it's focussed
 const tabEditorDiv = document.getElementById('tab-editor');
-const observer = new MutationObserver((mutations) => {
+const editorObserver = new MutationObserver((mutations) => {
   mutations.forEach((mutation) => {
     if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
       const displayStyle = window.getComputedStyle(tabEditorDiv).display;
       if (displayStyle === 'block') {
-        improveEditor("ace-editor");
+        improveEditor();
       }
     }
   });
@@ -676,4 +674,38 @@ const observerConfig = {
   subtree: false
 };
 
-observer.observe(tabEditorDiv, observerConfig);
+editorObserver.observe(tabEditorDiv, observerConfig);
+
+function improveAdvanced(){
+  let setupArea = document.getElementById('f_setup')
+  let linkParamsArea = document.getElementById('f_link_params')
+
+  const windowHeight = window.innerHeight;
+  const editorPosition = setupArea.getBoundingClientRect();
+  const availableHeight = windowHeight - editorPosition.top - 20; // 20px padding
+  let lines = Math.floor(availableHeight / lineHeight);
+  setupArea.style.fontSize = `${fontSize}px`
+  setupArea.style.lineHeight = `${lineHeight}px`
+  setupArea.style.width = '90%'
+
+  setupArea.rows = lines * 0.48
+
+  linkParamsArea.style.fontSize = `${fontSize}px`
+  linkParamsArea.style.lineHeight = `${lineHeight}px`
+  linkParamsArea.style.width = '90%'
+}
+
+// Watch the advanced setup tab and run the improvement when it's focussed
+const tabAdvancedDiv = document.getElementById('tab-advanced');
+const advancedObserver = new MutationObserver((mutations) => {
+  mutations.forEach((mutation) => {
+    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+      const displayStyle = window.getComputedStyle(tabAdvancedDiv).display;
+      if (displayStyle === 'block') {
+        improveAdvanced();
+      }
+    }
+  });
+});
+
+advancedObserver.observe(tabAdvancedDiv, observerConfig);
