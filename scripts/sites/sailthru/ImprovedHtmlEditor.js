@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.8
+// @version     1.10
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -19,6 +19,7 @@
 // - Fix bug in FF with scrolling. Adds custom 'Shift+scroll' behavior for better scrolling experience.
 // - Added theme previewer/switcher
 // - Added revision navigation - keeps the cursor locked to the same line
+// - 'Preview' tab view autoresizes to fill viewport (approx)
 // ==/UserScript==
 
 // Default Options
