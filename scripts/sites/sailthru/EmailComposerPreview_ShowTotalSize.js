@@ -19,15 +19,15 @@ function getSizeAndAppend(iframe, targetDiv) {
   const sizeInKB = (blob.size / 1024).toFixed(2); // Convert bytes to KB and keep 2 decimal places
   console.log(sizeInKB)
 
-  if(!document.getElementById('emailSize')){
-      // Create a new div for the size text with styling
-      const sizeDiv = document.createElement('div');
-      sizeDiv.textContent = `Approx. email size: ${sizeInKB} KB`;
-      sizeDiv.id = 'emailSize';
-      sizeDiv.style.fontSize = "20px"; // Bigger font size
+  if (!document.getElementById('emailSize')) {
+    // Create a new div for the size text with styling
+    const sizeDiv = document.createElement('div');
+    sizeDiv.textContent = `Approx. email size: ${sizeInKB} KB`;
+    sizeDiv.id = 'emailSize';
+    sizeDiv.style.fontSize = "20px"; // Bigger font size
 
-      // Insert the new div right before the target div
-      targetDiv.parentElement.insertBefore(sizeDiv, targetDiv);
+    // Insert the new div right before the target div
+    targetDiv.parentElement.insertBefore(sizeDiv, targetDiv);
   } else {
     document.getElementById('emailSize').textContent = `Approx. email size: ${sizeInKB} KB`;
   }
