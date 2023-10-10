@@ -39,12 +39,11 @@ observer.observe(document.body, { childList: true, subtree: true });
 
 // Create a MutationObserver to watch for changes
 const eventViewObserver = new MutationObserver((mutationsList, eventViewObserver) => {
-    let aceEditor = document.getElementById('ace-editor') // with id can only get 1 at a time.
     let aceEditors = document.querySelectorAll('#ace-editor')
     // Check if the target element is added to the DOM
     mutationsList.forEach((mutation) => {
         // console.log(mutation.target)
-        if (mutation.addedNodes.length && aceEditor) {
+        if (mutation.addedNodes.length && aceEditors.length) {
             eventViewObserver.disconnect();
 
             for (let i = 0; i < aceEditors.length; i++) {
