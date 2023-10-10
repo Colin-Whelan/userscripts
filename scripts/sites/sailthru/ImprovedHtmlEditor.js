@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.11
+// @version     1.12
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -21,6 +21,7 @@
 // - Added revision navigation - keeps the cursor locked to the same line
 // - 'Preview' tab view autoresizes to fill viewport (approx)
 // - 'Advanced' tab setup area autoresizes to fill viewport (approx)
+// - 'Preview' tab shows on the right side with auto updating preview and maintains scroll position
 // ==/UserScript==
 
 // Default Options
@@ -111,6 +112,32 @@ function addThemeDropdown(editor) {
   controls.appendChild(themeDropdown);
 }
 
+function rearrangeEditorElements() {
+  // Hide the tabs navigation
+  let tabNav = document.querySelector('.ui-tabs-nav');
+  tabNav.style.display = 'none';
+  document.querySelector('#tabs').style.paddingTop = '0px';
+
+  // Show the preview tab permanently and reverse aria attributes
+  let previewTab = document.querySelector('#tab-preview');
+  previewTab.style.display = 'block';
+  previewTab.style.marginRight = '2%';
+  previewTab.style.float = 'right'; // Float to the right side
+  previewTab.style.width = '35%'; // Use 50% width
+  previewTab.setAttribute('aria-expanded', 'true');
+  previewTab.setAttribute('aria-hidden', 'false');
+  previewTab.style.height = '100%'
+  previewTab.children[0].style.height = '100%'
+
+  // Adjust tab editor area
+  let tabEditor = document.querySelector('#tab-editor');
+  tabEditor.style.float = 'left'; // Float to the left side
+  tabEditor.style.width = '60%'; // Use 45% width
+  tabEditor.style.padding = '5px';
+
+
+}
+
 function improveEditor() {
   if (window.ace) {
     const editor = ace.edit("ace-editor");
@@ -184,9 +211,47 @@ function improveEditor() {
       if (addCustomScroll) addCustomScrolling(editor)
       if (addThemePreviewer) addThemeDropdown(editor)
       addRevisionButtons(editor);
+      rearrangeEditorElements()
+      autoUpdatePreview(editor)
+
     }
   }
 }
+
+function autoUpdatePreview(updatedEditor) {
+  let scrollPosition = 0;
+
+  // Get the iframe element
+  const previewIframe = document.getElementsByName('preview')[0]; // Assuming there's only one element with name="preview"
+
+  const previewButton = document.getElementById('refresh-preview');
+
+  // start the preview for the first time
+  previewButton.click();
+
+  // Listen for changes in the Ace editor content
+  updatedEditor.session.on('change', function() {
+
+    // Save the current scroll position
+    scrollPosition = previewIframe.contentWindow.scrollY;
+
+    // Refresh the preview
+    previewButton.click();
+
+    // After the refresh is complete, restore the scroll position
+    previewIframe.onload = function() {
+      previewIframe.contentWindow.scrollTo(0, scrollPosition);
+    };
+  });
+}
+
+// function autoUpdatePreview(updatedEditor){
+//     updatedEditor.session.on('change', function() {
+//     const previewButton = document.getElementById('refresh-preview')
+//     previewButton.click() // refreshes the preview - might prefer a raw POST to the previewer
+
+//   });
+// }
 
 function applyStyles(element, styles) {
   for (let property in styles) {
@@ -547,8 +612,10 @@ let templateId = url.split('#')[1];
 
 function addRevisionButtons(editor) {
   const btnRevisions = document.getElementById("btnRevisions");
+  const existingPrevButton = document.getElementById("prevRevision");
+  const existingNextButton = document.getElementById("nextRevision");
+  const existingRevisionDisplay = document.getElementById("currentRevisionDisplay");
 
-  if (!btnRevisions) return;
 
   const prevButton = document.createElement("button");
   prevButton.id = "prevRevision";
@@ -567,10 +634,16 @@ function addRevisionButtons(editor) {
   if (revisionSelect) {
     revisionDisplay.innerText = revisionSelect.value;
   }
+  console.log(existingPrevButton, existingNextButton, existingPrevButton)
 
+  if (existingPrevButton) return;
   // Insert the buttons before and after the btnRevisions element.
   btnRevisions.parentNode.insertBefore(prevButton, btnRevisions);
+
+  if (existingNextButton) return;
   btnRevisions.parentNode.insertBefore(nextButton, btnRevisions.nextSibling);
+
+  if (existingRevisionDisplay) return;
   btnRevisions.parentNode.insertBefore(revisionDisplay, nextButton.nextSibling);
 
   // Event listeners remain the same as before.
@@ -676,7 +749,7 @@ const observerConfig = {
 
 editorObserver.observe(tabEditorDiv, observerConfig);
 
-function improveAdvanced(){
+function improveAdvanced() {
   let setupArea = document.getElementById('f_setup')
   let linkParamsArea = document.getElementById('f_link_params')
 
