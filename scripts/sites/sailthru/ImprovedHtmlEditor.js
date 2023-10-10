@@ -40,10 +40,10 @@ const theme = 'monokai'
 // 'tomorrow_night_eighties', 'twilight', 'vibrant_ink', 'xcode'
 
 const addCustomScroll = true // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
-const scrollLines = 14 // # of lines to scroll at a time (approx)
+const scrollLines = 14 // # of lines to scroll at a time (approx)(not very accurate. Adjust as needed)
 
 const autoSaveEnabled = true // Whether the autosave is called when the editor changes
-const autoSaveDelay = 5000 // in ms
+const autoSaveDelay = 30000 // in ms. After save, undo history is lost - need to use revision navigation at that point
 
 // how far the keybind modal needs to be dragged to be prevent commands from executing.
 // allows dragging without executing, and any small jitter while clicking will still count as a clicks
@@ -115,27 +115,33 @@ function addThemeDropdown(editor) {
 function rearrangeEditorElements() {
   // Hide the tabs navigation
   let tabNav = document.querySelector('.ui-tabs-nav');
-  tabNav.style.display = 'none';
-  document.querySelector('#tabs').style.paddingTop = '0px';
+  // tabNav.style.display = 'none';
+  document.querySelector('#tabs').style.paddingTop = '10px';
+
+  // edit the details tab
+  let detailsTab = document.querySelector('#tab-details');
+  detailsTab.style.float = 'left'; // Float to the left side
+  detailsTab.style.width = '60%';
+  detailsTab.style.marginTop = '0';
 
   // Show the preview tab permanently and reverse aria attributes
   let previewTab = document.querySelector('#tab-preview');
   previewTab.style.display = 'block';
   previewTab.style.marginRight = '2%';
   previewTab.style.float = 'right'; // Float to the right side
-  previewTab.style.width = '35%'; // Use 50% width
+  previewTab.style.width = '32%'; // Use 50% width
   previewTab.setAttribute('aria-expanded', 'true');
   previewTab.setAttribute('aria-hidden', 'false');
   previewTab.style.height = '100%'
+  previewTab.style.marginTop = '0';
   previewTab.children[0].style.height = '100%'
 
   // Adjust tab editor area
   let tabEditor = document.querySelector('#tab-editor');
   tabEditor.style.float = 'left'; // Float to the left side
-  tabEditor.style.width = '60%'; // Use 45% width
+  tabEditor.style.width = '60%';
   tabEditor.style.padding = '5px';
-
-
+  tabEditor.style.marginTop = '0';
 }
 
 function improveEditor() {
@@ -207,51 +213,61 @@ function improveEditor() {
 
       addPrettifyButton(editor);
 
+
+      autoUpdatePreview(editor)
       if (autoSaveEnabled) autoSave(editor, autoSaveDelay)
       if (addCustomScroll) addCustomScrolling(editor)
       if (addThemePreviewer) addThemeDropdown(editor)
       addRevisionButtons(editor);
       rearrangeEditorElements()
-      autoUpdatePreview(editor)
 
     }
   }
 }
 
-function autoUpdatePreview(updatedEditor) {
-  let scrollPosition = 0;
+let latestScrollPosition
+let isUpdatingScrollPosition = false;
 
+
+function autoUpdatePreview(updatedEditor) {
   // Get the iframe element
   const previewIframe = document.getElementsByName('preview')[0]; // Assuming there's only one element with name="preview"
-
+  let scrollPosition = previewIframe.contentWindow.scrollY;
   const previewButton = document.getElementById('refresh-preview');
+
+  if (isUpdatingScrollPosition) {
+    // console.log("Change was triggered by a save. Ignoring this change.");
+    return;
+  }
 
   // start the preview for the first time
   previewButton.click();
 
   // Listen for changes in the Ace editor content
   updatedEditor.session.on('change', function() {
-
+    isUpdatingScrollPosition = true
     // Save the current scroll position
     scrollPosition = previewIframe.contentWindow.scrollY;
+    latestScrollPosition = scrollPosition
 
-    // Refresh the preview
-    previewButton.click();
+    if (!isUpdatingScrollPosition) return
 
-    // After the refresh is complete, restore the scroll position
-    previewIframe.onload = function() {
-      previewIframe.contentWindow.scrollTo(0, scrollPosition);
-    };
+    // prevents jumping to top when scrollPosition is 0 for a split second
+    if (scrollPosition) {
+      // console.log('latest position: ', latestScrollPosition)
+      // Refresh the preview
+      previewButton.click();
+
+      // After the refresh is complete, restore the scroll position
+      previewIframe.onload = function() {
+        previewIframe.contentWindow.scrollTo(0, latestScrollPosition);
+      };
+    }
+
   });
+
 }
 
-// function autoUpdatePreview(updatedEditor){
-//     updatedEditor.session.on('change', function() {
-//     const previewButton = document.getElementById('refresh-preview')
-//     previewButton.click() // refreshes the preview - might prefer a raw POST to the previewer
-
-//   });
-// }
 
 function applyStyles(element, styles) {
   for (let property in styles) {
@@ -476,7 +492,7 @@ function populateModalWithCommands(editor, modal) {
 let saveTimeout
 let isSaving = false; // Flag to identify save-triggered changes
 
-function autoSave(updatedEditor, autoSaveDelay = 5000) {
+function autoSave(updatedEditor, autoSaveDelay = 30000) {
 
   updatedEditor.session.on('change', function() {
     // console.log("Change detected. State: ", isSaving);
@@ -634,7 +650,6 @@ function addRevisionButtons(editor) {
   if (revisionSelect) {
     revisionDisplay.innerText = revisionSelect.value;
   }
-  console.log(existingPrevButton, existingNextButton, existingPrevButton)
 
   if (existingPrevButton) return;
   // Insert the buttons before and after the btnRevisions element.
