@@ -3,9 +3,9 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/includes*
 // @grant       GM_addStyle
-// @version     1.2
+// @version     1.3
 // @author      Colin Whelan
-// @description Improve the editor experience for includes
+// @description Improve the editor experience for includes. only drawback is that each load counts as a change, so will be warned on each load while switching
 // ==/UserScript==
 
 // Default Options
@@ -131,20 +131,19 @@ function initAceEditor() {
 
   const loadSelect = document.getElementById('load');
 
-if (loadSelect) {
+  if (loadSelect) {
     loadSelect.addEventListener('change', function() {
-        const initialValue = htmlContent.value;
-        let intervalId = setInterval(function() {
-            // When the select value changes and after a delay, update the editor's value with the textarea's content
-            const htmlContentValue = htmlContent.value;
-            if (editor && htmlContentValue !== initialValue) {
-                editor.setValue(htmlContentValue);
-                clearInterval(intervalId); // Clear the interval once the value has changed
-            }
-        }, 100);
-    });
-}
+      const initialValue = htmlContent.value;
 
+      setInterval(function() {
+        // When the select value changes and after a delay, update the editor's value with the textarea's content
+        const htmlContentValue = htmlContent.value;
+        if (editor && htmlContentValue) {
+          editor.setValue(htmlContentValue);
+        }
+      }, 100);
+    });
+  }
 
   // Update the textarea's value whenever the editor's content changes
   editor.getSession().on('change', function() {
