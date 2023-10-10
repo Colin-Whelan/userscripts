@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/includes*
 // @grant       GM_addStyle
-// @version     1.3
+// @version     1.4
 // @author      Colin Whelan
 // @description Improve the editor experience for includes. only drawback is that each load counts as a change, so will be warned on each load while switching
 // ==/UserScript==
@@ -21,11 +21,37 @@ const lineHeight = fontSize * 1.3; // Height of each line in px
 let editor; // Ace Editor instance
 let iframe;
 
+let defaultIframeWidth = 800
+
 function loadAceEditor(callback) {
   const script = document.createElement('script');
   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.13/ace.js';
   script.onload = callback;
   document.head.appendChild(script);
+}
+
+function addWidthControlInput(defaultWidth) {
+  const label = document.createElement('label');
+  label.textContent = 'Preview Width: ';
+  document.getElementById('controls').appendChild(label);
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = defaultWidth;
+  input.style.width = '50px';
+  document.getElementById('controls').appendChild(input);
+
+  let timeoutId;
+
+  input.addEventListener('input', function() {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    timeoutId = setTimeout(function() {
+      iframe.style.width = input.value + 'px';
+    }, 700);
+  });
 }
 
 // Function to execute once the div is available
@@ -53,7 +79,8 @@ function rearrangeEditorElements() {
   tabContent.style.padding = '5px';
 
   iframe = document.querySelector('iframe[name="preview"]');
-  iframe.style.width = '640px'
+  iframe.style.width = `${defaultIframeWidth}px`
+  addWidthControlInput(defaultIframeWidth)
 
   addCustomStyles(`
         form label, .form label {
@@ -114,36 +141,35 @@ function updateIframeContent() {
 
 function initAceEditor() {
   const htmlContent = document.querySelector('#f_content_html');
-  // htmlContent.style.display = 'none'; // Hide the original textarea
+  htmlContent.style.display = 'none'; // Hide the original textarea
   const parentContainer = htmlContent.parentElement;
 
   // Create a new div for Ace Editor and set its size
   const editorDiv = document.createElement('div');
   editorDiv.style.width = '100%';
-  editorDiv.style.height = '600px'; // Adjust as per your requirements
+  editorDiv.style.height = '600px';
   htmlContent.parentNode.appendChild(editorDiv);
 
   editor = ace.edit(editorDiv);
   editor.setTheme("ace/theme/monokai");
   editor.getSession().setMode("ace/mode/html");
-  // editor.renderer.setShowGutter(true); // show line numbers
-
 
   const loadSelect = document.getElementById('load');
 
   if (loadSelect) {
     loadSelect.addEventListener('change', function() {
       const initialValue = htmlContent.value;
-
-      setInterval(function() {
+      let intervalId = setInterval(function() {
         // When the select value changes and after a delay, update the editor's value with the textarea's content
         const htmlContentValue = htmlContent.value;
-        if (editor && htmlContentValue) {
+        if (editor && htmlContentValue !== initialValue) {
           editor.setValue(htmlContentValue);
+          clearInterval(intervalId); // Clear the interval once the value has changed
         }
       }, 100);
     });
   }
+
 
   // Update the textarea's value whenever the editor's content changes
   editor.getSession().on('change', function() {
@@ -205,9 +231,12 @@ function initAceEditor() {
   });
 
 
-  editor.setValue(htmlContent.value);
   editorDiv.parentNode.appendChild(htmlContent);
 
+  setTimeout(function() {
+    editor.setValue(htmlContent.value);
+    console.log('htmlContent', htmlContent.value)
+  }, 500)
 
   console.log(editor)
 }
