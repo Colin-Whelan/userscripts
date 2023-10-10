@@ -577,7 +577,7 @@ function addCustomScrolling(editor) {
         targetScrollTop = editor.session.getScrollTop();
       }
 
-      targetScrollTop -= scrollAmount * fontSize * 0.417 * scrollLines;
+      targetScrollTop -= scrollAmount * fontSize * 0.117 * scrollLines;
 
       if (!isAnimatingScroll) {
         animateScroll();
