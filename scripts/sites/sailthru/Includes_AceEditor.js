@@ -15,13 +15,12 @@ const tabSize = 2 // spaces per tab
 const dragDelay = 0 // in ms. how long before dragging text will work
 const fontFamily = "Fira Code" // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false
+const defaultIframeWidth = 800
 
 const lineHeight = fontSize * 1.3; // Height of each line in px
 
 let editor; // Ace Editor instance
 let iframe;
-
-let defaultIframeWidth = 800
 
 function loadAceEditor(callback) {
   const script = document.createElement('script');
