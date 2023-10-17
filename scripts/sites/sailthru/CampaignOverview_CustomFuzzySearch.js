@@ -184,7 +184,7 @@ function populateModal(status, initial = false) {
         const clickRate = item.sent_count ? ((item.stats.total.clicks || 0) / item.sent_count * 100).toFixed(1) : '0.0';
 
 
-        console.log('item', item)
+        // console.log('item', item)
 
         row.innerHTML = `
             <td><b><a href="https://my.sailthru.com/blast?bid=${item.blast_id}#${item.blast_id}" target="_blank">${item.name}</a></b></td>
