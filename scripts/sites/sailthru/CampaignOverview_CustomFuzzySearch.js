@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name        Campaign Overview - Custom Fuzzy Search
+// @name        Campaign List - Custom Fuzzy Search
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/campaigns/overview*
 // @grant       GM_xmlhttpRequest
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds a fuzzy search filter for campaigns, makes searching past campaigns MUCH easier.
 // ==/UserScript==
@@ -29,10 +29,10 @@ function fetchSailthruCampaignInfo(status) {
 }
 
 
-// New functions
 function createSearchButton() {
     const topPanel = document.querySelector('.pn--TopPanel-topPanel--ACLkw');
-    if (topPanel) {
+    const existingButtonWrapper = document.querySelector('.ButtonDropdown__ButtonDropdownWrapper-sc-1jcg2ad-1');
+    if (topPanel && existingButtonWrapper) {
         const button = document.createElement('button');
         button.innerHTML = 'Advanced Search';
         button.id = 'advancedSearchButton';
@@ -55,10 +55,11 @@ function createSearchButton() {
             document.getElementById('searchModal').style.display = 'block';
         }
 
-        // Append the button to the top panel
-        topPanel.appendChild(button);
+        // Insert the button before the existing button wrapper
+        topPanel.insertBefore(button, existingButtonWrapper);
     }
 }
+
 
 
 function createModal(status) {
@@ -227,12 +228,17 @@ function populateModal(status, initial = false) {
 }
 
 
-// Fuzzy filtering function
+// Fuzzy filtering function - fuzzy but not across words. Treats spaces, underscores, and dashes as word separators.
 function fuzzyFilter(query, list, key) {
-    const reg = new RegExp(query.split('').join('.*'), 'i');
-    return list.filter(item => reg.test(item[key]));
-}
+    const words = query.split(/[\s-_]+/);
 
+    return list.filter(item => {
+        return words.every(word => {
+            const reg = new RegExp(word.split('').join('.*?'), 'i');
+            return item[key].split(/[\s-_]+/).some(part => reg.test(part));
+        });
+    });
+}
 
 function initializeAdvancedSearch() {
     const statusFromURL = window.location.hash.replace('#/', '').toLowerCase();
