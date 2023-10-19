@@ -2,8 +2,9 @@
 // @name        Email Composer - See Usage
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
+// @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds a button to show where the template is being used.
 // ==/UserScript==
@@ -27,6 +28,7 @@ function observeHeaderNavLinks() {
         btn.style.marginTop = '15px'; // space between the buttons
         btn.style.marginBottom = '15px'; // space between the buttons
         btn.style.backgroundColor = 'rgb(0, 169, 250)'; // set button color
+        btn.style.backgroundImage = 'none'; // set button color
         btn.style.border = 'none'; // remove border
         btn.style.borderRadius = '4px'; // round the edges
         btn.style.color = 'white'; // text color
@@ -34,7 +36,11 @@ function observeHeaderNavLinks() {
         btn.style.cursor = 'pointer'; // hand cursor on hover
         btn.style.outline = 'none'; // remove focus outline
         btn.style.transition = 'opacity 0.2s'; // smooth transition
-        btn.addEventListener('click', () => window.location.href = window.location.href + '/usage/');
+        const idMatch = window.location.href.match(/(\d+)/);
+        if (idMatch) {
+            const id = idMatch[1];
+            btn.addEventListener('click', () => window.location.href = `https://my.sailthru.com/email-composer/${id}/usage`);
+        }
         btn.onmouseover = () => btn.style.opacity = '0.7'; // reduce opacity on hover for a hover effect
         btn.onmouseout = () => btn.style.opacity = '1'; // revert opacity on mouse out
 
