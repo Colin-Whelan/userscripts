@@ -45,7 +45,7 @@ let showStructureByDefault = true;
     const interval = setInterval(() => {
         if (typeof beePluginInstance !== 'undefined' && document.querySelector('#bee_plugin_container')) {
 
-            addButton('Toggle Outline', () => beePluginInstance.toggleStructure());
+            addButton('Toggle Outline', () => beePluginInstance.toggleStructure());
             // Native preview lets you preview with user data
             // addButton('Toggle Preview', () => beePluginInstance.togglePreview());
             //
