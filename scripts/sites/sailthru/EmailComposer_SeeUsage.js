@@ -23,7 +23,7 @@ function observeHeaderNavLinks() {
         if (buttonAdded) return;  // Exit if button is already added
 
         const btn = document.createElement('button');
-        btn.textContent = 'Template Usage';
+        btn.textContent = 'Template Usage';
         btn.style.marginLeft = '5px'; // space between the buttons
         btn.style.marginTop = '15px'; // space between the buttons
         btn.style.marginBottom = '15px'; // space between the buttons
