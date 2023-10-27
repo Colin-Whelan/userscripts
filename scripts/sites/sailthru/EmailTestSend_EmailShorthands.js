@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
-// @version     1.0
+// @version     1.3
 // @author      -
 // @description Adds a dropdown of emails for an easier time sending tests. Will add an extra '_' at the end that must be removed -> due to how React handles the event changes, at least some manual update is required.
 // ==/UserScript==
@@ -188,15 +188,19 @@ const observerCallback = (mutationsList) => {
     for (let mutation of mutationsList) {
         if (mutation.type === 'childList') {
             const emailComposerModal = document.querySelector('.Modal__ModalContent-sc-yak2d3-2.LrNYw');
-            if (emailComposerModal) {
+            const emailComposerTestSendLabel = document.querySelector('.Label__StyledLabel-sc-bt5v7q-0.ljJkNT');
+
+            if (emailComposerModal && emailComposerTestSendLabel.textContent == 'Email') {
               injectDropdownForPage(emailComposerModal, '.Input-sc-18zl22b-0.lcngyG', true);
             }
+
             const campaignDesignModal = document.querySelector('.test_send_popup');
             if (campaignDesignModal) {
               injectDropdownForPage(campaignDesignModal, '.test-email-input');
             }
             const htmlComposerModal = document.querySelector('.ui-dialog.ui-widget.ui-widget-content.ui-corner-all.ui-front.ui-draggable.ui-resizable');
-            if (htmlComposerModal) {
+            const htmlComposerInputField = document.querySelector('#test-email');
+            if (htmlComposerModal && htmlComposerInputField) {
               injectDropdownForPage(htmlComposerModal, '#test-email');
             }
         }
