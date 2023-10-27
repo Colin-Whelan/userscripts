@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
-// @version     1.3
+// @version     1.4
 // @author      -
 // @description Adds a dropdown of emails for an easier time sending tests. Will add an extra '_' at the end that must be removed -> due to how React handles the event changes, at least some manual update is required.
 // ==/UserScript==
@@ -55,8 +55,6 @@ function checkForUnderscoreAndUpdateUI(modal) {
   const sendButton = modal.querySelector('.Button__ButtonWrapper-sc-49mtrn-0.ckGjOY');
   const emailInput = modal.querySelector('.Input-sc-18zl22b-0.lcngyG');
 
-  console.log('emailInput', modal)
-
   if (emailInput.value.includes("_")) {
     sendButton.setAttribute('disabled', true);
     sendButton.style.backgroundColor = '#cccccc'; // Gray out the button
@@ -70,7 +68,7 @@ function checkForUnderscoreAndUpdateUI(modal) {
   }
 }
 
-function createDropdown(emailInput, selector, addUnderscore = false) {
+function createDropdown(emailInput, selector, addUnderscore = false, inputContainer) {
   // Create the label and container for the dropdown
   const dropdownLabel = document.createElement('div');
   dropdownLabel.textContent = "Choose Shorthand...";
@@ -80,30 +78,7 @@ function createDropdown(emailInput, selector, addUnderscore = false) {
   const dropdownContainer = document.createElement('div');
   dropdownContainer.classList.add('custom-dropdown');
 
-  // Add the options to the dropdown
-  for (let shorthand in emailConfigs) {
-    const item = document.createElement('div');
-    item.classList.add('dropdown-item');
-    item.innerHTML = `<span>${formatShorthand(shorthand)}</span> <span class="preview">${truncateEmails(emailConfigs[shorthand])}</span>`;
-
-    item.addEventListener('click', () => {
-      emailInput.value = addUnderscore ? emailConfigs[shorthand] + "_" : emailConfigs[shorthand];
-      dropdownContainer.style.display = 'none';
-      dropdownLabel.textContent = formatShorthand(shorthand);
-      if (addUnderscore) {
-        checkForUnderscoreAndUpdateUI(document.querySelector('.Modal__ModalContent-sc-yak2d3-2.LrNYw'));
-        emailInput.focus();
-        emailInput.addEventListener('input', () => {
-          checkForUnderscoreAndUpdateUI(document.querySelector('.Modal__ModalContent-sc-yak2d3-2.LrNYw'));
-        })
-      }
-    });
-
-    dropdownContainer.appendChild(item);
-  }
-
-  // Start collapsed
-  dropdownContainer.style.display = 'none';
+  let emailInputLocation
 
   // HTML Editor
   if(selector.toString() == '#test-email') {
@@ -114,6 +89,48 @@ function createDropdown(emailInput, selector, addUnderscore = false) {
   else if(selector.toString() == '.test-email-input') {
     dropdownLabel.style.width = '75%'
   }
+  // Confirmation Emails
+  else if(selector.toString() == '.TextComponentView') {
+    dropdownLabel.style.width = '80%'
+    emailInputLocation = emailInput.querySelector('.report_email')
+  } else {
+    emailInputLocation = emailInput
+  }
+
+  // Add the options to the dropdown
+  for (let shorthand in emailConfigs) {
+    const item = document.createElement('div');
+    item.classList.add('dropdown-item');
+    item.innerHTML = `<span>${formatShorthand(shorthand)}</span> <span class="preview">${truncateEmails(emailConfigs[shorthand])}</span>`;
+
+    item.addEventListener('click', () => {
+      emailInputLocation.value = addUnderscore ? emailConfigs[shorthand] + "_" : emailConfigs[shorthand];
+      dropdownContainer.style.display = 'none';
+      dropdownLabel.textContent = formatShorthand(shorthand);
+      if (addUnderscore) {
+        checkForUnderscoreAndUpdateUI(inputContainer);
+        emailInputLocation.focus();
+        emailInputLocation.addEventListener('input', () => {
+          checkForUnderscoreAndUpdateUI(inputContainer);
+        })
+      }
+
+      if(selector.toString() == '.TextComponentView') {
+        // Makes the save button clickable
+        document.getElementsByClassName('save_btn')[0].classList.remove("saved");
+        document.getElementsByClassName('save_btn')[0].querySelector('.action_label').textContent = "Save";
+      }
+    });
+
+    dropdownContainer.appendChild(item);
+  }
+
+  // Start collapsed
+  dropdownContainer.style.display = 'none';
+
+  // Insert the dropdown in the DOM
+  emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownLabel);
+  emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownContainer);
 
   // Handle the dropdown display on various events
   dropdownLabel.addEventListener('click', () => {
@@ -125,25 +142,24 @@ function createDropdown(emailInput, selector, addUnderscore = false) {
       dropdownContainer.style.display = 'none';
     }
   });
-
-  // Insert the dropdown in the DOM
-  emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownLabel);
-  emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownContainer);
 }
 
 function injectDropdownForPage(modal, selector, addUnderscore = false) {
+
   // Check if the dropdown has already been added
-  if (modal.getAttribute('data-custom-dropdown-injected')) return;
+  if (modal.getAttribute(`data-custom-dropdown-injected_${selector}`)) {
+    return
+  };
 
   // Find the email input field
   const emailInput = modal.querySelector(selector);
   if (!emailInput) return;
 
   // Create and insert the dropdown
-  createDropdown(emailInput, selector, addUnderscore);
+  createDropdown(emailInput, selector, addUnderscore, modal);
 
   // Mark the modal as having the dropdown
-  modal.setAttribute('data-custom-dropdown-injected', 'true');
+  modal.setAttribute(`data-custom-dropdown-injected_${selector}`, 'true');
 }
 
 // Inject styles for the dropdown items and the preview
@@ -194,14 +210,20 @@ const observerCallback = (mutationsList) => {
               injectDropdownForPage(emailComposerModal, '.Input-sc-18zl22b-0.lcngyG', true);
             }
 
-            const campaignDesignModal = document.querySelector('.test_send_popup');
-            if (campaignDesignModal) {
-              injectDropdownForPage(campaignDesignModal, '.test-email-input');
-            }
             const htmlComposerModal = document.querySelector('.ui-dialog.ui-widget.ui-widget-content.ui-corner-all.ui-front.ui-draggable.ui-resizable');
             const htmlComposerInputField = document.querySelector('#test-email');
             if (htmlComposerModal && htmlComposerInputField) {
               injectDropdownForPage(htmlComposerModal, '#test-email');
+            }
+
+            const campaignDesignModal = document.querySelector('.test_send_popup');
+            if (campaignDesignModal) {
+              injectDropdownForPage(campaignDesignModal, '.test-email-input');
+            }
+
+            const campaignScheduleConfirmationBox = document.querySelector('.schedule_emails.TitledView');
+            if (campaignScheduleConfirmationBox) {
+              injectDropdownForPage(campaignScheduleConfirmationBox, '.TextComponentView');
             }
         }
     }
