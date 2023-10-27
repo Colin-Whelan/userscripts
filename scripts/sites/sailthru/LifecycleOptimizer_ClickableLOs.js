@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/lifecycle_optimizer*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Makes LOs clickable like normal, middle/right click to open in new tab/window
 // @grant       GM_xmlhttpRequest
@@ -38,7 +38,7 @@
         const matchingObject = dataCache.find(obj => obj.name === rowName);
         if (matchingObject) {
           const url = `https://my.sailthru.com/lifecycle_optimizer#/flows/${matchingObject.id}`;
-          nameDiv.innerHTML = `<a href="${url}" target="_blank" style="color: #555; font-weight: bold;">${rowName}</a>`;
+          nameDiv.innerHTML = `<a href="${url}" style="color: #555; font-weight: bold;">${rowName}</a>`;
           nameDiv.style.lineHeight = '48px'
         }
       }
@@ -58,7 +58,7 @@
     for (const mutation of mutations) {
       if (mutation.type === 'childList') {
         setTimeout(linkRowNamesToUrls, 800)
-        break; // Exit loop once we've handled the update
+        break; // Exit loop once handled the update
       }
     }
   });
