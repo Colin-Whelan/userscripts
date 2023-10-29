@@ -2,13 +2,33 @@
 // @name        Templates List - Custom Fuzzy Search
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
-// @version     1.5
+// @version     1.7
 // @author      Colin Whelan
-// @description Adds an improved fuzzy search filter for templates + shows more template info + allows for searching of all text fields.
+// @grant       GM_xmlhttpRequest
+// @description Adds an improved fuzzy search filter for templates + shows more template info + allows for searching of all text fields + show template usage for all templates.
 // @require     https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js
 // ==/UserScript==
 
-// New functions
+let usageDataStore = {};
+
+function getTemplateUsageData(item, callback) {
+    const usageURL = `https://my.sailthru.com/uiapi/lifecycle/?template_id=${item._id}`;
+
+    if (usageDataStore[item._id]) {
+        callback(usageDataStore[item._id]);
+    } else {
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: usageURL,
+            onload: function(response) {
+                const data = JSON.parse(response.responseText);
+                usageDataStore[item._id] = data;
+                callback(data);
+            }
+        });
+    }
+}
+
 function createSearchButton() {
     const topPanel = document.querySelector('.src__MainPanel-sc-13rfh6b-0');
     if (topPanel) {
@@ -94,7 +114,7 @@ function createModal(status) {
     modalContent.style.margin = '5% auto auto auto';
     modalContent.style.padding = '0px 20px 20px 20px';
     modalContent.style.width = '95%';
-    modalContent.style.height = '80%';
+    modalContent.style.height = '90%';
     modalContent.style.overflowY = 'auto'; // Add scroll for overflow
 
     // Style the close button
@@ -145,7 +165,7 @@ function populateModal(status, initial = false) {
     border: 1px solid #ccc;
     border-radius: 5px;
     margin: 10px;
-    padding: 15px;
+    padding: 15px 15px 5px 15px;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
     transition: box-shadow 0.3s;
 }
@@ -171,7 +191,6 @@ function populateModal(status, initial = false) {
 .envelope-details,
 .modify-create {
     padding: 10px 0;
-    border-bottom: 1px solid #f1f1f1;
 }
 .envelope-details b,
 .modify-create b {
@@ -179,6 +198,11 @@ function populateModal(status, initial = false) {
 }
 .card-section {
     padding: 10px;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.card-section:last-child {
+    border-bottom: none;
 }
 
 .labels-container {
@@ -295,7 +319,6 @@ a.tooltip:hover span {
     top: 15px;
     text-decoration: none;
 }
-
         `;
 
         document.head.appendChild(style);
@@ -304,7 +327,9 @@ a.tooltip:hover span {
     const input = document.getElementById('searchInput');
     const query = initial ? '' : input.value.toLowerCase(); // if initial load, set query to empty
 
-    const results = fuzzyFilter(query, sailthruTemplates.templates, 'templateName');
+    const searchField = document.getElementById('searchField').value;
+
+    const results = fuzzyFilter(query, sailthruTemplates.templates);
 
     const resultsDiv = document.getElementById('searchResults');
 
@@ -313,7 +338,6 @@ a.tooltip:hover span {
     const cardContainer = document.createElement('div');
     cardContainer.className = 'card-container';
     resultsDiv.appendChild(cardContainer);
-
 
     results.forEach(item => {
         const card = document.createElement('div');
@@ -341,15 +365,46 @@ a.tooltip:hover span {
                 <div><b>Created By:</b> ${item.create_user ? item.create_user : "null (Copy/API)"}</div>
             </div>
             <div class="card-section labels">
-                <b>${item.labels_string.length > 0 ? 'Labels' : 'No labels'}</b>
-                <br>&nbsp;
+                <div style="margin-bottom: 5px;">
+                  <b>${item.labels_string.length > 0 ? 'Labels' : 'No labels'}</b>
+                </div>
                 <div>
                     ${item.labels_string.length > 0 ? labelsHTML : ''}
                 </div>
             </div>
-        `;
+            <div class="card-section">
+                <div style="margin-bottom: 15px;">
+                    <b>Template Usage</b>
+                </div>
+                <div id="usageFlag">
 
+                </div>
+            </div>
+        `;
         cardContainer.appendChild(card);
+
+        getTemplateUsageData(item, function(data) {
+            const count = data.length;
+            const hrefURL = `https://my.sailthru.com/email-composer/${item._id}/usage`;
+
+            const flagElement = document.createElement('a');
+            flagElement.href = hrefURL;
+            flagElement.textContent = `${count} LO${count == 1 ?  '' : 's'}`;
+            flagElement.classList.add('usageFlag');
+            flagElement.style.backgroundColor = count > 0 ?  '#e8253b' : '#34c132'; // red - green
+
+            flagElement.onmouseover = () => flagElement.style.backgroundColor = count > 0 ?  '#BA1E2F' : '#2C9A28'; // Darker on hover
+            flagElement.onmouseout = () => flagElement.style.backgroundColor = count > 0 ?  '#e8253b' : '#34c132'; // Original on mouse out
+
+            flagElement.style.color = 'white';
+            flagElement.style.fontSize = '16px';
+            flagElement.style.borderRadius = '10px';
+            flagElement.style.padding = '5px 10px';
+            flagElement.style.marginRight = '10px';
+
+            card.querySelector('#usageFlag').appendChild(flagElement);
+        });
+
 
         // Get all the details preview and envelope details elements
         const detailsPreviews = document.querySelectorAll('.details-preview');
