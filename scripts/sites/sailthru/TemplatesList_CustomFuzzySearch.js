@@ -2,32 +2,11 @@
 // @name        Templates List - Custom Fuzzy Search
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
-// @grant       GM_xmlhttpRequest
-// @version     1.0
+// @version     1.5
 // @author      Colin Whelan
-// @description Adds a fuzzy search filter for templates, makes searching templates much easier by removing extra results.
+// @description Adds an improved fuzzy search filter for templates + shows more template info + allows for searching of all text fields.
+// @require     https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js
 // ==/UserScript==
-
-// Existing part of your userscript
-let allTemplateInfo = {}
-
-function fetchSailthruTemplateInfo(status) {
-    return new Promise((resolve, reject) => {
-        GM_xmlhttpRequest({
-            method: "GET",
-            url: "https://my.sailthru.com/uiapi/templates",
-            onload: function(response) {
-                allTemplateInfo = JSON.parse(response.responseText);
-                resolve();
-            },
-            onerror: function(error) {
-                console.error('Failed to fetch data:', error);
-                reject(error);
-            }
-        });
-    });
-}
-
 
 // New functions
 function createSearchButton() {
@@ -49,13 +28,9 @@ function createSearchButton() {
         button.style.marginLeft = '10px';
         button.style.cursor = 'pointer';
 
-        button.onclick = function() {
+        button.onclick = function () {
             const status = window.location.hash.replace('#/', '').toLowerCase();
-
-            fetchSailthruTemplateInfo(status).then(() => {
-                populateModal(status); // populate the modal with all templates
-            });
-
+            populateModal()
             document.getElementById('searchModal').style.display = 'block';
         }
 
@@ -64,7 +39,6 @@ function createSearchButton() {
         buttonContainer.appendChild(button);
     }
 }
-
 
 function createModal(status) {
     const modal = document.createElement('div');
@@ -81,14 +55,33 @@ function createModal(status) {
 
     modal.innerHTML = `
     <div class="modal-content">
-        <span class="close">&times;</span>
-        <input type="text" id="searchInput" placeholder="Search..."/>
+        <div class="search-container">
+          <span style="font-size: 16px; margin-left: 10px;">Search Field: </span>
+          <div class="select-wrapper">
+              <select id="searchField">
+                    <option value="name">Name</option>
+                    <!-- Add other fields as options -->
+                    <option value="labels_string">Labels</option>
+                    <option value="modify_user">Modified By</option>
+                    <option value="create_user">Created By</option>
+                    <option value="subject">Subject Line</option>
+                    <option value="preheader">Preheader</option>
+                    <option value="from_name">From Name</option>
+                    <option value="from_email">From Email</option>
+                    <option value="replyto_email">Reply-to</option>
+                </select>
+          </div>
+          <input type="text" id="searchInput" placeholder="Search..."/>
+          <span class="close">&times;</span>
+        </div>
         <div id="searchResults"></div>
     </div>`;
 
     const searchInput = modal.querySelector('#searchInput');
-    searchInput.style.width = '100%';
-    searchInput.style.padding = '12px 20px';
+    searchInput.style.width = '80%';
+    searchInput.style.fontSize = '18px';
+    searchInput.style.lineHeight = '24px';
+    searchInput.style.padding = '9px 15px';
     searchInput.style.margin = '8px 0';
     searchInput.style.boxSizing = 'border-box';
     searchInput.style.border = '2px solid #ccc';
@@ -97,9 +90,10 @@ function createModal(status) {
     // Style the modal content
     const modalContent = modal.querySelector('.modal-content');
     modalContent.style.backgroundColor = '#fff';
+    modalContent.style.borderRadius = '20px';
     modalContent.style.margin = '5% auto auto auto';
-    modalContent.style.padding = '20px';
-    modalContent.style.width = '90%';
+    modalContent.style.padding = '0px 20px 20px 20px';
+    modalContent.style.width = '95%';
     modalContent.style.height = '80%';
     modalContent.style.overflowY = 'auto'; // Add scroll for overflow
 
@@ -107,28 +101,30 @@ function createModal(status) {
     const closeButton = modal.querySelector('.close');
     closeButton.style.color = '#aaa';
     closeButton.style.float = 'right';
-    closeButton.style.fontSize = '28px';
+    closeButton.style.fontSize = '36px';
     closeButton.style.cursor = 'pointer';
+    closeButton.style.marginLeft = '10px';
+    closeButton.style.backgroundColor = '#fff';
 
     // Add the modal to the body
     document.body.appendChild(modal);
 
     // Close button functionality
-    closeButton.onclick = function() {
-        modal.style.display = 'none';
-
-        // Reset the table header row
-        document.querySelector('.src__TableHead-sc-1epr26z-1').style.display = 'table-header-group'
+    closeButton.onclick = function () {
+        closeModal()
     };
+
+    document.addEventListener('click', function (event) {
+        const modal = document.getElementsByClassName('modal-content')[0];
+        if (modal && modal.parentNode.style.display === 'block' && event.srcElement.id != 'advancedSearchButton' && !modal.contains(event.target)) {
+            closeModal();
+        }
+    });
 
     // Attach the event listener for future input changes
     document.getElementById('searchInput').addEventListener('input', () => populateModal(status));
-
-
-
-
+    document.getElementById('searchField').addEventListener('change', () => populateModal(status));
 }
-
 
 function populateModal(status, initial = false) {
     document.querySelector('.src__TableHead-sc-1epr26z-1').style.display = 'none'
@@ -136,112 +132,324 @@ function populateModal(status, initial = false) {
     if (!document.getElementById('customTableStyles')) {
         const style = document.createElement('style');
         style.id = 'customTableStyles';
-        style.innerHTML = `
-        #resultsTable {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: Arial, sans-serif;
-        }
-        #resultsTable th, #resultsTable td {
-            border: 1px solid #dddddd;
-            padding: 12px;
-            text-align: left;
-        }
-        #resultsTable th {
-            border-bottom: 3px solid #bbb;
-        }
-        #resultsTable tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-    `;
+        style.innerHTML += `
+.card-container {
+    display: flex;
+    flex-wrap: wrap;
+}
+.card {
+    flex: 1 1 360px;
+    min-width: 360px;
+    max-width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin: 10px;
+    padding: 15px;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    transition: box-shadow 0.3s;
+}
+.card:hover {
+    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+}
+.card-header {
+    font-size: 18px;
+    background-color: #f9f9f9;
+    border-radius: 5px 5px 0 0;
+}
+.card-header a {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    word-wrap: break-word;
+}
+.card-section.header a:hover {
+    text-decoration: underline;
+}
+.envelope-details,
+.modify-create {
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f1f1;
+}
+.envelope-details b,
+.modify-create b {
+    font-size: 15px;
+}
+.card-section {
+    padding: 10px;
+}
+
+.labels-container {
+    padding: 8px 16px; /* 8px top/bottom, 16px left/right. Adjust as needed */
+}
+.customLabel {
+    display: inline-block;
+    white-space: nowrap;
+    color: white;
+    padding: 5px;
+    margin: 2px; /* This will add space to the right, left, top, and bottom of each label */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    border-radius: 5px;
+}
+modal-content div {
+    display: flex;
+    align-items: center;
+}
+.search-container {
+    display: flex;
+    align-items: center;
+    position: -webkit-sticky; /* For Safari */
+    position: sticky;
+    top: 0;
+    z-index: 1000; /* This ensures the container stays on top of other content */
+    background-color: white; /* To make sure it doesn't become transparent against other content */
+    padding: 15px 0;
+    border-bottom: 3px solid #ccc;
+    margin-bottom: 10px;
+}
+#searchInput {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    margin-right: 10px;
+}
+.select-wrapper {
+    position: relative;
+    display: inline-block;
+}
+#searchField {
+    appearance: none; /* Removes default OS styling */
+    padding: 12px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    cursor: pointer;
+    outline: none;
+    margin: 0 10px;
+    min-width: 130px;
+    font-size: 15px;
+}
+#searchField:focus {
+    border-color: #007bff;
+}
+.select-wrapper::after {
+    content: "🞃";
+    position: absolute;
+    right: 25px;
+    top: 40%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 18px;
+}
+.hover-details {
+    display: none;
+    position: fixed;
+    background: #f9f9f9;
+    border: 1px solid #ccc;
+    padding: 10px;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    max-width: 300px;
+    pointer-events: auto;
+}
+.details-preview:hover + .hover-details,
+.hover-details:hover {
+    display: block;
+}
+.details-preview:hover + .hover-details {
+    top: calc(50% - 150px);
+    left: 50%;
+    transform: translateX(-50%);
+}
+a.tooltip {
+    border-bottom: 1px dashed;
+    text-decoration: none;
+    color: #333;
+}
+a.tooltip:hover {
+    cursor: help;
+    color: #333;
+    position: relative;
+}
+a.tooltip span {
+    display: none;
+}
+a.tooltip:hover span {
+    border: #666 2px dotted;
+    padding: 5px 20px 5px 5px;
+    display: block;
+    z-index: 100;
+    background: #f9f9f9;
+    border: 1px solid #ccc;
+    padding: 10px;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    left: 0px;
+    margin: 15px;
+    width: 300px;
+    position: absolute;
+    top: 15px;
+    text-decoration: none;
+}
+
+        `;
+
         document.head.appendChild(style);
     }
 
     const input = document.getElementById('searchInput');
     const query = initial ? '' : input.value.toLowerCase(); // if initial load, set query to empty
-    let filteredCampaigns = allTemplateInfo.items;
-    // console.log(allTemplateInfo)
-    const results = fuzzyFilter(query, allTemplateInfo, 'name');
 
-    // console.log('searchInput', query)
-    // console.log('results', results)
+    const results = fuzzyFilter(query, sailthruTemplates.templates, 'templateName');
 
     const resultsDiv = document.getElementById('searchResults');
-    resultsDiv.innerHTML = `
-        <table id="resultsTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Subject</th>
-                    <th width="160px">Last Updated</th>
-                    <th>Lables</th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>`;
 
-    const tbody = resultsDiv.querySelector('tbody');
+    resultsDiv.innerHTML = ''; // Clearing the div
+
+    const cardContainer = document.createElement('div');
+    cardContainer.className = 'card-container';
+    resultsDiv.appendChild(cardContainer);
+
 
     results.forEach(item => {
-        const row = document.createElement('tr');
+        const card = document.createElement('div');
+        card.className = 'card';
+        const labelsHTML = generateLabelHTML(item.labels_string); // Assuming labels_string is a property of item
 
-        // console.log('item', item)
-
-        row.innerHTML = `
-            <td><b><a href="https://my.sailthru.com/email-composer/${item.template_id}" target="_blank">${item.name}</a></b></td>
-            <td>${item.subject}</td>
-            <td>${item.modify_time}</td>
-            <td>${item.labels ? item.labels.join(', ') : ''}</td>
+        card.innerHTML = `
+            <div class="card-section card-header">
+                <a href="https://my.sailthru.com/email-composer/${item._id}" target="_blank" title="${item.name}"><b>${item.name}</b></a>
+            </div>
+            <div class="card-section">
+                <a href="#" class="tooltip">Hover for Envelope details
+                  <span class="hover-details">
+                    <div><b>SL:</b> ${item.subject}</div>
+                    <div><b>PH:</b> ${item.preheader}</div>
+                    <div><b>From:</b> ${item.from_name} - ${item.from_email}</div>
+                    <div><b>Reply to:</b> ${item.replyto_email}</div>
+                  </span>
+                </a>
+            </div>
+            <div class="card-section modify-create">
+                <div><b>Last Modified:</b> ${moment(item.modify_time).format('MMMM Do YYYY, h:mm:ss a')}</div>
+                <div><b>Last Modified By:</b> ${item.modify_user}</div>
+                <div><b>Created:</b> ${moment(item.create_time.sec * 1000).format('MMMM Do YYYY, h:mm:ss a')}</div>
+                <div><b>Created By:</b> ${item.create_user ? item.create_user : "null (Copy/API)"}</div>
+            </div>
+            <div class="card-section labels">
+                <b>${item.labels_string.length > 0 ? 'Labels' : 'No labels'}</b>
+                <br>&nbsp;
+                <div>
+                    ${item.labels_string.length > 0 ? labelsHTML : ''}
+                </div>
+            </div>
         `;
-        tbody.appendChild(row);
+
+        cardContainer.appendChild(card);
+
+        // Get all the details preview and envelope details elements
+        const detailsPreviews = document.querySelectorAll('.details-preview');
+        const hoverDetails = document.querySelectorAll('.hover-details');
+
+        detailsPreviews.forEach((preview, index) => {
+            // Show envelope details on hover
+            preview.addEventListener('mouseover', () => {
+                hoverDetails[index].style.display = 'block';
+            });
+
+            // Hide envelope details when mouse leaves
+            preview.addEventListener('mouseout', () => {
+                hoverDetails[index].style.display = 'none';
+            });
+        });
+
+        // Ensure that envelope details remain visible even when hovering over them
+        hoverDetails.forEach((details, index) => {
+            details.addEventListener('mouseover', () => {
+                details.style.display = 'block';
+            });
+
+            details.addEventListener('mouseout', () => {
+                details.style.display = 'none';
+            });
+        });
+
+        $('.details-preview').on('mouseenter', function () {
+            var id = $(this).data('id'); // Get the id
+            var offset = $(this).offset(); // Get the offset of the current .details-preview
+            var hoverDetail = $('.hover-details[data-id="' + id + '"]');
+
+            // Set the position of the .hover-details
+            hoverDetail.css({
+                'top': offset.top - $(window).scrollTop() + 'px',
+                'left': offset.left + 'px'
+            });
+        });
+
     });
+}
 
-    // Style the table
-    const resultsTable = document.getElementById('resultsTable');
-    resultsTable.style.width = '100%';
-    resultsTable.style.borderCollapse = 'collapse';
-    // resultsTable.style.border = '2px solid #1a1a1a';
+function closeModal() {
+    const modal = document.getElementById('searchModal');
+    modal.style.display = 'none';
 
-    const ths = resultsTable.querySelectorAll('th');
-    ths.forEach(th => {
-        // th.style.backgroundColor = '#00A2BE';
-        th.style.color = 'black';
-        th.style.padding = '14px';
-        th.style.textAlign = 'left';
-    });
+    // Reset the table header row
+    document.querySelector('.src__TableHead-sc-1epr26z-1').style.display = 'table-header-group'
+}
 
-    const tds = resultsTable.querySelectorAll('td');
-    tds.forEach(td => {
-        // td.style.border = '2px solid #1a1a1a';
-        td.style.padding = '14px';
-    });
+function generateLabelHTML(labels_string) {
+    const labelsArray = labels_string.split(',').map(label => label.trim());
 
+    function stringToColor(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        let color = '#';
+        for (let i = 0; i < 3; i++) {
+            let value = (hash >> (i * 8)) & 0xFF;
+            color += ('00' + value.toString(16)).substr(-2);
+        }
+        return color;
+    }
 
+    return labelsArray.map(label => `<span class="customLabel" style="background-color: ${stringToColor(label)};">${label}</span>`).join('');
 }
 
 
 // Fuzzy filtering function
-function fuzzyFilter(query, list, key) {
-    const words = query.split(/[\s-_]+/);
-
+function fuzzyFilter(query, list) {
+    const searchField = document.getElementById('searchField').value;
     return list.filter(item => {
-        return words.every(word => {
-            const reg = new RegExp(word.split('').join('.*?'), 'i');
-            return item[key].split(/[\s-_]+/).some(part => reg.test(part));
-        });
+        if (!item.hasOwnProperty(searchField)) {
+            return false; // Skip items that don't have the desired field
+        }
+        const value = item[searchField] ? item[searchField].toString() : ''; // Convert the item's field value to string
+        let regex
+
+        if (searchField == 'subject' || searchField == 'preheader') {
+            // subject and preheader use whole word search
+            regex = new RegExp(query.split(' ').join('.*'), 'i');
+        } else if (searchField == 'modify_user' || searchField == 'create_user') {
+            // modify_user and create_user split on the @ so they are treated separately
+            regex = new RegExp(query.split('@').join('.*'), 'i');
+        } else {
+            // default is the very fuzzy search
+            regex = new RegExp(query.split('').join('.*'), 'i');
+        }
+
+        return value.match(regex);
     });
 }
 
 
-
 function initializeAdvancedSearch() {
-    // const statusFromURL = window.location.hash.replace('#/', '').toLowerCase();
-
-
     createSearchButton();
     createModal();
-
 }
 
 // Mutation Observer
@@ -251,7 +459,6 @@ const templateListObserver = new MutationObserver((mutations, templateListObserv
             for (const node of mutation.addedNodes) {
                 if (node.nodeType === Node.ELEMENT_NODE) {
                     if (node.querySelector('.ais-InstantSearch__root') || node.classList.contains('ais-InstantSearch__root')) {
-                      console.log('starting initializeAdvancedSearch')
                         initializeAdvancedSearch();
                         templateListObserver.disconnect(); // Stop observing once the target is found
                         return;
