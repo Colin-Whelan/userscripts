@@ -2,9 +2,9 @@
 
 These are my collection of userscripts that I use with [Violent Monkey](https://violentmonkey.github.io/) to enhance websites I use. 
 
-Feel free to copy or modify as you like.
+Please be aware that these user scripts are dependent on the current structure of the vendor websites they interact with. If these sites update, the scripts may break or fail to function as intended.
 
-- Grouped by the site they are used on
+Feel free to copy or modify as you like.
 
 ## Adding Scripts
 
@@ -34,3 +34,7 @@ By default, enabled scripts will update every day.
 
 If this is disabled, or you want to check more often, head to the dashboard and click the refresh button in the top left, or the one each script to only check one at a time.
 If an update is found, the script will automatically update.
+
+## Reporting Issues
+
+If you encounter any issues, please report them. I will do my best to address and fix them in a timely manner.
