@@ -95,30 +95,35 @@ const injectButton = () => {
             const dataRows = Array.from(document.querySelectorAll('[role="row"]')).slice(1);
 
             dataRows.forEach(row => {
-                const cell = document.createElement('div');
-                cell.setAttribute('role', 'cell');
-                cell.setAttribute('style', 'box-sizing: border-box; flex: 1 0 auto; min-width: 0px; width: 1px;');
-                cell.style.width = '20%';
+              if (!row.querySelector('.template-cell')) {
+                  const cell = document.createElement('div');
+                  cell.setAttribute('role', 'cell');
+                  cell.setAttribute('style', 'box-sizing: border-box; flex: 1 0 auto; min-width: 0px; width: 1px;');
+                  cell.style.width = '20%';
 
-                const loName = row.querySelector('div[role="cell"]').textContent.trim();
-                if (templateDetails[loName]) {
-                    templateDetails[loName].forEach(template => {
-                        const templateLink = document.createElement('a');
-                        templateLink.href = `https://my.sailthru.com/email-composer/${template.templateId}`;
-                        templateLink.textContent = template.templateName;
-                        templateLink.target = '_blank';
-                        cell.appendChild(templateLink);
+                  const loName = row.querySelector('div[role="cell"]').textContent.trim();
+                  if (templateDetails[loName]) {
+                      templateDetails[loName].forEach(template => {
+                          const templateLink = document.createElement('a');
+                          templateLink.href = `https://my.sailthru.com/email-composer/${template.templateId}`;
+                          templateLink.textContent = template.templateName;
+                          templateLink.target = '_blank';
+                          cell.appendChild(templateLink);
 
-                        // Add a line break after each template link
-                        cell.appendChild(document.createElement('br'));
-                    });
-                } else {
-                    cell.innerHTML = 'No linked template';
-                }
+                          // Add a line break after each template link
+                          cell.appendChild(document.createElement('br'));
+                      });
+                  } else {
+                      cell.innerHTML = 'No linked template';
+                  }
 
-                // Insert the new cell before the last cell of each data row
-                row.insertBefore(cell, row.lastChild);
-            });
+                  // Add a custom class to identify this cell
+                  cell.classList.add('template-cell');
+
+                  // Insert the new cell before the last cell of each data row
+                  row.insertBefore(cell, row.lastChild);
+              }
+          });
 
         });
     }
