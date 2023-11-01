@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/lifecycle_optimizer#/
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
-// @version     1.4
+// @version     1.5
 // @author      Colin Whelan
 // @description Extract the templates from the LO steps and add a link to the template.
 // ==/UserScript==
@@ -145,9 +145,10 @@ function fetchLOData() {
         url: "https://my.sailthru.com/uiapi/lifecycle",
         onload: function(response) {
             const data = JSON.parse(response.responseText);
-            const uniqueTemplates = new Set();
 
             for (const lo of Object.values(data)) {
+                const uniqueTemplates = new Set();
+
                 for (const step of Object.values(lo.steps)) {
                     if (step.subtype === "sendEmail") {
                         const templateId = step.taskAttributes.templateId;
@@ -163,6 +164,7 @@ function fetchLOData() {
                         if (!templateDetails[lo.name]) {
                             templateDetails[lo.name] = [];
                         }
+
                         templateDetails[lo.name].push({templateId: templateId, templateName: templateName});
                     }
                 }
