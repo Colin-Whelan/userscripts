@@ -3,10 +3,10 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
 // @grant       none
-// @version     1.1
+// @version     1.2
 // @author      Colin Whelan
 // @grant       GM_xmlhttpRequest
-// @description Adds a flag to indicate if a template is used in any LOs on Sailthru.
+// @description Adds a flag to indicate if a template is used in any LOs on Sailthru. Green = 0 LOs, Orange = Only Inactive LOs, Red = Active LOs.
 // ==/UserScript==
 
 (function() {
@@ -24,23 +24,40 @@
             method: "GET",
             url: usageURL,
             onload: function(response) {
-                const data = JSON.parse(response.responseText);
-                const count = data.length;
+              const data = JSON.parse(response.responseText);
 
-                const flagElement = document.createElement('a');
-                flagElement.href = hrefURL;
-                flagElement.textContent = `${count} LO${count == 1 ?  '' : 's'}`;
-                flagElement.classList.add('usageFlag');
-                flagElement.style.backgroundColor = count > 0 ?  '#e8253b' : '#34c132'; // red - green
+              const activeItems = data.filter(item => item.status === 'active');
+              const inactiveItems = data.filter(item => item.status === 'inactive');
 
-                flagElement.onmouseover = () => flagElement.style.backgroundColor = count > 0 ?  '#BA1E2F' : '#2C9A28'; // Darker on hover
-                flagElement.onmouseout = () => flagElement.style.backgroundColor = count > 0 ?  '#e8253b' : '#34c132'; // Original on mouse out
+              const count = data.length;
 
-                flagElement.style.color = 'white';
-                flagElement.style.borderRadius = '10px';
-                flagElement.style.padding = '0px 5px';
-                flagElement.style.marginLeft = '10px';
-                row.querySelector('.gisiQO').appendChild(flagElement);
+              const colors = {};
+
+              if(activeItems.length > 0) {
+                colors.background = '#e8253b'
+                colors.hover = '#BA1E2F'
+              } else if(activeItems.length == 0 && inactiveItems.length > 0) {
+                colors.background = '#FF8C00'
+                colors.hover = '#F5761A'
+              } else {
+                colors.background = '#34c132'
+                colors.hover = '#2C9A28'
+              }
+
+              const flagElement = document.createElement('a');
+              flagElement.href = hrefURL;
+              flagElement.textContent = `${activeItems.length}${inactiveItems.length ? '(' + inactiveItems.length + ')' : ''} LO${count == 1 ?  '' : 's'}`;
+              flagElement.classList.add('usageFlag');
+              flagElement.style.backgroundColor = colors.background; // red - green
+
+              flagElement.onmouseover = () => flagElement.style.backgroundColor = colors.hover // Darker on hover
+              flagElement.onmouseout = () => flagElement.style.backgroundColor = colors.background // Original on mouse out
+
+              flagElement.style.color = 'white';
+              flagElement.style.borderRadius = '10px';
+              flagElement.style.padding = '0px 5px';
+              flagElement.style.marginLeft = '10px';
+              row.querySelector('.gisiQO').appendChild(flagElement);
             }
         });
     };
