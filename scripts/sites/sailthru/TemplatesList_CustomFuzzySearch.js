@@ -2,7 +2,7 @@
 // @name        Templates List - Custom Fuzzy Search
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
-// @version     1.7
+// @version     1.8
 // @author      Colin Whelan
 // @grant       GM_xmlhttpRequest
 // @description Adds an improved fuzzy search filter for templates + shows more template info + allows for searching of all text fields + show template usage for all templates.
@@ -22,7 +22,7 @@ function getTemplateUsageData(item, callback) {
             url: usageURL,
             onload: function(response) {
                 const data = JSON.parse(response.responseText);
-                usageDataStore[item._id] = data;
+                usageDataStore = data;
                 callback(data);
             }
         });
@@ -75,7 +75,7 @@ function createModal(status) {
 
     modal.innerHTML = `
     <div class="modal-content">
-        <div class="search-container">
+      <div class="search-container">
           <span style="font-size: 16px; margin-left: 10px;">Search Field: </span>
           <div class="select-wrapper">
               <select id="searchField">
@@ -93,8 +93,11 @@ function createModal(status) {
           </div>
           <input type="text" id="searchInput" placeholder="Search..."/>
           <span class="close">&times;</span>
-        </div>
-        <div id="searchResults"></div>
+      </div>
+      <div id="searchDiv">
+
+          <div id="searchResults"></div>
+      </div>
     </div>`;
 
     const searchInput = modal.querySelector('#searchInput');
@@ -107,15 +110,6 @@ function createModal(status) {
     searchInput.style.border = '2px solid #ccc';
     searchInput.style.borderRadius = '4px';
 
-    // Style the modal content
-    const modalContent = modal.querySelector('.modal-content');
-    modalContent.style.backgroundColor = '#fff';
-    modalContent.style.borderRadius = '20px';
-    modalContent.style.margin = '5% auto auto auto';
-    modalContent.style.padding = '0px 20px 20px 20px';
-    modalContent.style.width = '95%';
-    modalContent.style.height = '90%';
-    modalContent.style.overflowY = 'auto'; // Add scroll for overflow
 
     // Style the close button
     const closeButton = modal.querySelector('.close');
@@ -153,6 +147,16 @@ function populateModal(status, initial = false) {
         const style = document.createElement('style');
         style.id = 'customTableStyles';
         style.innerHTML += `
+        .modal-content{
+    background-color: #fff;
+    margin: 5% auto auto auto;
+    padding: 0px 20px 20px 20px;
+    width: 80%;
+    height: 85%;
+    overflow-y: auto;
+    border-radius: 5px;
+    scrollbar-gutter: stable;
+        }
 .card-container {
     display: flex;
     flex-wrap: wrap;
@@ -165,7 +169,7 @@ function populateModal(status, initial = false) {
     border: 1px solid #ccc;
     border-radius: 5px;
     margin: 10px;
-    padding: 15px 15px 5px 15px;
+    padding: 5px;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
     transition: box-shadow 0.3s;
 }
@@ -191,14 +195,14 @@ function populateModal(status, initial = false) {
 .envelope-details,
 .modify-create {
     padding: 10px 0;
+    border-bottom: 1px solid #f1f1f1;
 }
 .envelope-details b,
 .modify-create b {
     font-size: 15px;
 }
 .card-section {
-    padding: 10px;
-    border-bottom: 1px solid #f1f1f1;
+    margin: 10px;
 }
 
 .card-section:last-child {
@@ -206,14 +210,14 @@ function populateModal(status, initial = false) {
 }
 
 .labels-container {
-    padding: 8px 16px; /* 8px top/bottom, 16px left/right. Adjust as needed */
+    padding: 8px 16px;
 }
 .customLabel {
     display: inline-block;
     white-space: nowrap;
     color: white;
     padding: 5px;
-    margin: 2px; /* This will add space to the right, left, top, and bottom of each label */
+    margin: 0 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 150px;
@@ -295,13 +299,13 @@ a.tooltip {
     text-decoration: none;
     color: #333;
 }
+a.tooltip span {
+    display: none;
+}
 a.tooltip:hover {
     cursor: help;
     color: #333;
     position: relative;
-}
-a.tooltip span {
-    display: none;
 }
 a.tooltip:hover span {
     border: #666 2px dotted;
@@ -313,11 +317,26 @@ a.tooltip:hover span {
     padding: 10px;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
     left: 0px;
-    margin: 15px;
     width: 300px;
     position: absolute;
     top: 15px;
     text-decoration: none;
+}
+#resultsTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+}
+#resultsTable th, #resultsTable td {
+    border: 1px solid #dddddd;
+    padding: 12px;
+    text-align: left;
+}
+#resultsTable th {
+    border-bottom: 3px solid #bbb;
+}
+#resultsTable tr:nth-child(even) {
+    background-color: #f2f2f2;
 }
         `;
 
@@ -332,69 +351,83 @@ a.tooltip:hover span {
     const results = fuzzyFilter(query, sailthruTemplates.templates);
 
     const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.innerHTML = `
+        <table id="resultsTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th width="140px">Envelope Details</th>
+                    <th width="250px">Last Modified</th>
+                    <th>Modified By</th>
+                    <th width="250px">Last Created</th>
+                    <th>Created By</th>
+                    <th>Lables</th>
+                    <th width="120px">Template Usage</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>`;
 
-    resultsDiv.innerHTML = ''; // Clearing the div
-
-    const cardContainer = document.createElement('div');
-    cardContainer.className = 'card-container';
-    resultsDiv.appendChild(cardContainer);
+     const tbody = resultsDiv.querySelector('tbody');
 
     results.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'card';
+        const row = document.createElement('tr');
+
+        // console.log('item', item)
         const labelsHTML = generateLabelHTML(item.labels_string); // Assuming labels_string is a property of item
 
-        card.innerHTML = `
-            <div class="card-section card-header">
-                <a href="https://my.sailthru.com/email-composer/${item._id}" target="_blank" title="${item.name}"><b>${item.name}</b></a>
-            </div>
-            <div class="card-section">
-                <a href="#" class="tooltip">Hover for Envelope details
-                  <span class="hover-details">
-                    <div><b>SL:</b> ${item.subject}</div>
-                    <div><b>PH:</b> ${item.preheader}</div>
-                    <div><b>From:</b> ${item.from_name} - ${item.from_email}</div>
-                    <div><b>Reply to:</b> ${item.replyto_email}</div>
-                  </span>
-                </a>
-            </div>
-            <div class="card-section modify-create">
-                <div><b>Last Modified:</b> ${moment(item.modify_time).format('MMMM Do YYYY, h:mm:ss a')}</div>
-                <div><b>Last Modified By:</b> ${item.modify_user}</div>
-                <div><b>Created:</b> ${moment(item.create_time.sec * 1000).format('MMMM Do YYYY, h:mm:ss a')}</div>
-                <div><b>Created By:</b> ${item.create_user ? item.create_user : "null (Copy/API)"}</div>
-            </div>
-            <div class="card-section labels">
-                <div style="margin-bottom: 5px;">
-                  <b>${item.labels_string.length > 0 ? 'Labels' : 'No labels'}</b>
-                </div>
-                <div>
-                    ${item.labels_string.length > 0 ? labelsHTML : ''}
-                </div>
-            </div>
-            <div class="card-section">
-                <div style="margin-bottom: 15px;">
-                    <b>Template Usage</b>
-                </div>
-                <div id="usageFlag">
 
-                </div>
-            </div>
+        row.innerHTML = `
+            <td><b><a href="https://my.sailthru.com/email-composer/${item._id}" target="_blank">${item.name}</a></b></td>
+            <td>
+              <a href="#" class="tooltip">Hover for details
+               <span class="hover-details">
+                 <div><b>SL:</b> ${item.subject}</div>
+                 <div><b>PH:</b> ${item.preheader}</div>
+                 <div><b>From:</b> ${item.from_name} - ${item.from_email}</div>
+                 <div><b>Reply to:</b> ${item.replyto_email}</div>
+               </span>
+             </a>
+            </td>
+            <td>${moment(item.modify_time).format('MMMM Do YYYY, h:mm:ss a')}</td>
+            <td>${item.modify_user ? item.modify_user : "No Changes"}</td>
+            <td>${moment(item.create_time.sec * 1000).format('MMMM Do YYYY, h:mm:ss a')}</td>
+            <td>${item.create_user ? item.create_user : "null (Copy/API)"}</td>
+            <td>${item.labels_string.length > 0 ? labelsHTML : ''}</td>
+            <td><div id="usageFlag"></div></td>
         `;
-        cardContainer.appendChild(card);
+        tbody.appendChild(row);
 
         getTemplateUsageData(item, function(data) {
-            const count = data.length;
             const hrefURL = `https://my.sailthru.com/email-composer/${item._id}/usage`;
+
+            const activeItems = data.filter(item => item.status === 'active');
+            const inactiveItems = data.filter(item => item.status === 'inactive');
+
+            const count = data.length;
+
+            const colors = {};
+
+            if(activeItems.length > 0) {
+              colors.background = '#e8253b'
+              colors.hover = '#BA1E2F'
+            } else if(activeItems.length == 0 && inactiveItems.length > 0) {
+              colors.background = '#FF8C00'
+              colors.hover = '#F5761A'
+            } else {
+              colors.background = '#34c132'
+              colors.hover = '#2C9A28'
+            }
 
             const flagElement = document.createElement('a');
             flagElement.href = hrefURL;
-            flagElement.textContent = `${count} LO${count == 1 ?  '' : 's'}`;
+            flagElement.textContent = `${activeItems.length}${inactiveItems.length ? '(' + inactiveItems.length + ')' : ''} LO${count == 1 ?  '' : 's'}`;
             flagElement.classList.add('usageFlag');
-            flagElement.style.backgroundColor = count > 0 ?  '#e8253b' : '#34c132'; // red - green
+            flagElement.style.backgroundColor = colors.background; // red - green
 
-            flagElement.onmouseover = () => flagElement.style.backgroundColor = count > 0 ?  '#BA1E2F' : '#2C9A28'; // Darker on hover
-            flagElement.onmouseout = () => flagElement.style.backgroundColor = count > 0 ?  '#e8253b' : '#34c132'; // Original on mouse out
+            flagElement.onmouseover = () => flagElement.style.backgroundColor = colors.hover // Darker on hover
+            flagElement.onmouseout = () => flagElement.style.backgroundColor = colors.background // Original on mouse out
 
             flagElement.style.color = 'white';
             flagElement.style.fontSize = '16px';
@@ -402,49 +435,29 @@ a.tooltip:hover span {
             flagElement.style.padding = '5px 10px';
             flagElement.style.marginRight = '10px';
 
-            card.querySelector('#usageFlag').appendChild(flagElement);
+
+            row.querySelector('#usageFlag').appendChild(flagElement);
         });
+    });
 
+        // Style the table
+    const resultsTable = document.getElementById('resultsTable');
+    resultsTable.style.width = '100%';
+    resultsTable.style.borderCollapse = 'collapse';
+    // resultsTable.style.border = '2px solid #1a1a1a';
 
-        // Get all the details preview and envelope details elements
-        const detailsPreviews = document.querySelectorAll('.details-preview');
-        const hoverDetails = document.querySelectorAll('.hover-details');
+    const ths = resultsTable.querySelectorAll('th');
+    ths.forEach(th => {
+        // th.style.backgroundColor = '#00A2BE';
+        th.style.color = 'black';
+        th.style.padding = '14px';
+        th.style.textAlign = 'left';
+    });
 
-        detailsPreviews.forEach((preview, index) => {
-            // Show envelope details on hover
-            preview.addEventListener('mouseover', () => {
-                hoverDetails[index].style.display = 'block';
-            });
-
-            // Hide envelope details when mouse leaves
-            preview.addEventListener('mouseout', () => {
-                hoverDetails[index].style.display = 'none';
-            });
-        });
-
-        // Ensure that envelope details remain visible even when hovering over them
-        hoverDetails.forEach((details, index) => {
-            details.addEventListener('mouseover', () => {
-                details.style.display = 'block';
-            });
-
-            details.addEventListener('mouseout', () => {
-                details.style.display = 'none';
-            });
-        });
-
-        $('.details-preview').on('mouseenter', function () {
-            var id = $(this).data('id'); // Get the id
-            var offset = $(this).offset(); // Get the offset of the current .details-preview
-            var hoverDetail = $('.hover-details[data-id="' + id + '"]');
-
-            // Set the position of the .hover-details
-            hoverDetail.css({
-                'top': offset.top - $(window).scrollTop() + 'px',
-                'left': offset.left + 'px'
-            });
-        });
-
+    const tds = resultsTable.querySelectorAll('td');
+    tds.forEach(td => {
+        // td.style.border = '2px solid #1a1a1a';
+        td.style.padding = '14px';
     });
 }
 
