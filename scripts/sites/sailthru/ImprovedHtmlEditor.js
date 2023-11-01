@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.12
+// @version     1.13
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -42,7 +42,7 @@ const theme = 'monokai'
 const addCustomScroll = true // in Firefox, scrolling jumps way too far. with this enabled, holding Shift while scrolling will scroll more normally
 const scrollLines = 14 // # of lines to scroll at a time (approx)(not very accurate. Adjust as needed)
 
-const autoSaveEnabled = true // Whether the autosave is called when the editor changes
+const autoSaveEnabled = false // Whether the autosave is called when the editor changes
 const autoSaveDelay = 30000 // in ms. After save, undo history is lost - need to use revision navigation at that point
 
 // how far the keybind modal needs to be dragged to be prevent commands from executing.
@@ -129,7 +129,7 @@ function rearrangeEditorElements() {
   previewTab.style.display = 'block';
   previewTab.style.marginRight = '2%';
   previewTab.style.float = 'right'; // Float to the right side
-  previewTab.style.width = '32%'; // Use 50% width
+  previewTab.style.width = '38%'; // Use 50% width
   previewTab.setAttribute('aria-expanded', 'true');
   previewTab.setAttribute('aria-hidden', 'false');
   previewTab.style.height = '100%'
@@ -139,7 +139,7 @@ function rearrangeEditorElements() {
   // Adjust tab editor area
   let tabEditor = document.querySelector('#tab-editor');
   tabEditor.style.float = 'left'; // Float to the left side
-  tabEditor.style.width = '60%';
+  tabEditor.style.width = '55%';
   tabEditor.style.padding = '5px';
   tabEditor.style.marginTop = '0';
 }
@@ -154,9 +154,11 @@ function improveEditor() {
     editor.setTheme(`ace/theme/${theme}`);
 
     const editorDiv = document.getElementById("ace-editor");
+    const mainEditorContainer = document.getElementById('editor');
 
     if (editorDiv) {
       const setEditorOptions = () => {
+        mainEditorContainer.style.width = '100%'
         const windowHeight = window.innerHeight;
         const editorPosition = editorDiv.getBoundingClientRect();
         const availableHeight = windowHeight - editorPosition.top - 20; // 20px padding
@@ -213,21 +215,18 @@ function improveEditor() {
 
       addPrettifyButton(editor);
 
-
       autoUpdatePreview(editor)
       if (autoSaveEnabled) autoSave(editor, autoSaveDelay)
       if (addCustomScroll) addCustomScrolling(editor)
       if (addThemePreviewer) addThemeDropdown(editor)
       addRevisionButtons(editor);
       rearrangeEditorElements()
-
     }
   }
 }
 
 let latestScrollPosition
 let isUpdatingScrollPosition = false;
-
 
 function autoUpdatePreview(updatedEditor) {
   // Get the iframe element
@@ -236,7 +235,6 @@ function autoUpdatePreview(updatedEditor) {
   const previewButton = document.getElementById('refresh-preview');
 
   if (isUpdatingScrollPosition) {
-    // console.log("Change was triggered by a save. Ignoring this change.");
     return;
   }
 
@@ -250,24 +248,17 @@ function autoUpdatePreview(updatedEditor) {
     scrollPosition = previewIframe.contentWindow.scrollY;
     latestScrollPosition = scrollPosition
 
-    if (!isUpdatingScrollPosition) return
+    // Refresh the preview
+    previewButton.click();
 
-    // prevents jumping to top when scrollPosition is 0 for a split second
-    if (scrollPosition) {
-      // console.log('latest position: ', latestScrollPosition)
-      // Refresh the preview
-      previewButton.click();
-
-      // After the refresh is complete, restore the scroll position
-      previewIframe.onload = function() {
-        previewIframe.contentWindow.scrollTo(0, latestScrollPosition);
-      };
-    }
+    // After the refresh is complete, restore the scroll position
+    previewIframe.onload = function() {
+      previewIframe.contentWindow.scrollTo(0, latestScrollPosition);
+    };
 
   });
 
 }
-
 
 function applyStyles(element, styles) {
   for (let property in styles) {
@@ -495,8 +486,6 @@ let isSaving = false; // Flag to identify save-triggered changes
 function autoSave(updatedEditor, autoSaveDelay = 30000) {
 
   updatedEditor.session.on('change', function() {
-    // console.log("Change detected. State: ", isSaving);
-
     // If the change was triggered by a save, ignore it
     if (isSaving) {
       // console.log("Change was triggered by a save. Ignoring this change.");
@@ -505,7 +494,6 @@ function autoSave(updatedEditor, autoSaveDelay = 30000) {
 
     // Clear any existing timeout
     if (saveTimeout) {
-      // console.log("Clearing existing save timeout");
       clearTimeout(saveTimeout);
     }
 
@@ -741,7 +729,11 @@ const callback = function(mutationsList) {
 const iframeObserver = new MutationObserver(callback);
 
 // Start observing for iframe
-iframeObserver.observe(iframeTargetNode, iframeConfig);
+// console.log('iframeTargetNode', document.getElementById('tab-preview'))
+// console.log('iframeObserver', iframeTargetNode, iframeConfig)
+if(iframeTargetNode){
+  iframeObserver.observe(iframeTargetNode, iframeConfig);
+}
 
 // Watch the tab editor tab and run the improvement when it's focussed
 const tabEditorDiv = document.getElementById('tab-editor');
@@ -750,6 +742,7 @@ const editorObserver = new MutationObserver((mutations) => {
     if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
       const displayStyle = window.getComputedStyle(tabEditorDiv).display;
       if (displayStyle === 'block') {
+        // console.log('about to improveEditor()', tabEditorDiv, iframeTargetNode)
         improveEditor();
       }
     }
@@ -762,7 +755,10 @@ const observerConfig = {
   subtree: false
 };
 
+// console.log('editorObserver', tabEditorDiv, observerConfig)
+if(tabEditorDiv){
 editorObserver.observe(tabEditorDiv, observerConfig);
+}
 
 function improveAdvanced() {
   let setupArea = document.getElementById('f_setup')
@@ -796,4 +792,7 @@ const advancedObserver = new MutationObserver((mutations) => {
   });
 });
 
+// console.log('advancedObserver', tabAdvancedDiv, observerConfig)
+if(tabAdvancedDiv){
 advancedObserver.observe(tabAdvancedDiv, observerConfig);
+}
