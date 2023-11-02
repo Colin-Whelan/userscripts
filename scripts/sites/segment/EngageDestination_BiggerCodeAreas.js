@@ -2,12 +2,25 @@
 // @name        Engage/Destination - Bigger Text Areas
 // @namespace   Violentmonkey Scripts
 // @match       https://app.segment.com/*/destinations/*/sources/*/instances/*
-// @match       https://app.segment.com/*/engage/spaces/*/audiences/*/*
-// @grant       none
-// @version     1.0
+// @match       https://app.segment.com/*/engage/spaces/*/audiences/*
+// @match       https://app.segment.com/*
+// @grant       GM_addStyle
+// @version     1.1
 // @author      Colin Whelan
-// @description Makes text areas for JSON bigger and easier to work with.
+// @description Makes text areas for JSON bigger and easier to work with. Makes 'New Audience' a bit better. 
 // ==/UserScript==
+
+const urlPattern = /^https:\/\/app\.segment\.com\/[^\/]+\/engage\/spaces\/[^\/]+\/audiences\/new$/;
+const currentUrl = window.location.href;
+
+const isNewAudiencePage = urlPattern.test(currentUrl);
+
+if(isNewAudiencePage){
+  GM_addStyle(`
+   .fade-in-simple { max-height: none !important; }  /* makes box take all available height */
+  .📦dspl_flex .ub-box-szg_border-box button.📦ltr-spc_0 { border: 1px solid rgb(63, 68, 70) !important; }  /* Adds border to And/And not button */
+  `);
+}
 
 const eventPreviewHeight = 550 // height for the event viewer editor area in px
 
