@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @grant       none
-// @version     1.4
+// @version     1.5
 // @author      -
 // @description Adds a dropdown of emails for an easier time sending tests. Will add an extra '_' at the end that must be removed -> due to how React handles the event changes, at least some manual update is required.
 // ==/UserScript==
@@ -84,10 +84,12 @@ function createDropdown(emailInput, selector, addUnderscore = false, inputContai
   if(selector.toString() == '#test-email') {
     dropdownLabel.style.width = '75%'
     dropdownLabel.style.margin = '20px 20px 0px 20px'
+    emailInputLocation = emailInput
   }
   // Campaign View
   else if(selector.toString() == '.test-email-input') {
     dropdownLabel.style.width = '75%'
+    emailInputLocation = emailInput
   }
   // Confirmation Emails
   else if(selector.toString() == '.TextComponentView') {
@@ -99,6 +101,7 @@ function createDropdown(emailInput, selector, addUnderscore = false, inputContai
 
   // Add the options to the dropdown
   for (let shorthand in emailConfigs) {
+    console.log(shorthand)
     const item = document.createElement('div');
     item.classList.add('dropdown-item');
     item.innerHTML = `<span>${formatShorthand(shorthand)}</span> <span class="preview">${truncateEmails(emailConfigs[shorthand])}</span>`;
@@ -128,6 +131,8 @@ function createDropdown(emailInput, selector, addUnderscore = false, inputContai
   // Start collapsed
   dropdownContainer.style.display = 'none';
 
+  console.log(emailInput, emailInput.parentElement, dropdownLabel, dropdownContainer)
+
   // Insert the dropdown in the DOM
   emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownLabel);
   emailInput.parentElement.insertAdjacentElement('beforebegin', dropdownContainer);
@@ -145,9 +150,10 @@ function createDropdown(emailInput, selector, addUnderscore = false, inputContai
 }
 
 function injectDropdownForPage(modal, selector, addUnderscore = false) {
+  let cleanedSelector = selector.replace("#", "").replace(".", "")
 
   // Check if the dropdown has already been added
-  if (modal.getAttribute(`data-custom-dropdown-injected_${selector}`)) {
+  if (modal.getAttribute(`data-custom-dropdown-injected_${cleanedSelector}`)) {
     return
   };
 
@@ -158,8 +164,10 @@ function injectDropdownForPage(modal, selector, addUnderscore = false) {
   // Create and insert the dropdown
   createDropdown(emailInput, selector, addUnderscore, modal);
 
+  console.log(selector)
+
   // Mark the modal as having the dropdown
-  modal.setAttribute(`data-custom-dropdown-injected_${selector}`, 'true');
+  modal.setAttribute(`data-custom-dropdown-injected_${cleanedSelector}`, 'true');
 }
 
 // Inject styles for the dropdown items and the preview
