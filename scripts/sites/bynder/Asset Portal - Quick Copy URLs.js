@@ -60,33 +60,24 @@ function showNotification(container, message) {
 
 // Function to add the Copy URL button
 function addCopyButton(container, url) {
-   if (!container.querySelector('.urlFetched')) {
-      const button = document.createElement('button');
-      button.innerText = 'Copy URL';
-      button.className = ['urlFetched'];
-      button.style.backgroundColor = 'rgb(7, 30, 150)';
-      button.style.color = 'white';
-      button.style.marginTop = '10px';
-      button.style.fontSize = '16px'
-      button.style.border = 'none'
-      button.style.padding = '8px 10px'
-      button.style.borderRadius = '3px'
-      button.onclick = function(event) {
-          event.preventDefault();
-          event.stopPropagation();
-          copyToClipboard(url);
-          showNotification(container, 'Copied to clipboard!');
-      };
-      container.querySelector('dl').appendChild(button);
-   }
-}
-
-    function addUrlFetchedFlag(container){
-      const div = document.createElement('div');
-      div.style.display = 'none'
-      div.className = 'urlFetched'
-
-      container.querySelector('dl').appendChild(div);
+   if (!container.querySelector('button')) {
+          const button = document.createElement('button');
+          button.innerText = 'Copy URL';
+          button.style.backgroundColor = 'rgb(7, 30, 150)';
+          button.style.color = 'white';
+          button.style.marginTop = '10px';
+          button.style.fontSize = '16px'
+          button.style.border = 'none'
+          button.style.padding = '8px 10px'
+          button.style.borderRadius = '3px'
+          button.onclick = function(event) {
+              event.preventDefault();
+              event.stopPropagation();
+              copyToClipboard(url);
+              showNotification(container, 'Copied to clipboard!');
+          };
+          container.querySelector('dl').appendChild(button);
+       }
     }
 
     // Function to parse the response and get the URL
@@ -103,30 +94,26 @@ function addCopyButton(container, url) {
 
     // Function to handle the request and add the button
     function handleRequest(dataDragSelectId, container) {
-          // Check if the request has already been made by looking for the 'urlFetched' class
-    if (container.classList.contains('urlFetched')) {
+
+    if (container.querySelector('button')) {
         // Request already made, do nothing
         return;
     }
 
-    // Mark this container as fetched to prevent duplicate requests
-    container.classList.add('urlFetched');
-        const currentTimestamp = Date.now();
-        // console.log(dataDragSelectId, container, currentTimestamp)
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: `https://${assetDomain}/media/detail/?id=${dataDragSelectId}&keyId=&_=${currentTimestamp}`,
-            onload: function(response) {
-                const url = parseResponse(response.responseText);
-                if(url) {
-                    addCopyButton(container, url);
-                    // console.log(url); // Log the URL to the console
-                } else {
-                  addUrlFetchedFlag(container)
-                }
+    const currentTimestamp = Date.now();
+    // console.log(dataDragSelectId, container, currentTimestamp)
+    GM_xmlhttpRequest({
+        method: 'GET',
+        url: `https://${assetDomain}/media/detail/?id=${dataDragSelectId}&keyId=&_=${currentTimestamp}`,
+        onload: function(response) {
+            const url = parseResponse(response.responseText);
+            if(url) {
+                addCopyButton(container, url);
+                // console.log(url); // Log the URL to the console
             }
-        });
-    }
+        }
+    });
+}
 
     // MutationObserver callback function to detect when resultsThumbs is added
     function onMutation(mutations, observer) {
@@ -153,15 +140,14 @@ function main(resultsThumbs) {
     if (resultsThumbs) {
         const assetContainers = resultsThumbs.childNodes;
         for (const container of assetContainers) {
+            // console.log(container)
             // Make sure the node is an element and the 'data-drag-select-id' attribute is not null
             if (container.nodeType === Node.ELEMENT_NODE && container.getAttribute('data-drag-select-id') != null) {
-                  if (container.classList.contains('urlFetched')) {
-                      // Request already made, do nothing
-                      return;
+                  if (!container.querySelector('button')) {
+                    // console.log(container)
+                    const dataDragSelectId = container.getAttribute('data-drag-select-id');
+                    handleRequest(dataDragSelectId, container);
                   }
-                // console.log(container)
-                const dataDragSelectId = container.getAttribute('data-drag-select-id');
-                handleRequest(dataDragSelectId, container);
             }
         }
     }
