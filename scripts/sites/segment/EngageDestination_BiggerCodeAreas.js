@@ -149,6 +149,8 @@ function addTooltips() {
       if (mutation.addedNodes.length) {
         mutation.addedNodes.forEach((node) => {
           if (node.role == 'dialog' && node.attributes['data-state'] && node.attributes['data-state'].value && node.textContent != 'AudienceFolder') {
+            const numberOfchoices = node.children[0].childElementCount
+            if(numberOfchoices < 5) return // some other element with the same attributes
             tooltipObserver.disconnect()
             node.style.width = '400px'
 
