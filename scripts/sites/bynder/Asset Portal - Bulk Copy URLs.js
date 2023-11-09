@@ -25,8 +25,6 @@ const assetDomain = "YOUR_BYNDER_DOMAIN";
 
     // Function to show a floating notification
     function showNotification(container, message, color = '#0f9d58') {
-
-
         const notification = document.createElement('div');
         notification.textContent = message;
         notification.style.position = 'absolute';
@@ -69,34 +67,6 @@ const assetDomain = "YOUR_BYNDER_DOMAIN";
         }, 2000);
     }
 
-    // Function to add the Copy URL button
-    function addCopyButton(container, url) {
-        if (!container.querySelector('button')) {
-            const hiddenDiv = document.createElement('div')
-            hiddenDiv.innerText = url
-            hiddenDiv.classList = ['publicURL']
-            hiddenDiv.style.display = 'none'
-            container.querySelector('dl').appendChild(hiddenDiv);
-
-            const button = document.createElement('button');
-            button.innerText = 'Copy URL';
-            button.style.backgroundColor = 'rgb(7, 30, 150)';
-            button.style.color = 'white';
-            button.style.marginTop = '10px';
-            button.style.fontSize = '16px'
-            button.style.border = 'none'
-            button.style.padding = '8px 10px'
-            button.style.borderRadius = '3px'
-            button.onclick = function(event) {
-                event.preventDefault();
-                event.stopPropagation();
-                copyToClipboard(url);
-                showNotification(container, 'Copied URL to clipboard!');
-            };
-            container.querySelector('dl').appendChild(button);
-        }
-    }
-
     // Function to parse the response and get the URL
     function parseResponse(responseText) {
         const parser = new DOMParser();
@@ -109,88 +79,13 @@ const assetDomain = "YOUR_BYNDER_DOMAIN";
         return inputElement ? inputElement.value : null;
     }
 
-    // Function to handle the request and add the button
-    function handleRequest(dataDragSelectId, container) {
-
-        if (container.querySelector('button')) {
-            // Request already made, do nothing
-            return;
+    // Set an interval to repeatedly check for the element
+    var checkExportButtonInterval = setInterval(function() {
+        if (!document.getElementById('exportURLs')) {
+            addExportButton(); // Call addExportButton if the button doesn't exist
+            clearInterval(checkExportButtonInterval); // Clear the interval once the function is called
         }
-
-        const currentTimestamp = Date.now();
-        // console.log(dataDragSelectId, container, currentTimestamp)
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: `https://${assetDomain}/media/detail/?id=${dataDragSelectId}&keyId=&_=${currentTimestamp}`,
-            onload: function(response) {
-                const url = parseResponse(response.responseText);
-                if (url) {
-                    addCopyButton(container, url);
-                    // console.log(url); // Log the URL to the console
-                }
-            }
-        });
-    }
-
-    // MutationObserver callback function to detect when resultsThumbs is added
-    function onMutation(mutations, observer) {
-        const targetNode = document.getElementById('results-thumbs')
-        for (const mutation of mutations) {
-            if (mutation.addedNodes) {
-                for (const node of mutation.addedNodes) {
-                    if (targetNode) {
-                        setTimeout(function() {
-                            if (!document.getElementById('exportURLs')) {
-                                addExportButton(); // Call main with the target node after a delay
-                            }
-                        }, 200);
-
-                        if (targetNode.childNodes) {
-                            // console.log('something happened and targetNode is available.')
-                            observer.disconnect(); // Stop observing once we've found resultsThumbs
-
-
-
-                            // setTimeout(function() {
-                            //     main(targetNode); // Call main with the target node after a delay
-                            // }, 200);
-                            observer.observe(document, {
-                                childList: true,
-                                subtree: true
-                            });
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Main function to find the images and initiate the process
-    function main(resultsThumbs) {
-        if (resultsThumbs) {
-            const assetContainers = resultsThumbs.childNodes;
-            for (const container of assetContainers) {
-                // console.log(container)
-                // Make sure the node is an element and the 'data-drag-select-id' attribute is not null
-                if (container.nodeType === Node.ELEMENT_NODE && container.getAttribute('data-drag-select-id') != null) {
-                    if (!container.querySelector('button')) {
-                        // console.log(container)
-                        const dataDragSelectId = container.getAttribute('data-drag-select-id');
-                        handleRequest(dataDragSelectId, container);
-                    }
-                }
-            }
-        }
-    }
-
-
-    // Set up the MutationObserver to watch for changes in the DOM
-    const observer = new MutationObserver(onMutation);
-    observer.observe(document, {
-        childList: true,
-        subtree: true
-    });
+    }, 200); // Check every 200 milliseconds
 
     function addExportButton() {
         const filterBar = document.querySelector('.media-tools.clearfix')
