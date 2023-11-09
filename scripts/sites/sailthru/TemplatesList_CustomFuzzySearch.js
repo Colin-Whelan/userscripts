@@ -2,10 +2,11 @@
 // @name        Templates List - Custom Fuzzy Search
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
-// @version     1.8
+// @version     1.9
 // @author      Colin Whelan
 // @grant       GM_xmlhttpRequest
 // @description Adds an improved fuzzy search filter for templates + shows more template info + allows for searching of all text fields + show template usage for all templates.
+// Added option for including archive(excluded by default)
 // @require     https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js
 // ==/UserScript==
 
@@ -92,6 +93,10 @@ function createModal(status) {
                 </select>
           </div>
           <input type="text" id="searchInput" placeholder="Search..."/>
+          <div id="includeArchive">
+              <label for="archiveCheckbox">Include Archive?</label>
+              <input id="archiveCheckbox" type="checkbox">
+          </div>
           <span class="close">&times;</span>
       </div>
       <div id="searchDiv">
@@ -101,7 +106,7 @@ function createModal(status) {
     </div>`;
 
     const searchInput = modal.querySelector('#searchInput');
-    searchInput.style.width = '80%';
+    searchInput.style.width = 'auto';
     searchInput.style.fontSize = '18px';
     searchInput.style.lineHeight = '24px';
     searchInput.style.padding = '9px 15px';
@@ -138,6 +143,7 @@ function createModal(status) {
     // Attach the event listener for future input changes
     document.getElementById('searchInput').addEventListener('input', () => populateModal(status));
     document.getElementById('searchField').addEventListener('change', () => populateModal(status));
+    document.getElementById('archiveCheckbox').addEventListener('change', () => populateModal(status));
 }
 
 function populateModal(status, initial = false) {
@@ -156,62 +162,7 @@ function populateModal(status, initial = false) {
     overflow-y: auto;
     border-radius: 5px;
     scrollbar-gutter: stable;
-        }
-.card-container {
-    display: flex;
-    flex-wrap: wrap;
-}
-.card {
-    flex: 1 1 360px;
-    min-width: 360px;
-    max-width: 100%;
-    box-sizing: border-box;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    margin: 10px;
-    padding: 5px;
-    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-    transition: box-shadow 0.3s;
-}
-.card:hover {
-    box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
-}
-.card-header {
-    font-size: 18px;
-    background-color: #f9f9f9;
-    border-radius: 5px 5px 0 0;
-}
-.card-header a {
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    word-wrap: break-word;
-}
-.card-section.header a:hover {
-    text-decoration: underline;
-}
-.envelope-details,
-.modify-create {
-    padding: 10px 0;
-    border-bottom: 1px solid #f1f1f1;
-}
-.envelope-details b,
-.modify-create b {
-    font-size: 15px;
-}
-.card-section {
-    margin: 10px;
-}
 
-.card-section:last-child {
-    border-bottom: none;
-}
-
-.labels-container {
-    padding: 8px 16px;
-}
 .customLabel {
     display: inline-block;
     white-space: nowrap;
@@ -316,7 +267,7 @@ a.tooltip:hover span {
     border: 1px solid #ccc;
     padding: 10px;
     box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-    left: 0px;
+    left: 15px;
     width: 300px;
     position: absolute;
     top: 15px;
@@ -338,6 +289,21 @@ a.tooltip:hover span {
 #resultsTable tr:nth-child(even) {
     background-color: #f2f2f2;
 }
+#includeArchive {
+margin: 10px;
+}
+#includeArchive label {
+position: relative;
+top: -3px;
+}
+#archiveCheckbox {
+  margin-top: 5px;
+  height: 20px;
+  width: 20px;
+  background-color: #eee;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
         `;
 
         document.head.appendChild(style);
@@ -347,14 +313,25 @@ a.tooltip:hover span {
     const query = initial ? '' : input.value.toLowerCase(); // if initial load, set query to empty
 
     const searchField = document.getElementById('searchField').value;
+    let templates = sailthruTemplates.templates
 
-    const results = fuzzyFilter(query, sailthruTemplates.templates);
+    // only include the archived templates if this is checked.
+    console.log(document.getElementById('archiveCheckbox').checked)
+    if(document.getElementById('archiveCheckbox').checked == false){
+      templates = sailthruTemplates.templates.filter(template => template.is_archived === false)
+    }
+
+
+    const results = fuzzyFilter(query, templates);
+
+    console.log(results.length)
 
     const resultsDiv = document.getElementById('searchResults');
     resultsDiv.innerHTML = `
         <table id="resultsTable">
             <thead>
                 <tr>
+                    <th>Preview</th>
                     <th>Name</th>
                     <th width="140px">Envelope Details</th>
                     <th width="250px">Last Modified</th>
@@ -379,6 +356,7 @@ a.tooltip:hover span {
 
 
         row.innerHTML = `
+            <td></td>
             <td><b><a href="https://my.sailthru.com/email-composer/${item._id}" target="_blank">${item.name}</a></b></td>
             <td>
               <a href="#" class="tooltip">Hover for details
