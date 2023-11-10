@@ -21,7 +21,7 @@
         return parsedUrl.hostname; // Returns the domain part of the URL
       } catch (error) {
         badAssetDomain = true
-        console.log('oops bad asset domain.')
+        // console.log('oops bad asset domain.')
         addWarning("Error - Script: Bad asset domain. Should be 'assets.domain.com'")
         return null; // or handle the error as per your needs
       }
@@ -30,8 +30,6 @@
     function checkAssetDomain(){
       if(assetDomain.includes('http')) {
         badAssetDomain = true
-        console.log('oops bad asset domain.', assetDomain)
-        addWarning("Error - Script: Bad asset domain. Should be like 'assets.domain.com'")
       }
     }
     checkAssetDomain()
