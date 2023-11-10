@@ -22,10 +22,11 @@
       } catch (error) {
         badAssetDomain = true
         // console.log('oops bad asset domain.')
-        addWarning("Error - Script: Bad asset domain. Should be 'assets.domain.com'")
+        // addWarning("Error - Script: Bad asset domain. Should be 'assets.domain.com'")
         return null; // or handle the error as per your needs
       }
     }
+
 
     function checkAssetDomain(){
       if(assetDomain.includes('http')) {
