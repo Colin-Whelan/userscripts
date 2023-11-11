@@ -102,7 +102,7 @@ const eventViewObserver = new MutationObserver((mutationsList, eventViewObserver
 
               if(aceEditor.style.height != `${eventPreviewHeight}px`){
                 aceEditor.style.height = `${eventPreviewHeight}px`
-                console.log(aceEditor)
+                // console.log(aceEditor)
               }
             }
 
@@ -149,8 +149,8 @@ function addTooltips() {
       if (mutation.addedNodes.length) {
         mutation.addedNodes.forEach((node) => {
           if (node.role == 'dialog' && node.attributes['data-state'] && node.attributes['data-state'].value && node.textContent != 'AudienceFolder') {
-            const numberOfchoices = node.children[0].childElementCount
-            if(numberOfchoices < 5) return // some other element with the same attributes
+            if (node.querySelector('.📦otln_iu2jf4_1849h0v.📦bg_2u3whs_1849h0v.📦bs_iarjze_1849h0v').children[1].textContent != 'Performed an Event') return // some other similar element
+
             tooltipObserver.disconnect()
             node.style.width = '400px'
 
@@ -173,16 +173,8 @@ function addTooltips() {
 
               childCount++
             }
-
-
-
+            
             tooltipObserver.observe(document.body, { childList: true, subtree: true });
-          }
-          else {
-            if(node.attributes['data-state'] && node.attributes['data-state'].value){
-              // console.log(node.role, node.attributes['data-state'].value)
-            }
-
           }
         });
       }
@@ -269,4 +261,3 @@ function addQuicklinks(){
 if(addCustomQuicklinks){
   addQuicklinks();
 }
-
