@@ -1,13 +1,20 @@
 // ==UserScript==
-// @name        HTML Template - Image Picker
+// @name        Global - Image Picker
 // @namespace   Violentmonkey Scripts
-// @match       https://my.sailthru.com/template/*
+// @match       https://my.sailthru.com/*
 // @grant       none
-// @version     1.2
+// @version     1.3
+// @run-at      document-end
 // @author      Colin Whelan
 // @description Adds the BEE editor image picker to the HTML builder. Click an image to copy the path. Click a folder to enter it, back with the 'back' button, and the 'X'/outside the box to close it.
 // How it works:
 // First we fetch the BEE plugin resource, then we use that + the existing Sailthru cookie to authenticate with the Sailthru UI API. With that, we can fetch different folders of the BEE cloud storage.
+// TODO:
+// Show image dimensions - may need to call each image is slow/resource intensive.
+// Add search bar that filters current folder
+// Add Upload/delete function
+// Include create date - maybe title value of name
+// Make it smaller, draggable, and add 'insert' button. - To mimic default HTML image behavior.
 // ==/UserScript==
 
 (function() {
@@ -353,16 +360,31 @@
     authenticate();
 
     function addImagePickerButton() {
-        const button = document.createElement('button');
-        button.id = 'customImagePicker'
-        button.innerText = 'Open Image Picker';
-        button.addEventListener('click', () => useToken(accessToken));
-        document.getElementById('standard-controls').appendChild(button);
+        const ulElement = document.getElementById('header_nav_links')
+
+        const liElement = document.createElement('li');
+        liElement.className = 'NavLinksComponent__NavBarItems-sc-1456pt8-1 hBHGeq';
+
+        const div = document.createElement('div');
+        div.className = 'NavLinksComponent__NavListElement-sc-1456pt8-0 iIkGvM';
+        div.style.marginTop = '10px'
+        div.style.cursor = 'pointer'
+        div.addEventListener('click', () => useToken(accessToken));
+
+        const spanElement = document.createElement('span');
+        spanElement.innerText = 'Image Picker';
+        spanElement.style.fontSize = '0.8em'
+
+        div.appendChild(spanElement);
+        liElement.appendChild(div);
+        ulElement.appendChild(liElement);
+
+
     }
 
     // Set an interval to repeatedly check for the element
     var checkExportButtonInterval = setInterval(function() {
-        const target = document.getElementById('tab-details');
+        let target = document.getElementById('header_nav_links');
         if (target) {
             clearInterval(checkExportButtonInterval); // Clear the interval once the function is called
             addImagePickerButton();
