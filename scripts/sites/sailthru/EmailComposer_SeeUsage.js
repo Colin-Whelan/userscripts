@@ -4,57 +4,68 @@
 // @match       https://my.sailthru.com/email-composer/*
 // @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.1
+// @version     1.2
+// @run-at      document-idle
 // @author      Colin Whelan
 // @description Adds a button to show where the template is being used.
 // ==/UserScript==
 
-let buttonAdded = false;  // Flag to track if button is already added
+let buttonAdded = false;
 
-// Create a function to start observing #header_nav_links for mutations
+function addStylesheet() {
+    const style = document.createElement('style');
+    style.textContent = `
+        .template-usage-btn {
+            margin-left: 5px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            background-color: rgb(0, 169, 250);
+            background-image: none;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            outline: none;
+            transition: opacity 0.2s;
+            width: 120px;
+        }
+        .template-usage-btn:hover {
+            opacity: 0.7;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 function observeHeaderNavLinks() {
-
     const targetNode = document.querySelector('#header_nav_links');
     if (!targetNode) return;
 
     const config = { attributes: true, childList: true, subtree: true };
     const observer = new MutationObserver(() => {
-
-        if (buttonAdded) return;  // Exit if button is already added
+        if (buttonAdded) return;
 
         const btn = document.createElement('button');
         btn.textContent = 'Template Usage';
-        btn.style.marginLeft = '5px'; // space between the buttons
-        btn.style.marginTop = '15px'; // space between the buttons
-        btn.style.marginBottom = '15px'; // space between the buttons
-        btn.style.backgroundColor = 'rgb(0, 169, 250)'; // set button color
-        btn.style.backgroundImage = 'none'; // set button color
-        btn.style.border = 'none'; // remove border
-        btn.style.borderRadius = '4px'; // round the edges
-        btn.style.color = 'white'; // text color
-        btn.style.padding = '5px 10px'; // padding for better appearance
-        btn.style.cursor = 'pointer'; // hand cursor on hover
-        btn.style.outline = 'none'; // remove focus outline
-        btn.style.transition = 'opacity 0.2s'; // smooth transition
+        btn.classList.add('template-usage-btn');
+
         const idMatch = window.location.href.match(/(\d+)/);
         if (idMatch) {
             const id = idMatch[1];
             btn.addEventListener('click', () => window.location.href = `https://my.sailthru.com/email-composer/${id}/usage`);
         }
-        btn.onmouseover = () => btn.style.opacity = '0.7'; // reduce opacity on hover for a hover effect
-        btn.onmouseout = () => btn.style.opacity = '1'; // revert opacity on mouse out
 
         const insertAfterElem = document.querySelector('#header_nav_links');
         if (insertAfterElem && insertAfterElem.parentNode) {
             insertAfterElem.appendChild(btn, insertAfterElem.nextSibling);
 
-            buttonAdded = true;  // Set flag to true after adding button
-            observer.disconnect();  // Stop observing since button is added
+            buttonAdded = true;
+            observer.disconnect();
         }
     });
 
     observer.observe(targetNode, config);
 }
 
-// Start observing
+addStylesheet();
 observeHeaderNavLinks();
