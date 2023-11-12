@@ -6,7 +6,7 @@
 // @version     1.4
 // @run-at      document-end
 // @author      Colin Whelan
-// @description Adds the BEE editor image picker to the HTML builder. Click an image to copy the path. Click a folder to enter it, back with the 'back' button, and the 'X'/outside the box to close it.
+// @description Adds the BEE editor image picker to the main Sailthru toolbar. Click an image to copy the path. Click a folder to enter it, back with the 'back' button, and the 'X'/outside the box to close it.
 // How it works:
 // First we fetch the BEE plugin resource, then we use that + the existing Sailthru cookie to authenticate with the Sailthru UI API. With that, we can fetch different folders of the BEE cloud storage.
 // TODO:
