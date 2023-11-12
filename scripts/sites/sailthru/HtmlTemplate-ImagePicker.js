@@ -3,11 +3,11 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.1
+// @version     1.2
 // @author      Colin Whelan
-// @description Adds the BEE editor image picker to the HTML builder. Click an image to copy the path. Click a folder to enter it, and back with the 'back' button.
+// @description Adds the BEE editor image picker to the HTML builder. Click an image to copy the path. Click a folder to enter it, back with the 'back' button, and the 'X'/outside the box to close it.
 // How it works:
-// First we fetch the BEE plugin resource then we use that + the existing Sailthru cookie to authenticate with the Sailthru UI API. With that, we can fetch different folders of the BEE cloud storage.
+// First we fetch the BEE plugin resource, then we use that + the existing Sailthru cookie to authenticate with the Sailthru UI API. With that, we can fetch different folders of the BEE cloud storage.
 // ==/UserScript==
 
 (function() {
@@ -166,7 +166,7 @@
           } else {
               // Handle the error or exit if re-authentication has already been attempted
               console.error('Re-authentication failed, not retrying.');
-              showNotification('Failed to Authenticate. Reload.', 'red');
+              showNotification('Failed to Authenticate. Reload and try again.', 'red', 4000, document.body);
           }
       });
     }
@@ -270,15 +270,17 @@
         modal.style.display = 'block'; // Show the modal
     }
 
-    function showNotification(message, bgColor = 'green', delay = 3000) {
-        const top = document.getElementById('modalContent');
+    function showNotification(message, bgColor = 'green', delay = 3000, target) {
+        if (!target) {
+          target = document.getElementById('modalContent')
+        }
 
         const div = document.createElement('div');
         div.innerText = message;
         div.id = 'copyNotification';
         div.style.backgroundColor = bgColor;
 
-        top.appendChild(div);
+        target.appendChild(div);
 
         setTimeout(function() {
           div.parentNode.removeChild(div)
