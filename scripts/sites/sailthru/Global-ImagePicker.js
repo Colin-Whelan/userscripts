@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/*
 // @grant       none
-// @version     1.3
+// @version     1.4
 // @run-at      document-end
 // @author      Colin Whelan
 // @description Adds the BEE editor image picker to the HTML builder. Click an image to copy the path. Click a folder to enter it, back with the 'back' button, and the 'X'/outside the box to close it.
@@ -11,9 +11,7 @@
 // First we fetch the BEE plugin resource, then we use that + the existing Sailthru cookie to authenticate with the Sailthru UI API. With that, we can fetch different folders of the BEE cloud storage.
 // TODO:
 // Show image dimensions - may need to call each image is slow/resource intensive.
-// Add search bar that filters current folder
 // Add Upload/delete function
-// Include create date - maybe title value of name
 // Make it smaller, draggable, and add 'insert' button. - To mimic default HTML image behavior.
 // ==/UserScript==
 
@@ -35,23 +33,52 @@
             height: 100%;
             background-color: rgba(0,0,0,0.5);
             z-index: 1000;
-            overflow-y: scroll;
+        }
+        #modalContainer {
+            display: block;
+            background-color: #fff;
+            margin: 2% auto;
+            padding: 0px 20px 20px 20px;
+            border: 1px solid #888;
+            width: 70%;
+            position: relative;
+            border-radius: 20px;
+            overflow-y: auto;
+            max-height: 90%;
         }
         #modalContent {
             display: flex;
             flex-wrap: wrap;
             justify-content: start;
             background-color: #fff;
-            margin: 5% auto;
-            padding: 60px 20px 20px 20px;
-            border: 1px solid #888;
-            width: 70%;
+            padding: 20px 20px 20px 20px;
+            width: 100%;
             position: relative;
-            border-radius: 20px;
+        }
+        #modalHeader {
+            position: sticky;
+            top: 0;
+            background-color: #fff;
+            z-index: 1001;
+            display: flex;
+            justify-content: space-between;
+            padding: 35px;
+            border-bottom: 1px solid #888;
+        }
+        #searchBar {
+            padding: 5px 10px;
+            font-size: 16px;
+            margin: 0 5px;
+            width: 87%;
+            position: absolute;
+            top: 21px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            right: 5%;
         }
         #closeButton {
             position: absolute;
-            top: 20px;
+            top: 15px;
             right: 25px;
             font-size: 36px;
             font-weight: bold;
@@ -60,7 +87,7 @@
         .itemFrame {
             margin: 10px;
             padding: 10px;
-            flex-basis: calc(15% - 20px);
+            flex-basis: calc(15% + 5px);
             border: 1px solid #aaa;
             border-radius: 10px;
             text-align: center;
@@ -73,11 +100,18 @@
         .image-name {
             text-align: center;
             font-size: 15px;
+            font-weight: bold;
             margin-top: 5px;
+            margin-bottom: 0;
             word-wrap: anywhere;
         }
+        .image-lastModifyDate {
+            text-align: center;
+            font-size: 13px;
+            margin: 3px 0 0 0;
+        }
         #backButton {
-            background-color: #4CAF50; /* Green background */
+            background-color: #EEE;
             padding: 10px 20px;
             text-align: center;
             text-decoration: none;
@@ -90,7 +124,7 @@
 
             /* Position towards the corner */
             position: absolute;
-            top: 20px;
+            top: 13px;
             left: 20px;
         }
         #copyNotification {
@@ -99,7 +133,7 @@
             top: 0;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 1000;
+            z-index: 1002;
             text-align: center;
             width: auto;
             margin-top: 30px;
@@ -108,6 +142,7 @@
             padding: 10px;
             border-radius: 5px;
         }
+
     `;
 
     const styleSheet = document.createElement("style");
@@ -116,29 +151,38 @@
     document.head.appendChild(styleSheet);
 
     function authenticate() {
-        const tokenInfo = JSON.parse(localStorage.getItem('authTokenInfo'));
-
-        // console.log('Authenticating');
-        fetch('https://my.sailthru.com/uiapi/bee/auth', {
-            method: 'POST',
-            headers: {
-                'Cookie': document.cookie
-            },
-            body: JSON.stringify({"feature":"email"})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data && data.access_token) {
-                accessToken = data.access_token
-                // useToken(accessToken);
-            }
+        return new Promise((resolve, reject) => {
+            fetch('https://my.sailthru.com/uiapi/bee/auth', {
+                method: 'POST',
+                headers: {
+                    'Cookie': document.cookie
+                },
+                body: JSON.stringify({"feature":"email"})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.access_token) {
+                    accessToken = data.access_token;
+                    resolve(accessToken);
+                } else {
+                    reject('No access token in response');
+                }
+            }).catch(reject);
         });
     }
 
-    function useToken(accessToken, hasAttemptedReauth = false) {
+    async function useToken(accessToken, hasAttemptedReauth = 0) {
       folderHistory = [];
       // console.log('Trying to fetch images...', accessToken);
-      if(!accessToken) authenticate();
+      if (!accessToken) {
+          try {
+              accessToken = await authenticate();
+          } catch (error) {
+              console.error('Authentication failed:', error);
+              // Optionally, show a notification to the user about the failure
+              return; // Exit the function as there's no token to use
+          }
+      }
 
       fetch('https://bee-cloudstorage.getbee.io/cs/cloudstorage/', {
         method: 'GET',
@@ -164,12 +208,20 @@
               throw new Error('image data is empty');
           }
       })
-      .catch(error => {
+      .catch(async error => {
           console.error('Error:', error);
           // If the token failed to load, and no re-auth attempt has been made, try re-authenticating once
-          if (!hasAttemptedReauth) {
-              console.log('Re-authenticating...');
-              useToken(null, true); // Pass null to force a re-authentication + pass true to indicate re-auth attempt has been made
+          if (hasAttemptedReauth < 3) {
+              hasAttemptedReauth++
+              try {
+                  accessToken = await authenticate();
+              } catch (error) {
+                  console.error('Authentication failed:', error);
+                  // Optionally, show a notification to the user about the failure
+                  return; // Exit the function as there's no token to use
+              }
+              console.log('Re-authenticating...', hasAttemptedReauth, accessToken);
+              useToken(accessToken, hasAttemptedReauth); // Pass null to force a re-authentication + pass true to indicate re-auth attempt has been made
           } else {
               // Handle the error or exit if re-authentication has already been attempted
               console.error('Re-authentication failed, not retrying.');
@@ -191,12 +243,30 @@
             }
         });
 
+        let modalContainer = document.createElement('div');
+        modalContainer.id = 'modalContainer';
+
+        let modalHeader = document.createElement('div');
+        modalHeader.id = 'modalHeader';
+
         let modalContent = document.createElement('div');
         modalContent.id = 'modalContent';
 
-        let closeButton = createCloseButton(modal);
-        modal.appendChild(modalContent);
-        modalContent.appendChild(closeButton);
+        let searchInput = document.createElement('input');
+        searchInput.id = 'searchBar';
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search images...';
+        searchInput.oninput = function() {
+            filterImages(searchInput.value); // Implement this function to filter images
+        };
+
+        modal.appendChild(modalContainer);
+
+        modalContainer.appendChild(modalHeader);
+        modalHeader.appendChild(createCloseButton(modal));
+        modalHeader.appendChild(searchInput);
+
+        modalContainer.appendChild(modalContent);
 
         document.body.appendChild(modal);
         return modal;
@@ -213,6 +283,19 @@
         return closeButton;
     }
 
+    function filterImages(query) {
+        // Retrieve all image name elements
+        let imageNames = document.querySelectorAll('.image-name');
+        imageNames.forEach(el => {
+            // Check if the image name includes the query
+            if (el.textContent.toLowerCase().includes(query.toLowerCase())) {
+                el.closest('.itemFrame').style.display = 'block'; // Show the image frame
+            } else {
+                el.closest('.itemFrame').style.display = 'none'; // Hide the image frame
+            }
+        });
+    }
+
     // Function to update the modal with image data
     function updateModal(modal, images, currentPath) {
         if(!currentPath) currentPath = 'home'
@@ -224,16 +307,19 @@
             folderHistory.push(currentPath);
         }
 
-        let modalContent = modal.querySelector('div');
+        console.log(document.getElementById('modalContent'))
+
+        let modalHeader = document.getElementById('modalHeader');
+        let modalContent = document.getElementById('modalContent');
         modalContent.innerHTML = ''; // Clear existing content
 
         // Add Back button if not in root
         if (folderHistory.length > 1) {
             let backButton = createBackButton();
-            modalContent.appendChild(backButton);
+            modalHeader.appendChild(backButton);
         }
 
-        modalContent.appendChild(createCloseButton(modal));
+        // modalContent.appendChild(createCloseButton(modal));
 
         // Add image data
         images.forEach(image => {
@@ -241,20 +327,24 @@
             frameDiv.classList = ['itemFrame'];
 
             let itemDiv = document.createElement('div');
+            let imageName = image.name
+
+            let timestamp = image['last-modified']
+            let lastModifiedDate = new Date(Number(timestamp)).toUTCString();
 
             if (image['mime-type'] === 'application/directory') {
                 // Handle folders
-                itemDiv.innerHTML = `<strong>Folder:</strong><br> ${image.name} (${image['item-count']})`;
+                itemDiv.innerHTML = `<strong>Folder:</strong><br> ${imageName} (${image['item-count']}) <br> Last Modified: ${lastModifiedDate}`;
                 itemDiv.style.cursor = 'pointer';
                 itemDiv.onclick = function() {
                     // Fetch contents of the clicked folder
-                    fetchFolderContents(image.name);
+                    fetchFolderContents(imageName);
                 };
             } else {
                 // Handle images
                 let imgElement = document.createElement('img');
                 imgElement.src = image.thumbnail;
-                imgElement.alt = image.name;
+                imgElement.alt = imageName;
                 imgElement.className = 'image-thumbnail'; // Assign a class for styling
 
                 frameDiv.style.cursor = 'pointer';
@@ -263,11 +353,16 @@
                 };
 
                 let imgName = document.createElement('p');
-                imgName.textContent = image.name;
+                imgName.textContent = imageName;
                 imgName.className = 'image-name'; // Assign a class for styling
+
+                let lastModifyDate = document.createElement('p');
+                lastModifyDate.textContent = `Last Modified: ${lastModifiedDate}`;
+                lastModifyDate.className = 'image-lastModifyDate'; // Assign a class for styling
 
                 itemDiv.appendChild(imgElement);
                 itemDiv.appendChild(imgName); // Append the image name element
+                itemDiv.appendChild(lastModifyDate); // Append the image name element
             }
 
             frameDiv.appendChild(itemDiv);
@@ -357,7 +452,7 @@
 
     // Create modal once and reuse it
     let imageModal = createModal();
-    authenticate();
+    accessToken = authenticate();
 
     function addImagePickerButton() {
         const ulElement = document.getElementById('header_nav_links')
