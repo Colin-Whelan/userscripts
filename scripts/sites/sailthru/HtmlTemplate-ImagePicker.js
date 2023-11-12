@@ -3,12 +3,11 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds the BEE editor image picker to the HTML builder. Click an image to copy the path. Click a folder to enter it, and back with the 'back' button.
 // How it works:
 // First we fetch the BEE plugin resource then we use that + the existing Sailthru cookie to authenticate with the Sailthru UI API. With that, we can fetch different folders of the BEE cloud storage.
-// TODO: I think performance could be improved by not re-authenticate everything each time. Authentication should be good for a while before needing to be refreshed. And can refresh when that is needed.
 // ==/UserScript==
 
 (function() {
@@ -109,76 +108,66 @@
     styleSheet.innerText = css;
     document.head.appendChild(styleSheet);
 
-    function fetchImages() {
-      folderHistory = [];
-      console.log('fetching');
+    function authenticate() {
+        const tokenInfo = JSON.parse(localStorage.getItem('authTokenInfo'));
 
-      fetch('https://app-rsrc.getbee.io/plugin/BeePlugin.js', {
-        method: 'GET'
-      })
-      .then(response => {
-          // Check if the Storage request was successful
-          if (response.ok) {
-              // Now perform the GET request
-          } else {
-              throw new Error('BEE get plugin request failed');
-          }
-      })
-      .then(Plugin => {
-          fetch('https://my.sailthru.com/uiapi/bee/auth', {
+        // console.log('Authenticating');
+        fetch('https://my.sailthru.com/uiapi/bee/auth', {
             method: 'POST',
             headers: {
-              'Cookie': document.cookie
+                'Cookie': document.cookie
             },
             body: JSON.stringify({"feature":"email"})
-          })
-          .then(authResponse => {
-              if (!authResponse.ok) {
-                  throw new Error(`HTTP error! Status: ${authResponse.status}`);
-              }
-              return authResponse.json(); // This returns a Promise
-          })
-          .then(data => {
-              // 'data' is the resolved value of the promise returned by authResponse.json()
-              if (data && data.access_token) {
-                  accessToken = data.access_token
-                  fetch('https://bee-cloudstorage.getbee.io/cs/cloudstorage/', {
-                      method: 'GET',
-                      headers: {
-                        'Authorization': 'Bearer ' + accessToken
-                      }
-                  })
-                  .then(imageResponse => {
-                      // Check if the Storage request was successful
-                      if (imageResponse.ok) {
-                          const body = imageResponse.json()
-                          return body
-                          // Now perform the GET request
-                      } else {
-                          throw new Error('image request failed');
-                      }
-                  })
-                  .then(imageData => {
-                      if (imageData) {
-                          let images = imageData.data.items;
-                          updateModal(imageModal, images);
-                      } else {
-                          throw new Error('image data is empty');
-                      }
-                  })
-                  .catch(error => {
-                      console.error('Error:', error);
-                  });
-              } else {
-                  console.log('Access token not found in response');
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-          });
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.access_token) {
+                accessToken = data.access_token
+                // useToken(accessToken);
+            }
+        });
+    }
+
+    function useToken(accessToken, hasAttemptedReauth = false) {
+      folderHistory = [];
+      // console.log('Trying to fetch images...', accessToken);
+      if(!accessToken) authenticate();
+
+      fetch('https://bee-cloudstorage.getbee.io/cs/cloudstorage/', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken
+        }
+      })
+      .then(imageResponse => {
+          // Check if the Storage request was successful
+          if (imageResponse.ok) {
+              const body = imageResponse.json()
+              return body
+              // Now perform the GET request
+          } else {
+              throw new Error('image request failed');
+          }
+      })
+      .then(imageData => {
+          if (imageData) {
+              let images = imageData.data.items;
+              updateModal(imageModal, images);
+          } else {
+              throw new Error('image data is empty');
+          }
       })
       .catch(error => {
           console.error('Error:', error);
+          // If the token failed to load, and no re-auth attempt has been made, try re-authenticating once
+          if (!hasAttemptedReauth) {
+              console.log('Re-authenticating...');
+              useToken(null, true); // Pass null to force a re-authentication + pass true to indicate re-auth attempt has been made
+          } else {
+              // Handle the error or exit if re-authentication has already been attempted
+              console.error('Re-authentication failed, not retrying.');
+              showNotification('Failed to Authenticate. Reload.', 'red');
+          }
       });
     }
 
@@ -219,15 +208,14 @@
 
     // Function to update the modal with image data
     function updateModal(modal, images, currentPath) {
-        console.log('path', currentPath)
-
         if(!currentPath) currentPath = 'home'
+
+        // console.log('Current Folder:', currentPath)
 
         // Add current path to folder history, but avoid duplicates
         if (folderHistory[folderHistory.length - 1] !== currentPath) {
             folderHistory.push(currentPath);
         }
-        console.log(folderHistory)
 
         let modalContent = modal.querySelector('div');
         modalContent.innerHTML = ''; // Clear existing content
@@ -360,12 +348,13 @@
 
     // Create modal once and reuse it
     let imageModal = createModal();
+    authenticate();
 
     function addImagePickerButton() {
         const button = document.createElement('button');
         button.id = 'customImagePicker'
         button.innerText = 'Open Image Picker';
-        button.addEventListener('click', fetchImages);
+        button.addEventListener('click', () => useToken(accessToken));
         document.getElementById('standard-controls').appendChild(button);
     }
 
