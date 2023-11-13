@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/*
 // @grant       none
-// @version     1.4
+// @version     1.5
 // @run-at      document-end
 // @author      Colin Whelan
 // @description Adds the BEE editor image picker to the main Sailthru toolbar. Click an image to copy the path. Click a folder to enter it, back with the 'back' button, and the 'X'/outside the box to close it.
@@ -12,7 +12,8 @@
 // TODO:
 // Show image dimensions - may need to call each image is slow/resource intensive.
 // Add Upload/delete function
-// Make it smaller, draggable, and add 'insert' button. - To mimic default HTML image behavior.
+// Make it smaller(done), draggable(done), resizable(done), and add 'insert' button. - To mimic default HTML image behavior.
+// See about making this use an additional window so it can be maintained across pages.
 // ==/UserScript==
 
 (function() {
@@ -26,30 +27,32 @@
     const css = `
         #imagePickerModal {
             display: none;
-            position: fixed;
-            left: 0;
-            top: 0;
+            left: 45%;
+            top: 45%;
             width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            height: 84%;
             z-index: 1000;
+            position: fixed;
         }
         #modalContainer {
             display: block;
             background-color: #fff;
-            margin: 2% auto;
+            margin: 0 auto 0 0;
             padding: 0px 20px 20px 20px;
             border: 1px solid #888;
-            width: 70%;
+            width: 50%;
+            height: 50%;
             position: relative;
             border-radius: 20px;
-            overflow-y: auto;
-            max-height: 90%;
+
+            resize:both;
+            overflow-y:auto;
+            overflow-x:hidden;
         }
         #modalContent {
             display: flex;
             flex-wrap: wrap;
-            justify-content: start;
+            justify-content: space-around;
             background-color: #fff;
             padding: 20px 20px 20px 20px;
             width: 100%;
@@ -74,12 +77,12 @@
             top: 21px;
             border-radius: 10px;
             border: 1px solid #333;
-            right: 5%;
+            left: 75px;
         }
         #closeButton {
             position: absolute;
             top: 15px;
-            right: 25px;
+            right: 0px;
             font-size: 36px;
             font-weight: bold;
             cursor: pointer;
@@ -87,11 +90,12 @@
         .itemFrame {
             margin: 10px;
             padding: 10px;
-            flex-basis: calc(15% + 5px);
+            flex-basis: calc(12%);
             border: 1px solid #aaa;
             border-radius: 10px;
             text-align: center;
             background-color: #f5f5f5;
+            min-width: 165px;
         }
         .image-thumbnail {
             max-width: 100%;
@@ -125,7 +129,7 @@
             /* Position towards the corner */
             position: absolute;
             top: 13px;
-            left: 20px;
+            left: -7px;
         }
         #copyNotification {
             color: white;
@@ -141,6 +145,17 @@
             border: none;
             padding: 10px;
             border-radius: 5px;
+        }
+        #resizer {
+            width: 20px;
+            height: 20px;
+            position: absolute;
+            right: 17px;
+            bottom: 24px;
+            cursor: nwse-resize;
+            z-index: 1003;
+            color: black;
+            font-size: 28px;
         }
 
     `;
@@ -232,16 +247,9 @@
 
     // Function to create and return a modal element
     function createModal() {
+        folderHistory = []
         let modal = document.createElement('div');
         modal.id = 'imagePickerModal';
-
-        // Close modal when clicking outside of modal content
-        modal.addEventListener('click', function(event) {
-            let modalContent = document.querySelector('.modal-content');
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
 
         let modalContainer = document.createElement('div');
         modalContainer.id = 'modalContainer';
@@ -265,15 +273,19 @@
         modalContainer.appendChild(modalHeader);
         modalHeader.appendChild(createCloseButton(modal));
         modalHeader.appendChild(searchInput);
+        modalHeader.appendChild(createBackButton());
 
         modalContainer.appendChild(modalContent);
 
         document.body.appendChild(modal);
+        makeDraggable(modalContainer, modalHeader);
+
         return modal;
     }
 
     // Function to create a close button
     function createCloseButton(modal) {
+        if(document.getElementById('closeButton')) return
         let closeButton = document.createElement('span');
         closeButton.innerHTML = '&times;';
         closeButton.id = 'closeButton';
@@ -300,26 +312,25 @@
     function updateModal(modal, images, currentPath) {
         if(!currentPath) currentPath = 'home'
 
-        // console.log('Current Folder:', currentPath)
-
         // Add current path to folder history, but avoid duplicates
         if (folderHistory[folderHistory.length - 1] !== currentPath) {
             folderHistory.push(currentPath);
         }
 
-        console.log(document.getElementById('modalContent'))
-
         let modalHeader = document.getElementById('modalHeader');
         let modalContent = document.getElementById('modalContent');
         modalContent.innerHTML = ''; // Clear existing content
 
+        const backButton = document.getElementById('backButton')
+
         // Add Back button if not in root
         if (folderHistory.length > 1) {
-            let backButton = createBackButton();
-            modalHeader.appendChild(backButton);
+            // console.log('showing back button')
+            backButton.style.display = 'block'
+        } else {
+            // console.log('hiding back button')
+            backButton.style.display = 'none'
         }
-
-        // modalContent.appendChild(createCloseButton(modal));
 
         // Add image data
         images.forEach(image => {
@@ -370,6 +381,40 @@
         });
 
         modal.style.display = 'block'; // Show the modal
+    }
+
+    // Function to make the modal draggable
+    function makeDraggable(element, handle) {
+        let offsetX = 0;
+        let offsetY = 0;
+        let drag = false;
+
+        handle.addEventListener('mousedown', function(e) {
+            // Exclude interactive elements like inputs, buttons, etc.
+            if (['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+                return;
+            }
+
+            drag = true;
+            offsetX = e.clientX - parseInt(window.getComputedStyle(element).left);
+            offsetY = e.clientY - parseInt(window.getComputedStyle(element).top);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            e.preventDefault(); // Prevent selection
+        });
+
+        function onMouseMove(e) {
+            if (drag) {
+                element.style.left = (e.clientX - offsetX) + 'px';
+                element.style.top = (e.clientY - offsetY) + 'px';
+            }
+        }
+
+        function onMouseUp() {
+            drag = false;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        }
     }
 
     function showNotification(message, bgColor = 'green', delay = 3000, target) {
@@ -428,9 +473,12 @@
         let backButton = document.createElement('button');
         backButton.innerText = 'Back';
         backButton.id = 'backButton';
+        backButton.style.display = 'block'
         backButton.onclick = function() {
             // Go back to the previous folder
+            // console.log(folderHistory)
             folderHistory.pop(); // Remove current location
+
             let previousFolder = folderHistory.pop(); // Get previous location
             if (previousFolder) {
                 fetchFolderContents(previousFolder);
