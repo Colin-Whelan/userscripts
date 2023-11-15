@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name        Bynder - Bulk Copy URLs
 // @namespace   Violentmonkey Scripts
-// @match       https://YOUR_BYNDER_DOMAIN/media/*
+// @match       https://assets.indigoimages.ca/media/*
 // @grant       GM_xmlhttpRequest
-// @version     1.5
+// @version     1.6
 // @author      Colin Whelan
 // @description Add a button to copy public URL of each selected asset. Just update the @match URL to your domain and enjoy.
 // Features:
@@ -40,35 +40,24 @@
 
     // Set an interval to repeatedly check for the element
     var checkExportButtonInterval = setInterval(function() {
-        if (!document.getElementById('exportURLs')) {
+        let uploadContainer = document.getElementById('uploadContainer');
+
+        if (!document.getElementById('exportURLs') && uploadContainer) {
             clearInterval(checkExportButtonInterval); // Clear the interval once the function is called
 
             addExportButton(); // Call addExportButton if the button doesn't exist
         }
-    }, 200); // Check every 200 milliseconds
+    }, 400); // Check every 200 milliseconds
 
     function showNotification(message, bgColor = '#D7C756', delay = 3000) {
-      const filterBar = document.querySelector('body').children[0];
+      const target = document.querySelector('body').children[0];
 
       const div = document.createElement('div');
       div.innerText = message;
-      div.id = 'copyUrlWarning';
+      div.id = 'notification';
       div.style.backgroundColor = bgColor;
-      div.style.color = 'white';
-      div.style.position = 'fixed'; // To position the div relative to the viewport
-      div.style.top = '0'; // Align to the top of the screen
-      div.style.left = '50%'; // Align to the horizontal center
-      div.style.transform = 'translateX(-50%)'; // Ensure it is centered
-      div.style.zIndex = '1000'; // Make sure it's on top of other elements
-      div.style.textAlign = 'center'; // Center the text inside the div
-      div.style.width = 'auto'; // Let it size according to the message length
-      div.style.marginTop = '30px';
-      div.style.fontSize = '16px';
-      div.style.border = 'none';
-      div.style.padding = '10px';
-      div.style.borderRadius = '5px';
 
-      filterBar.appendChild(div);
+      target.appendChild(div);
 
       setTimeout(function() {
         div.parentNode.removeChild(div)
@@ -76,7 +65,8 @@
     }
 
     function addExportButton() {
-        const filterBar = document.querySelector('.filters-holder').children[0]
+        console.log('target', document.querySelector('#uploadContainer'))
+        const target = document.querySelector('#uploadContainer')
         const style = document.createElement('style');
         style.innerHTML += `
         body header.base .filters .clearfix {
@@ -88,19 +78,43 @@
         body header.base .tool-bar .clearfix {
           max-height: 50px !important;
         }
+        section#rootHeaderNavigation button#exportURLs {
+          background-color: rgb(9, 38, 187);
+          color: white;
+          font-size: 16px;
+          border: none;
+          padding: 10px;
+          border-radius: 2px;
+          float: right;
+          position: relative;
+          margin: 10px 20px 0 20px;
+          letter-spacing: 0.5px;
+
+        }
+        section#rootHeaderNavigation button#exportURLs:hover {
+          background-color: #2545D7;
+        }
+        #notification {
+          color: white;
+          position: fixed;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1000;
+          text-align: center;
+          width: auto;
+          margin-top: 30px;
+          font-size: 16px;
+          border: none;
+          padding: 10px;
+          border-radius: 5px;
+        }
         `
 
         document.head.appendChild(style);
         const button = document.createElement('button');
-        button.innerText = "Get Public URL of Selected Assets";
+        button.innerText = "Copy Public URLs";
         button.id = 'exportURLs';
-        button.style.backgroundColor = 'rgb(7, 30, 150)';
-        button.style.color = 'white';
-        button.style.marginBottom = '10px';
-        button.style.fontSize = '16px'
-        button.style.border = 'none'
-        button.style.padding = '10px 10px'
-        button.style.borderRadius = '5px'
         button.onclick = async function(event) {
             const urls = []
             event.preventDefault();
@@ -150,16 +164,16 @@
                   results.forEach(url => url ? urls.push(url) : '');
 
                   // Now that all URLs are fetched, copy to clipboard and log
+                  let numWithoutUrls = results.length - urls.length
                   if(urls.length > 0){
-                    let numWithoutUrls = results.length - urls.length
                     copyToClipboard(urls.join("\n"));
                     if(numWithoutUrls){
-                      showNotification(`Copied ${urls.length} URL${urls.length == 1 ? '' : 's'} to clipboard. (${numWithoutUrls} ${numWithoutUrls == 1 ? 'has' : 'have'} no public URL)`, '#D7C756', 5000)
+                      showNotification(`Copied ${urls.length} URL${urls.length == 1 ? '' : 's'}. (${numWithoutUrls} ${numWithoutUrls == 1 ? 'URL' : 'URLs'} not public.)`, '#D7C756', 5000)
                     } else {
-                      showNotification(`Copied ${urls.length} URL${urls.length == 1 ? '' : 's'} to clipboard!`, '#0f9d58')
+                      showNotification(`Copied ${urls.length} URL${urls.length == 1 ? '' : 's'}!`, '#0f9d58')
                     }
                   } else {
-                    showNotification('No public URLs!', '#e8253b')
+                    showNotification(`${numWithoutUrls == 1 ? 'URL' : 'URLs'} not public!`, '#e8253b')
                   }
               } catch (error) {
                   console.error('An error occurred:', error);
@@ -170,17 +184,22 @@
             }
         };
 
-        filterBar.appendChild(button);
+        // Get the parent element of 'target'
+        const parent = target.parentNode;
+
+        // Insert 'button' before 'target' within the 'parent'
+        parent.insertBefore(button, target);
+
 
         document.addEventListener('click', function() {
-          var activeDivs
+          let activeDivs
           // not sure why a delay of 0 works, but it does
           setTimeout(() => {
             activeDivs = document.getElementById('results-thumbs').querySelectorAll('div.active');
             if(activeDivs.length){
-              button.innerText = `Get Public URL of Selected Assets (${activeDivs.length})`
+              button.innerText = `Copy Public URLs (${activeDivs.length})`
             } else {
-              button.innerText = `Get Public URL of Selected Assets`
+              button.innerText = `Copy Public URLs`
             }
           }, 0);
         }, true);
