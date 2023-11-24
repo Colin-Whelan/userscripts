@@ -329,15 +329,7 @@ let myBeeConfig = {
         paddingBottom: '5px',
         paddingLeft: '5px',
         align: "left", // block position, use the CSS above for text positioning
-      },
-      mobileStyles: {
-        textAlign: "center",
-        fontSize: "30px",
-        paddingTop: "20px",
-        paddingRight: "20px",
-        paddingBottom: "20px",
-        paddingLeft: "20px",
-      },
+      }
     },
     button: {
       label: "My New Label",
@@ -367,15 +359,7 @@ let myBeeConfig = {
         paddingTop: "20px",
         align: "center",
         hideContentOnMobile: false
-      },
-      mobileStyles: {
-        paddingBottom: "10px",
-        paddingLeft: "10px",
-        paddingRight: "10px",
-        paddingTop: "10px",
-        textAlign: "center",
-        fontSize: "16px",
-      },
+      }
     },
     image: {
       alt: "My Alt Label",
@@ -389,14 +373,7 @@ let myBeeConfig = {
         paddingTop: "0px",
         align: "center",
         hideContentOnMobile: true
-      },
-      mobileStyles: {
-        textAlign: "right",
-        paddingTop: "10px",
-        paddingRight: "10px",
-        paddingBottom: "10px",
-        paddingLeft: "10px",
-      },
+      }
     },
     social: { // Works really well. there are defaults if the fields are removed/null.
       icons: [{
@@ -467,14 +444,7 @@ let myBeeConfig = {
         paddingLeft: "10px",
         paddingRight: "10px",
         paddingTop: "10px",
-      },
-      mobileStyles: {
-        paddingTop: "10px",
-        paddingRight: "10px",
-        paddingBottom: "10px",
-        paddingLeft: "10px",
-        textAlign: "right",
-      },
+      }
     }
   }
 }
