@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/lifecycle_optimizer*
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
-// @version     1.5
+// @version     1.6
 // @author      Colin Whelan
 // @description Extract the templates from the LO steps and add a link to the template.
 // ==/UserScript==
@@ -64,7 +64,7 @@ const injectButton = () => {
         const button = document.createElement('button');
         button.className = 'view-button';
         button.id = 'extractTemplates';
-        button.textContent = 'View Extracted Templates';
+        button.textContent = 'View Templates';
         targetElement.insertBefore(button, targetElement.firstChild);
 
         button.addEventListener('click', function() {
@@ -129,6 +129,54 @@ const injectButton = () => {
     }
 };
 
+// Function to convert data to CSV format
+function convertToCSV(objArray) {
+    const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+    let str = 'LO Name,LO Link,Template Name,Template Link\n';
+
+    for (const loName in templateDetails) {
+        const templates = templateDetails[loName];
+        templates.forEach(template => {
+            str += `${loName},https://my.sailthru.com/lifecycle_optimizer/flows/${template.LoId},${template.templateName},https://my.sailthru.com/email-composer/${template.templateId}\n`;
+        });
+    }
+
+    return str;
+}
+
+// Function to start file download
+function downloadCSV(csvContent, fileName) {
+    let encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
+    encodedUri = encodedUri.replaceAll("/flows", "%23/flows")
+    console.log(encodedUri)
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Inject the Download Button
+const injectDownloadButton = () => {
+    const targetElement = document.querySelector('.sc-pIUfD.qlYhQ');
+    if (targetElement) {
+        const button = document.createElement('button');
+        button.className = 'view-button';
+        button.id = 'downloadTemplates';
+        button.textContent = 'Download LO + Template Links';
+        targetElement.insertBefore(button, targetElement.firstChild);
+
+        button.addEventListener('click', function() {
+            const csvData = convertToCSV(templateDetails);
+            downloadCSV(csvData, 'LO and Template Links.csv');
+        });
+    }
+};
+
+// Call the new function to inject the download button
+injectDownloadButton();
+
 // Get all template data
 GM_xmlhttpRequest({
     method: "GET",
@@ -165,7 +213,7 @@ function fetchLOData() {
                             templateDetails[lo.name] = [];
                         }
 
-                        templateDetails[lo.name].push({templateId: templateId, templateName: templateName});
+                        templateDetails[lo.name].push({templateId: templateId, templateName: templateName, LoId: lo.id});
                     }
                 }
             }
