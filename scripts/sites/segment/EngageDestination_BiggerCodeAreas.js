@@ -55,7 +55,7 @@ const isNewAudiencePage = urlPattern.test(currentUrl);
 
 if(isNewAudiencePage){
   GM_addStyle(`
-   .fade-in-simple { max-height: none !important; }  /* makes box take all available height */
+   .fade-in-simple { max-height: 75vh !important; }  /* makes box take all available height */
   .📦dspl_flex .ub-box-szg_border-box button.📦ltr-spc_0 { border: 1px solid rgb(63, 68, 70) !important; }  /* Adds border to And/And not button */
   `);
 }
