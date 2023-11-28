@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Lifecycle Optimizer - Extract Templates
 // @namespace   Violentmonkey Scripts
-// @match       https://my.sailthru.com/lifecycle_optimizer#/
+// @match       https://my.sailthru.com/lifecycle_optimizer*
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
 // @version     1.5
