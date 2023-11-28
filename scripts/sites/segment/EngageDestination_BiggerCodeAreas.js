@@ -5,7 +5,7 @@
 // @match       https://app.segment.com/*/engage/spaces/*/audiences/*
 // @match       https://app.segment.com/*
 // @grant       GM_addStyle
-// @version     1.3
+// @version     1.4
 // @author      Colin Whelan
 // @description Adds these improvements:
 // - Makes text areas for JSON bigger and easier to work with.
