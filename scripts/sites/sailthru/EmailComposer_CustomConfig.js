@@ -246,7 +246,7 @@ let myBeeConfig = {
       },
     },
   },
-  mergeTags: [ // Doesn't work.
+  mergeTags: [ // Works now
     {
       name: 'First Name',
       value: '{first_name}'
@@ -258,7 +258,7 @@ let myBeeConfig = {
       value: '{email}'
     }
   ],
-  mergeContents: [ // Doesn't work.
+  mergeContents: [ // Works now
     {
       name: 'Headline news',
       value: '{headlines}'
@@ -270,7 +270,7 @@ let myBeeConfig = {
       value: '{latest-products}'
     }
   ],
-  specialLinks: [ // Doesn't work.
+  specialLinks: [ // Works now
     {
       type: 'CustomConfigLinks',
       label: 'Unsubscribe link(TEST)',
