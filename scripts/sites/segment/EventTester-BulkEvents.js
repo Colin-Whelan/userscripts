@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://app.segment.com/*/destinations/*/sources/*/instances/*/event-tester*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Send tests using uploaded JSON files. Each is sent to the current destination. Allows for batch sending of tests and test cases. Events are sent as soon as they are uploaded. Shows the response of each in a modal - click to expand.
 // ==/UserScript==
@@ -11,37 +11,66 @@
 (function() {
     'use strict';
 
+    const css = `
+    #fileUploadStatus {
+      padding: 20px;
+      position: fixed;
+      top: 20%;
+      left: 30%;
+      width: 40%;
+      max-height: 60%;
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      overflow-y: auto;
+      display: none;
+    }
+
+    #closeModalButton {
+      padding: 8px 15px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 4px;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+    }
+
+    #batchJsonInput {
+      padding: 10px;
+      margin-top: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 50%;
+    }
+
+    .responseText{
+      word-break:
+    }
+
+    `;
+
+    const styleSheet = document.createElement("style");
+    styleSheet.type = "text/css";
+    styleSheet.innerText = css;
+    document.head.appendChild(styleSheet);
+
     let numOfResponses = 0;
 
     // Function to create a modal
     function createModal() {
         let modal = document.createElement('div');
-        modal.style.position = 'fixed';
-        modal.style.top = '20%';
-        modal.style.left = '30%';
-        modal.style.width = '40%';
-        modal.style.maxHeight = '60%';
-        modal.style.backgroundColor = '#f9f9f9';
-        modal.style.border = '1px solid #ccc';
-        modal.style.borderRadius = '8px';
-        modal.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
-        modal.style.padding = '20px';
-        modal.style.zIndex = '1000';
-        modal.style.overflowY = 'auto';
-        modal.style.display = 'none';
+        modal.id = 'fileUploadStatus'
 
         let closeModalButton = document.createElement('button');
+        closeModalButton.id = 'closeModalButton'
         closeModalButton.textContent = 'Close';
-        closeModalButton.style.padding = '8px 15px';
-        closeModalButton.style.marginBottom = '10px';
-        closeModalButton.style.border = 'none';
-        closeModalButton.style.borderRadius = '4px';
-        closeModalButton.style.backgroundColor = '#4CAF50';
-        closeModalButton.style.color = 'white';
-        closeModalButton.style.cursor = 'pointer';
-        closeModalButton.style.position = 'absolute';
-        closeModalButton.style.top = '12px';
-        closeModalButton.style.right = '12px';
         // Add more button styles as needed
         closeModalButton.onclick = function() {
             modal.style.display = 'none';
@@ -80,6 +109,7 @@
         details.appendChild(summary);
 
         let responseText = document.createElement('pre');
+        responseText.classList = ['responseText']
         responseText.textContent = JSON.stringify(responseData, null, 2);
         details.appendChild(responseText);
 
@@ -98,31 +128,40 @@
     // URL of the resource you want to fetch
     const url = 'https://app.segment.com/gateway-api/graphql?operation=sendEventToIntegration';
 
-    function addFileInput(target){
+    function addFileInput(target) {
         // Create file input element
         let fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.id = 'batchJsonInput';
         fileInput.multiple = true;
-        fileInput.style.padding = '10px';
-        fileInput.style.marginTop = '10px';
-        fileInput.style.border = '1px solid #ddd';
-        fileInput.style.borderRadius = '4px';
-        fileInput.style.cursor = 'pointer';
         target.appendChild(fileInput);
 
         // Event listener for file selection
-        fileInput.addEventListener('change', function() {
+        fileInput.addEventListener('change', function () {
             clearModal(); // Clear the modal before adding new files
             let files = fileInput.files;
+            let processedFiles = 0;  // Counter for processed files
+
             if (files.length > 0) {
                 for (let i = 0; i < files.length; i++) {
                     let file = files[i];
                     let reader = new FileReader();
 
-                    reader.onload = function(e) {
-                        let yourJsonData = JSON.parse(e.target.result);
-                        sendEventData(files.length, file.name, yourJsonData);
+                    reader.onload = function (e) {
+                        try {
+                            let yourJsonData = JSON.parse(e.target.result);
+                            sendEventData(files.length, file.name, yourJsonData);
+                        } catch (error) {
+                            console.error("Error parsing JSON:", error);
+                            addToModal(file.name, {"statusCode": "Segment JSON error", "Error": error.message })
+                        }
+
+                        processedFiles++;  // Increment the processed files counter
+
+                        // Check if all files have been processed
+                        if (processedFiles === files.length) {
+                            showModal();
+                        }
                     };
 
                     reader.readAsText(file);
@@ -147,7 +186,7 @@
             clearInterval(checkExportButtonInterval); // Clear the interval once the function is called
             addFileInput(target);
         } else {
-          console.log('still not ready',target, document.getElementById('batchJsonInput'))
+          // console.log('still not ready',target, document.getElementById('batchJsonInput'))
         }
     }, 400);
 
