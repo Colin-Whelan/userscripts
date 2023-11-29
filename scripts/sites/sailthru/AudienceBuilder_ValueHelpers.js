@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Audience Builder | Value Helpers
+// @name        Audience Builder - Value Helpers
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/audience_builder#/*
 // @grant       none
