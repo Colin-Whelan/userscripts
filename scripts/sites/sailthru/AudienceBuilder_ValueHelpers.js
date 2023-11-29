@@ -5,7 +5,7 @@
 // @grant       none
 // @version     1.1
 // @author      Colin Whelan
-// @description Adds helper rules based on input fields.
+// @description Adds helper rules based on input fields + aligns is/contains/exists selector with the field/value inputs.
 // ==/UserScript==
 
 (function() {
