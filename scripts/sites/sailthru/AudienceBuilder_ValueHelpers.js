@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/audience_builder#/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds helper rules based on input fields.
 // ==/UserScript==
@@ -38,6 +38,9 @@
 
     // Function to add custom helper text
     function addHelperText(element, field) {
+        // remove existing helper texts
+        removeHelperText(element)
+
         const helperDiv = document.createElement('div');
         const helperText = fieldHelpers[field]
 
@@ -46,7 +49,7 @@
         helperDiv.style.cssText = 'margin-top: 5px; font-size: 12px; color: grey;';
         element.appendChild(helperDiv);
     }
-  
+
     // Function to remove custom helper text
     function removeHelperText(element) {
         const existingHelper = element.parentNode.querySelector('.custom-helper-text');
@@ -58,54 +61,35 @@
 
     // Observer for changes in the DOM
     const observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-            // console.log(mutation)
-            if (mutation.addedNodes.length) {
-                mutation.addedNodes.forEach(node => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.classList && (node.classList.contains('element') || node.classList.contains('stui-selector__single-value'))) {
+                    const inputField = node.querySelector('.stui-selector__single-value') || node;
+                    const conditionContainer = inputField.closest('.criteria-body')?.querySelector('.value-inputfield');
 
-                    if (node.classList && node.classList.contains('element')) {
-                      let inputField = node.querySelectorAll('.stui-selector__single-value')[0]
-                      if(inputField){
-                        let conditionContainer = inputField.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.querySelectorAll('.value-inputfield ')[0]
-                        let foundMatch = false
-                        // console.log('expanded container.')
-                        Object.keys(fieldHelpers).forEach(field => {
+                    if (conditionContainer) {
+                        let foundMatch = false;
+                        for (const field of Object.keys(fieldHelpers)) {
                             if (inputField.textContent === field) {
-                                foundMatch = true
+                                foundMatch = true;
                                 addHelperText(conditionContainer, field);
+                                break;
                             }
-                        });
-
-                        if(!foundMatch){
-                           removeHelperText(conditionContainer);
                         }
-                      }
-                    }
-                    if (node.classList && node.classList.contains('stui-selector__single-value')) {
-                        let conditionContainer = node.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.parentElement.querySelectorAll('.value-inputfield ')[0]
-                        let foundMatch = false
-                        // Check each field in the key-value pair
-                        Object.keys(fieldHelpers).forEach(field => {
-                            if (node.textContent === field) {
-                                foundMatch = true
-                                removeHelperText(conditionContainer);
-                                addHelperText(conditionContainer, field);
-                            }
-                        });
 
-                        if(!foundMatch){
-                           removeHelperText(conditionContainer);
+                        if (!foundMatch) {
+                            removeHelperText(conditionContainer);
                         }
                     }
-                });
+                }
             }
-        });
+        }
     });
+
 
     // Options for the observer (which mutations to observe)
     const config = { childList: true, subtree: true };
 
     // Start observing the target node for configured mutations
     observer.observe(document.body, config);
-
 })();
