@@ -1,12 +1,13 @@
 // ==UserScript==
-// @name        Get Nested Includes
+// @name        Email Composer - Get Nested Include Arrays
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/template/*
+// @match       https://my.sailthru.com/email-composer/*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
 // @version     1.0
 // @author      Colin Whelan
-// @description Adds button to Sailthru Template Page for processing includes and copies to clipboard. For use with this: https://sailthru.zendesk.com/hc/en-us/community/posts/22560634415636
+// @description Adds button to Sailthru HTML+Visual Builder for building nested include arrays and copies to clipboard. For use with this: https://sailthru.zendesk.com/hc/en-us/community/posts/22560634415636
 // ==/UserScript==
 
 (function() {
