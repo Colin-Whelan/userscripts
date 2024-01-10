@@ -56,7 +56,7 @@
   }
 }`
         },
-        // Add more requests as needed. Remove leading white space on 'params' like the examples.
+        // Add/Edit requests as needed. Remove leading white space on 'params' like the examples.
     };
 
     // Function to create and insert the dropdown
