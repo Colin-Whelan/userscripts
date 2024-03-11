@@ -15,6 +15,7 @@ The easiest way to add these scripts is with the URL which allows for easy updat
 3.  Click the '+' in the top left corner and choose 'Install from URL'
 4.  In a separate tab, navigate to the script of your choice.
 5.  Click the 'Raw' button on the right hand side.
+  ![in top right of the code section](https://cdn.glitch.global/4c74f8d5-b1a6-4a37-91dc-9b40f9d9d76e/firefox_TY0MXfG7ia.png?raw=true)
 6.  Copy and paste this URL into the ViolentMonkey URL box.
 7.  Click 'OK', then 'Confirm Installation' on the next page.
 8.  Reload the dashboard to see the new script added.
