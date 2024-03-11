@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds a search bar to the Idea Gallery
 // ==/UserScript==
@@ -11,29 +11,29 @@
 (function() {
     'use strict';
 
-    let searchBar;
+    let searchBar; // Define the searchBar variable outside of the createSearchBar function
 
     function addCustomStyles() {
-      const styles = `
-          #templateSearchBar {
-              padding: 10px;
-              border: 2px solid rgb(58, 122, 240);
-              border-radius: 5px;
-              box-shadow: 0px 0px 0px rgba(58, 122, 240, 0.5);
-              transition: all 0.3s ease;
-          }
+        const styles = `
+            #templateSearchBar {
+                padding: 10px;
+                border: 2px solid rgb(58, 122, 240);
+                border-radius: 5px;
+                box-shadow: 0px 0px 0px rgba(58, 122, 240, 0.5);
+                transition: all 0.3s ease;
+            }
 
-          #templateSearchBar:focus {
-              outline: none;
-              box-shadow: 0px 0px 8px rgba(58, 122, 240, 0.7);
-          }
-      `;
+            #templateSearchBar:focus {
+                outline: none;
+                box-shadow: 0px 0px 8px rgba(58, 122, 240, 0.7);
+            }
+        `;
 
-      const styleSheet = document.createElement('style');
-      styleSheet.type = 'text/css';
-      styleSheet.innerText = styles;
-      document.head.appendChild(styleSheet);
-  }
+        const styleSheet = document.createElement('style');
+        styleSheet.type = 'text/css';
+        styleSheet.innerText = styles;
+        document.head.appendChild(styleSheet);
+    }
 
     // Function to create the search bar
     function createSearchBar() {
@@ -58,10 +58,13 @@
     // Function to filter templates based on search input
     function filterTemplates() {
         const searchValue = searchBar.value.toLowerCase();
-        const templateDivs = document.querySelectorAll('.sc-eqIVtm.dWWOBO > div');
+        const parentElement = searchBar.nextElementSibling.firstElementChild;
+        const templateDivs = Array.from(parentElement.children).filter(child => child.tagName === 'DIV');
+
 
         templateDivs.forEach(div => {
-            const templateName = div.querySelector('.sc-gisBJw.fuwVTF').textContent.toLowerCase();
+            console.log(div.firstElementChild)
+            const templateName = div.firstElementChild.nextElementSibling.textContent.toLowerCase();
             if (templateName.includes(searchValue)) {
                 div.style.display = '';
             } else {
@@ -76,7 +79,9 @@
         if (currentUrl.endsWith('/gallery')) {
             searchBar.style.display = 'block';
         } else {
-            searchBar.style.display = 'none';
+            if (searchBar) {
+              searchBar.style.display = 'none';
+            }
         }
     }
 
