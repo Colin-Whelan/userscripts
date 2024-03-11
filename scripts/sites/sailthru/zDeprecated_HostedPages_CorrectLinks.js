@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name        Hosted Page - Correct Links
+// @name        (Deprecated) Hosted Page - Correct Links
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/content/hosted_page_list*
 // @grant       none
 // @version     1.0
 // @author      Colin Whelan
-// @description Corrects the links to the visual editor
+// @description (Deprecated) - Sailthru has fixed this issue :)
 // ==/UserScript==
 (function() {
   'use strict';
