@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/lifecycle_optimizer*
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
-// @version     1.6
+// @version     1.7
 // @author      Colin Whelan
 // @description Extract the templates from the LO steps and add a link to the template.
 // ==/UserScript==
@@ -59,7 +59,7 @@ GM_addStyle(`
 `);
 
 const injectButton = () => {
-    const targetElement = document.querySelector('.sc-pIUfD.qlYhQ');
+    const targetElement = document.querySelector('.sc-pIUfD > div:last-child');
     if (targetElement) {
         const button = document.createElement('button');
         button.className = 'view-button';
@@ -148,7 +148,6 @@ function convertToCSV(objArray) {
 function downloadCSV(csvContent, fileName) {
     let encodedUri = encodeURI(`data:text/csv;charset=utf-8,${csvContent}`);
     encodedUri = encodedUri.replaceAll("/flows", "%23/flows")
-    console.log(encodedUri)
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', fileName);
@@ -159,7 +158,7 @@ function downloadCSV(csvContent, fileName) {
 
 // Inject the Download Button
 const injectDownloadButton = () => {
-    const targetElement = document.querySelector('.sc-pIUfD.qlYhQ');
+    const targetElement = document.querySelector('.sc-pIUfD > div:last-child');
     if (targetElement) {
         const button = document.createElement('button');
         button.className = 'view-button';
