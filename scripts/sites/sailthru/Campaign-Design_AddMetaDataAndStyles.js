@@ -9,8 +9,8 @@
 // ==/UserScript==
 
 // Change these to suit your needs
-const defaultTitle = 'Indigo'
-const defaultFavicon = '<link rel="shortcut icon" type="image/png" href="https://static.indigoimages.ca/2022/email/03_mar/ind_favicon.jpg"/>'
+const defaultTitle = 'Your Page Title'
+const defaultFavicon = '<link rel="shortcut icon" type="image/png" href="path/to/your/favicon.ico"/>'
 const defaultStyle = `<style>
   /* More readable alt text */
   img {
