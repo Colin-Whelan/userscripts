@@ -12,8 +12,8 @@
     'use strict';
 
     // Both are required for the Audience details to be set.
-    const defaultTargetList = 'All test users'
-    const defaultSuppressionList = '!EV - Daily Exclusions'
+    const defaultTargetList = 'Default Target List Name'
+    const defaultSuppressionList = 'Default Suppression List Name'
 
     function showModal(content, isError, blastId = null) {
         const backdrop = document.createElement('div');
