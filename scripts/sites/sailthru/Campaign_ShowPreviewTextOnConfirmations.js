@@ -16,13 +16,16 @@
         const apiUrl = `https://my.sailthru.com/uiapi/campaign/${campaignId}?_=${Date.now()}`;
         const existingPreviewRow = document.querySelector('.preview_text');
 
+        const isVisualEmail = true
+
         if(!existingPreviewRow){
           fetch(apiUrl)
               .then(response => response.json())
               .then(data => {
                   const previewText = extractPreviewText(data.content_html);
-                  console.log('previewText',previewText)
-                  displayPreviewText(previewText)
+
+                  if(isVisualEmail) displayPreviewText(previewText)
+
               })
               .catch(error => {
                   console.error('Error fetching campaign data:', error);
@@ -40,8 +43,9 @@
 
     function displayPreviewText(previewText) {
         const subjectRow = document.querySelector('.section_row.subject'); // Find the subject row
-        console.log('subjectRow',subjectRow)
-        if (subjectRow) {
+        const adRow = document.querySelector('.section_row.ad_plan');
+
+        if (subjectRow || adRow) {
             if (!document.querySelector('.preview_text')) { // If it doesn't exist, add it
                 const previewRow = document.createElement('div');
                 previewRow.className = 'section_row preview_text';
@@ -50,7 +54,12 @@
                     <div class="section_confirm_column"><label>${previewText ? previewText : "HTML Template/Missing"}</label></div>
                     <div class="section_confirm_check"><div class="large blue check icon"></div></div>
                 `;
-                subjectRow.insertAdjacentElement('afterend', previewRow); // Insert after the subject row
+                if(subjectRow) {
+                  subjectRow.insertAdjacentElement('afterend', previewRow); // Insert after the subject row
+                } else {
+                  adRow.insertAdjacentElement('afterend', previewRow); // Insert after the subject row
+                }
+
             }
         }
     }
