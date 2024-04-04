@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        Template List - Create Campaign From Template
+// @name        Templates List - Create Campaign From Template
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
 // @grant       none
