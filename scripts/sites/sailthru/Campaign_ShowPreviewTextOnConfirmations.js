@@ -16,13 +16,15 @@
         const apiUrl = `https://my.sailthru.com/uiapi/campaign/${campaignId}?_=${Date.now()}`;
         const existingPreviewRow = document.querySelector('.preview_text');
 
-        const isVisualEmail = true
+        let isVisualEmail = true
 
-        if(!existingPreviewRow){
+        if(!existingPreviewRow && isVisualEmail){
           fetch(apiUrl)
               .then(response => response.json())
               .then(data => {
                   const previewText = extractPreviewText(data.content_html);
+
+                  if(!previewText) isVisualEmail = false
 
                   if(isVisualEmail) displayPreviewText(previewText)
 
