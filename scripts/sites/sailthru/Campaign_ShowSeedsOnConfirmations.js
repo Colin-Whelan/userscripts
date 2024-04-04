@@ -3,9 +3,11 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/campaign**
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
-// @description Adds seed emails to the confirmation screen
+// @description Adds seed emails to the confirmation screen.
+// v1.1 Updates:
+// - way less extra data fetches in the background
 // ==/UserScript==
 
 (function() {
@@ -15,20 +17,24 @@
         const campaignId = window.location.hash.split('#')[1].split('/')[0];
         const apiUrl = `https://my.sailthru.com/uiapi/campaign/${campaignId}?_=${Date.now()}`;
 
-        fetch(apiUrl)
-            .then(response => response.json())
-            .then(data => {
-                displaySeedEmails(data);
-            })
-            .catch(error => {
-                console.error('Error fetching campaign data:', error);
-            });
-    }
+        const existingSeedRow = document.querySelector('.seed-emails-row');
+
+        if(!existingSeedRow){
+          fetch(apiUrl)
+              .then(response => response.json())
+              .then(data => {
+                  displaySeedEmails(data);
+              })
+              .catch(error => {
+                  console.error('Error fetching campaign data:', error);
+              });
+        }
+      }
 
     function displaySeedEmails(data) {
         const parentContainer = document.querySelector('#schedule_confirmation > div > div > div:nth-last-child(1)');
-        const existingSeedRow = parentContainer.querySelector('.seed-emails-row');
-        if (parentContainer && data.seed_emails && !existingSeedRow) {
+
+        if (parentContainer && data.seed_emails) {
             const seedEmailsRow = document.createElement('div');
             seedEmailsRow.className = 'pn--ConfirmationField-row--18bD0 seed-emails-row';
             seedEmailsRow.innerHTML = `
