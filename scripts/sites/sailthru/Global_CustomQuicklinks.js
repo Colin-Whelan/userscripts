@@ -3,9 +3,10 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Add quick links to the navbar. Add/remove as needed.
+// -- patched for the May 2024 UI update
 // ==/UserScript==
 
 // Your quicklinks in JSON format
@@ -22,21 +23,14 @@ let quicklinksAdded = false;
     'use strict';
     const quicklinks = JSON.parse(quicklinksJSON);
 
-    // Initialize MutationObserver
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.type === 'childList') {
-                const ulElement = document.getElementById('header_nav_links');
-                if (ulElement && !quicklinksAdded) {
-                    observer.disconnect(); // Disconnect the observer if the element is found
-                    addQuicklinks(ulElement, quicklinks);
-                }
-            }
-        });
-    });
-
-    // Start observing
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Set an interval to repeatedly check for the element
+    var checkExportButtonInterval = setInterval(function() {
+        let target = document.getElementById('header_nav_links');
+        if (target) {
+            clearInterval(checkExportButtonInterval); // Clear the interval once the function is called
+            addQuicklinks(target, quicklinks);;
+        }
+    }, 100);
 
     // Function to add quicklinks
     function addQuicklinks(ulElement, quicklinks) {
@@ -57,7 +51,7 @@ let quicklinksAdded = false;
             const spanElement = document.createElement('span');
             spanElement.innerText = link.text;
             spanElement.style.fontSize = '0.8em'
-    
+
             if(link.text.length > 10) aElement.style.marginTop = '10px'
 
             aElement.appendChild(spanElement);
