@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/template/*
 // @grant       none
 // @run-at      document-end
-// @version     1.13
+// @version     1.14
 // @author      Colin Whelan
 // @require    https://cdn.jsdelivr.net/npm/js-beautify@1.14.0/js/lib/beautify-html.js
 // @description Improved HTML Editor (Ace Editor) by updating the config settings. Update as needed to suit your preferences. Also adds a helper menu for commands with 'Ctrl+Shift+space'
@@ -25,6 +25,8 @@
 // ==/UserScript==
 
 // Default Options
+const smallScreen = false // if screen is smaller than 1080p, enable this so the preview fits better
+
 const fontSize = 16 // font size in px
 const minLines = 16 // min size of the editor
 const tabSize = 2 // spaces per tab
@@ -78,6 +80,7 @@ const themePreviewButtonStyles = {
 }
 
 function addThemeDropdown(editor) {
+  console.log('addThemeDropdown')
   const controls = document.getElementById("standard-controls");
 
   if (!controls || document.getElementById("themeSelector")) return;
@@ -145,6 +148,7 @@ function rearrangeEditorElements() {
 }
 
 function improveEditor() {
+  console.log('improveEditor')
   if (window.ace) {
     const editor = ace.edit("ace-editor");
 
@@ -755,10 +759,16 @@ const observerConfig = {
   subtree: false
 };
 
-// console.log('editorObserver', tabEditorDiv, observerConfig)
 if(tabEditorDiv){
-editorObserver.observe(tabEditorDiv, observerConfig);
+  improveEditor();
+  let htmlWindowWidth = '50%'
+  if(smallScreen){
+    htmlWindowWidth = '30%'
+  }
+  document.getElementById('tab-details').style.width = htmlWindowWidth // set the other info to 50% so the preview can show.
+  document.getElementById('tabs').children[0].children[2].style.display = 'none' // hide the preview tab since its always there now
 }
+
 
 function improveAdvanced() {
   let setupArea = document.getElementById('f_setup')
@@ -794,5 +804,6 @@ const advancedObserver = new MutationObserver((mutations) => {
 
 // console.log('advancedObserver', tabAdvancedDiv, observerConfig)
 if(tabAdvancedDiv){
-advancedObserver.observe(tabAdvancedDiv, observerConfig);
+  improveAdvanced()
+// advancedObserver.observe(tabAdvancedDiv, observerConfig);
 }
