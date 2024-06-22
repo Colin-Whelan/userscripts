@@ -3,17 +3,28 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
 // @grant       none
-// @version     1.2
+// @version     1.3
 // @author      Colin Whelan
 // @grant       GM_xmlhttpRequest
 // @description Adds a flag to indicate if a template is used in any LOs on Sailthru. Green = 0 LOs, Orange = Only Inactive LOs, Red = Active LOs.
+// 1.3 - Update for the May 2024 UI update. Clicking bubble will open in new tab now.
 // ==/UserScript==
 
 (function() {
     'use strict';
 
     const checkUsageAndUpdateRow = async (row) => {
-        const id = row.querySelector('.fa-info-circle').id;
+
+      const url = row.querySelector(':nth-child(4) a').href // Extract the ID from the 4th child element
+
+        // HTML Email
+        let id = url.split('#')[1];
+
+        // Visual Email
+        if(!id) {
+          id = url.split('/email-composer/')[1]
+        }
+
         const usageURL = `https://my.sailthru.com/uiapi/lifecycle/?template_id=${id}`;
         const hrefURL = `https://my.sailthru.com/email-composer/${id}/usage`;
 
@@ -46,6 +57,10 @@
 
               const flagElement = document.createElement('a');
               flagElement.href = hrefURL;
+              flagElement.target = '_blank';
+              flagElement.addEventListener('click', (event) => {
+                  event.stopPropagation(); // Prevent other click events from triggering
+              });
               flagElement.textContent = `${activeItems.length}${inactiveItems.length ? '(' + inactiveItems.length + ')' : ''} LO${count == 1 ?  '' : 's'}`;
               flagElement.classList.add('usageFlag');
               flagElement.style.backgroundColor = colors.background; // red - green
@@ -57,7 +72,7 @@
               flagElement.style.borderRadius = '10px';
               flagElement.style.padding = '0px 5px';
               flagElement.style.marginLeft = '10px';
-              row.querySelector('.gisiQO').appendChild(flagElement);
+              row.querySelector(':nth-child(7)').appendChild(flagElement);
             }
         });
     };
@@ -81,12 +96,13 @@
         btn.onmouseover = () => btn.style.backgroundColor = "#2E62C0"; // Darker blue on hover
         btn.onmouseout = () => btn.style.backgroundColor = "#3a7af0"; // Original blue on mouse out
         btn.onclick = () => {
-            const tableRows = document.querySelectorAll('.src__BodyRow-sc-1epr26z-5');
+            const tableRows = Array.from(document.getElementsByClassName('sc-eMkmGk')).slice(1); // Convert to array and remove the first row
+            console.log(tableRows)
             tableRows.forEach(row => {
                 checkUsageAndUpdateRow(row);
             });
         };
-        document.querySelector('.sc-bwzfXH').appendChild(btn);
+        document.querySelector('.sc-brSamD').appendChild(btn);
     };
 
     // Inject the button to the page
