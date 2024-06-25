@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/lifecycle_optimizer*
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
-// @version     1.9.1
+// @version     1.9.2
 // @description Extract the templates from the LO steps and add a link to the template. Create mermaid flowcharts for each LO.
 // v1.9.1:
 // Adds option to print LOs in a better view than native.
