@@ -157,6 +157,7 @@ function convertToCSV(objArray) {
     for (const loName in templateDetails) {
         const templates = templateDetails[loName];
         templates.forEach(template => {
+            if (!template.templateId) return
             str += `${loName},https://my.sailthru.com/lifecycle_optimizer/flows/${template.LoId},${template.templateName},https://my.sailthru.com/email-composer/${template.templateId}\n`;
         });
     }
@@ -202,7 +203,7 @@ function generateMermaidDiagram(lo) {
                     const amount = step.taskAttributes.time.amount;
                     const unit = step.taskAttributes.time.unit.substring(0,step.taskAttributes.time.unit.length-1);
                     const unitLabel = amount > 1 ? `${unit}s` : unit;
-                    stepLabel += `\nWait for: ${amount} ${unitLabel}`;
+                    stepLabel = `Wait: ${amount} ${unitLabel}`;
                 }
                 break;
             case 'multiVarEq':
@@ -235,7 +236,7 @@ function generateMermaidDiagram(lo) {
                         stepLabel += `\nType: ${criteriaType} (${criteria.key}) \nCheck if: ${criteria.field} ${criteria.timerange} ${criteria.value}`;
                         break;
                       case 'lo_between':
-                        stepLabel += `\nType: ${criteriaType} (${criteria.date_selector_type}) \nCheck if: ${criteria.field} is between ${criteria.value[0]} and ${criteria.value[1]}`;
+                        stepLabel += `\nType: ${criteriaType} ${criteria.date_selector_type ? "(" + criteria.date_selector_type + ")" : ""} \nCheck if: '${criteria.field}' is between ${criteria.value[0]} and ${criteria.value[1]}`;
                         break;
                       case 'gt':
                         stepLabel += `\nType: greater than \nCheck if: '${criteria.field}' > ${criteria.value}`;
@@ -251,7 +252,7 @@ function generateMermaidDiagram(lo) {
                 break;
             case 'setVar':
                 if (step.taskAttributes) {
-                    stepLabel += `\nSet '${step.taskAttributes.variables[0].key}' to ${step.taskAttributes.variables[0].value}`;
+                    stepLabel += `\nSet '${step.taskAttributes.variables[0].key}' to ${step.taskAttributes.variables[0].value == "" ? "''" : step.taskAttributes.variables[0].value}`;
                 }
                 break;
             case null:
@@ -327,22 +328,29 @@ const injectPrintLOsButton = () => {
 
                 // Add a title for the LO
                 const loTitle = document.createElement('h3');
+                loTitle.style.margin = '5px 0px'
                 loTitle.textContent = loName;
                 modalContent.appendChild(loTitle);
 
-                // Add a title for the LO
+                // Add a subtitle for the LO
                 const loSubTitle = document.createElement('h4');
+                loSubTitle.style.margin = '5px 0px'
                 loSubTitle.textContent = ``;
-                if(lo.reentry.isAllowed) {
-                  loSubTitle.textContent += `Re-entry allowed: ${lo.reentry.isAllowed}`
-                }
-                if(lo.reentry.ifPresent) {
-                  loSubTitle.textContent += ` | Block while in flow: ${lo.reentry.ifPresent}`
-                }
+                loSubTitle.textContent += `Re-entry allowed: ${lo.reentry.isAllowed}`
+                loSubTitle.textContent += ` | Block while in flow: ${lo.reentry.ifPresent}`
                 if(lo.reentry.afterDelay) {
                   loSubTitle.textContent += ` | Restrict to once every: ${lo.reentry.afterDelay.amount} ${lo.reentry.afterDelay.unit}`
                 }
                 modalContent.appendChild(loSubTitle);
+
+                // Add update details
+                const loDates = document.createElement('h5');
+                loDates.style.margin = '5px 0px'
+                const createDate = new Date(lo.createTime);
+                const modifyDate = new Date(lo.lastEditedTime);
+                loDates.textContent = ``;
+                loDates.textContent += `Created: ${createDate.toLocaleString()} | Last Modified: ${modifyDate.toLocaleString()}`
+                modalContent.appendChild(loDates);
 
                 const mermaidDiagram = generateMermaidDiagram(lo);
                 const diagramContainer = document.createElement('div');
