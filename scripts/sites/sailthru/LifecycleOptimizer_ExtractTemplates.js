@@ -200,7 +200,7 @@ function generateMermaidDiagram(lo) {
             case 'relative':
                 if (step.taskAttributes.time) {
                     const amount = step.taskAttributes.time.amount;
-                    const unit = step.taskAttributes.time.unit;
+                    const unit = step.taskAttributes.time.unit.substring(0,step.taskAttributes.time.unit.length-1);
                     const unitLabel = amount > 1 ? `${unit}s` : unit;
                     stepLabel += `\nWait for: ${amount} ${unitLabel}`;
                 }
