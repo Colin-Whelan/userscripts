@@ -4,16 +4,26 @@
 // @match       https://my.sailthru.com/lifecycle_optimizer*
 // @grant       GM_xmlhttpRequest
 // @grant       GM_addStyle
-// @version     1.9.2
+// @version     1.9.4
 // @description Extract the templates from the LO steps and add a link to the template. Create mermaid flowcharts for each LO.
+//
+// v1.9.4:
+// Added more step details
+// Added search functionality
+// Added Print button
+// 
+// v1.9.3:
+// Added more step details
+// fixed download options
+//
+// v1.9.2:
+// Added more step details
+//
 // v1.9.1:
 // Adds option to print LOs in a better view than native.
 //
 // Todo:
-// style it to be more like Sailthru's LOs
-// Add mermaid export
-// Add image export
-// Add export all option
+// Add per chart export
 // Account for if template is visual or HTML. Assumes visual for now.
 //
 //
@@ -41,18 +51,54 @@ GM_addStyle(`
 }
 .modal-content {
     background: #fff;
-    padding: 20px;
+    padding: 20px 20px 20px 20px; /* Add padding to top to make space for fixed elements */
     margin: 10% auto;
     width: 80%;
     max-height: 80%;
     overflow-y: auto;
     position: relative;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 .close-button {
-    position: absolute;
-    right: 10px;
-    top: 5px;
+    position: sticky;
+/*     right: 10px;*/
+    top: 0px;
     cursor: pointer;
+    z-index: 1001; /* Ensure it stays above modal content */
+    background: #ff5c5c;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+.close-button:hover {
+    background: #ff3b3b;
+}
+.search-container{
+  position: sticky;
+}
+.search-bar {
+    position: sticky;
+    top: 0px;
+   /*left: 10px; */
+    width: calc(100% - 80px); /* Adjust width to fit within modal */
+    z-index: 1001; /* Ensure it stays above modal content */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
+    outline: none;
+    margin: 0px 0 20px 0;
+}
+.search-bar::placeholder {
+    color: #888;
 }
 .view-button {
     float: left;
@@ -67,7 +113,25 @@ GM_addStyle(`
 .view-button:hover {
     background-color: #0056b3;
 }
+.print-button {
+    position: sticky;
+    top: 53px;
+    right: 50px;
+    z-index: 1001;
+    padding: 8px 12px;
+    border: none;
+    background-color: #28a745;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 0 0 1em 0;
+}
+.print-button:hover {
+    background-color: #218838;
+}
 `);
+
+
 
 // Function to dynamically load Mermaid.js
 function loadMermaid(callback) {
@@ -184,6 +248,7 @@ function generateMermaidDiagram(lo) {
     let diagram = 'flowchart TD;\n';
     for (const stepId in lo.steps) {
         const step = lo.steps[stepId];
+        // console.log(stepId, lo)
         let stepLabel = step.subtype;
         switch (step.subtype) {
             case 'customEvent':
@@ -206,6 +271,7 @@ function generateMermaidDiagram(lo) {
                     stepLabel = `Wait: ${amount} ${unitLabel}`;
                 }
                 break;
+            case 'multiEventVarEq':
             case 'multiVarEq':
                 if (step.taskAttributes) {
                     stepLabel += `\nCheck if: '${step.taskAttributes.var}' == `;
@@ -258,6 +324,8 @@ function generateMermaidDiagram(lo) {
             case null:
                 stepLabel = `END`;
                 break;
+            case 'abTest':
+                break;
             default:
                 break;
         }
@@ -266,8 +334,17 @@ function generateMermaidDiagram(lo) {
 
         if (step.children) {
             step.children.forEach(child => {
-                const matchLabel = child.match !== undefined ? child.match : ' ';
-                // console.log(`Adding connection: ${stepId} -->|${matchLabel}| ${child.nextId}`);
+                let matchLabel = ''
+                switch (step.subtype) {
+                  case 'abTest':
+                      matchLabel = child.match.allocation + "%"
+                      break;
+                  default:
+                      matchLabel = child.match !== undefined ? child.match.toString().replaceAll('"','').replaceAll('|', '/') : ' ';
+                      break;
+                }
+
+                console.log(`Adding connection: ${stepId} -->|${matchLabel}| ${child.nextId}`);
                 diagram += `${stepId} -->|${matchLabel}| ${child.nextId ? child.nextId : "END"};\n`;
             });
         } else {
@@ -314,48 +391,102 @@ const injectPrintLOsButton = () => {
             const modalContent = document.createElement('div');
             modalContent.className = 'modal-content';
 
-            const closeButton = document.createElement('span');
-            closeButton.className = 'close-button';
-            closeButton.textContent = 'X';
-            closeButton.onclick = function() {
-                modal.style.display = 'none';
+            const searchContainer = document.createElement('div');
+            searchContainer.className = 'search-container';
+            modalContent.appendChild(searchContainer);
+
+            // Close modal when clicking outside of it
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
             };
 
-            modalContent.appendChild(closeButton);
+            // Add search bar
+            const searchBar = document.createElement('input');
+            searchBar.className = 'search-bar';
+            searchBar.type = 'text';
+            searchBar.placeholder = 'Search...';
+            searchBar.style.marginBottom = '1em';
+            searchBar.oninput = function() {
+                const filter = searchBar.value.toLowerCase();
+                const items = modalContent.querySelectorAll('.diagram-container');
+                // console.log(filter, items);
+                items.forEach(item => {
+                    const title = item.querySelector('h3');
+                    const text = title.textContent || title.innerText;
+                    item.style.display = text.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
+                });
+            };
+
+            modalContent.appendChild(searchBar);
+
+            // Add print button
+            const printButton = document.createElement('button');
+            printButton.className = 'print-button';
+            printButton.textContent = 'Print Visible';
+            printButton.onclick = function() {
+                const printContents = Array.from(modalContent.querySelectorAll('.diagram-container'))
+                    .filter(item => item.style.display !== 'none')
+                    .map(item => item.innerHTML)
+                    .join('');
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Print Diagrams</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; }
+                            .diagram-container { margin-bottom: 20px; }
+                            h3, h4, h5 { margin: 5px 0; }
+                        </style>
+                    </head>
+                    <body>${printContents}</body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            };
+
+            modalContent.appendChild(printButton);
 
             for (const loName in templateDetails) {
                 const lo = templateDetails[loName][0];
 
+                const diagramContainer = document.createElement('div');
+                diagramContainer.className = 'diagram-container';
+                modalContent.appendChild(diagramContainer);
+
                 // Add a title for the LO
                 const loTitle = document.createElement('h3');
-                loTitle.style.margin = '5px 0px'
+                loTitle.style.margin = '5px 0px';
                 loTitle.textContent = loName;
-                modalContent.appendChild(loTitle);
+                diagramContainer.appendChild(loTitle);
 
                 // Add a subtitle for the LO
                 const loSubTitle = document.createElement('h4');
-                loSubTitle.style.margin = '5px 0px'
+                loSubTitle.style.margin = '5px 0px';
                 loSubTitle.textContent = ``;
-                loSubTitle.textContent += `Re-entry allowed: ${lo.reentry.isAllowed}`
-                loSubTitle.textContent += ` | Block while in flow: ${lo.reentry.ifPresent}`
-                if(lo.reentry.afterDelay) {
-                  loSubTitle.textContent += ` | Restrict to once every: ${lo.reentry.afterDelay.amount} ${lo.reentry.afterDelay.unit}`
+                loSubTitle.textContent += `Re-entry allowed: ${lo.reentry.isAllowed}`;
+                loSubTitle.textContent += ` | Block while in flow: ${lo.reentry.ifPresent}`;
+                if (lo.reentry.afterDelay) {
+                    loSubTitle.textContent += ` | Restrict to once every: ${lo.reentry.afterDelay.amount} ${lo.reentry.afterDelay.unit}`;
                 }
-                modalContent.appendChild(loSubTitle);
+                diagramContainer.appendChild(loSubTitle);
 
                 // Add update details
                 const loDates = document.createElement('h5');
-                loDates.style.margin = '5px 0px'
+                loDates.style.margin = '5px 0px';
                 const createDate = new Date(lo.createTime);
                 const modifyDate = new Date(lo.lastEditedTime);
                 loDates.textContent = ``;
-                loDates.textContent += `Created: ${createDate.toLocaleString()} | Last Modified: ${modifyDate.toLocaleString()}`
-                modalContent.appendChild(loDates);
+                loDates.textContent += `Created: ${createDate.toLocaleString()} | Last Modified: ${modifyDate.toLocaleString()}`;
+                diagramContainer.appendChild(loDates);
 
                 const mermaidDiagram = generateMermaidDiagram(lo);
-                const diagramContainer = document.createElement('div');
-                diagramContainer.innerHTML = `<pre class="mermaid">${mermaidDiagram}</pre>`;
-                modalContent.appendChild(diagramContainer);
+                const mermaidContainer = document.createElement('div');
+                mermaidContainer.innerHTML = `<pre class="mermaid">${mermaidDiagram}</pre>`;
+                diagramContainer.appendChild(mermaidContainer);
 
                 // Only run for the first LO for testing
                 // break;
@@ -393,6 +524,9 @@ const injectPrintLOsButton = () => {
         });
     }
 };
+
+
+
 
 
 // Get all template data
