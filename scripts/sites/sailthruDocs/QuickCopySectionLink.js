@@ -2,8 +2,9 @@
 // @name        Quick Copy Section Link
 // @namespace   Violentmonkey Scripts
 // @match       https://getstarted.sailthru.com/*
+// @match       https://getstarted.meetmarigold.com/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Add quick URL copy buttons to each section for easy sharing.
 // ==/UserScript==
