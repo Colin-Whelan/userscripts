@@ -3,9 +3,9 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/rm*
 // @grant       none
-// @version     1.1
+// @version     1.3
 // @author      -
-// @description Adds a search bar to the recommendation manager. The dropdown will be limited to the search bar term. Uses fuzzy search.
+// @description Adds a search bar to the recommendation manager. The dropdown will be limited to the search bar term. Uses fuzzy search and sorts templates alphabetically.
 // ==/UserScript==
 
 (function() {
@@ -26,16 +26,33 @@
         return patternIdx === pattern.length;
     }
 
-    // Function to filter options based on search
-    function filterOptions() {
+    // Function to sort options alphabetically
+    function sortOptions(optgroup) {
+        const options = Array.from(optgroup.querySelectorAll('option'));
+        options.sort((a, b) => a.textContent.localeCompare(b.textContent));
+        options.forEach(option => optgroup.appendChild(option));
+    }
+
+    // Function to filter and sort options based on search
+    function filterAndSortOptions() {
         const searchTerm = searchInput.value;
-        const options = select.querySelectorAll('option');
-        options.forEach(option => {
-            if (fuzzySearch(option.textContent, searchTerm)) {
-                option.style.display = '';
-            } else {
-                option.style.display = 'none';
-            }
+        const optgroups = select.querySelectorAll('optgroup');
+
+        optgroups.forEach(optgroup => {
+            const options = Array.from(optgroup.querySelectorAll('option'));
+
+            // Sort options alphabetically
+            options.sort((a, b) => a.textContent.localeCompare(b.textContent));
+
+            // Filter and reorder options
+            options.forEach(option => {
+                if (fuzzySearch(option.textContent, searchTerm)) {
+                    option.style.display = '';
+                    optgroup.appendChild(option); // Move matching options to the end
+                } else {
+                    option.style.display = 'none';
+                }
+            });
         });
     }
 
@@ -55,6 +72,9 @@
     const filterBar = document.querySelector('#feed-preview > .filter-bar');
     const select = filterBar.querySelector('select');
 
+    // Sort options initially
+    select.querySelectorAll('optgroup').forEach(sortOptions);
+
     // Get the refresh button
     const refreshButton = document.getElementById('refresh-preview-button');
 
@@ -68,7 +88,7 @@
     refreshButton.parentNode.insertBefore(searchWrapper, refreshButton.nextSibling);
 
     // Add event listener to search input
-    searchInput.addEventListener('input', filterOptions);
+    searchInput.addEventListener('input', filterAndSortOptions);
 
     // Modify the existing onchange function to work with filtered options
     const originalOnChange = select.getAttribute('onchange');
@@ -78,4 +98,7 @@
             ${originalOnChange}
         }
     `);
+
+    // Initial sort and filter
+    filterAndSortOptions();
 })();
