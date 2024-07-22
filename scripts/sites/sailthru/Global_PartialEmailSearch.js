@@ -2,11 +2,13 @@
 // @name         Global - Partial Email Search
 // @namespace    Violentmonkey Scripts
 // @match        https://my.sailthru.com/*
-// @version      0.3
-// @description  Add partial email search functionality to Sailthru with modal results
+// @version      0.4
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
+// @description  Add partial email search functionality to Sailthru with modal results. Opens profile if only 1 result returned, otherwise shows results in modal.
 // ==/UserScript==
+
+const hideNativeSearch = true;
 
 (function() {
     'use strict';
@@ -27,10 +29,10 @@
             margin: 10px 0;
         }
         div#searchResultContent > ul {
-          margin: 10px 0;
-          padding: 8px 0;
+          margin: 10px 0 0 0;
+          padding: 8px 0 0 0;
         }
-        div#searchResultContent > h1 {
+        div.modal-content > h1 {
           margin-top: 0px;
         }
         div#searchResultContent > h3 {
@@ -63,6 +65,15 @@
           position: relative;
         }
     `);
+
+    // hide native search if enabled
+    if(hideNativeSearch){
+      GM_addStyle(`
+          div#header_search_content {
+              display: none !important;
+          }
+      `);
+    }
 
     // Function to create and insert the new search bar
     function createPartialSearchBar() {
@@ -171,7 +182,7 @@
             withCredentials: true,
             onload: function(response) {
                 if (response.status === 200) {
-                    displayResults(JSON.parse(response.responseText));
+                    handleResults(JSON.parse(response.responseText));
                 } else {
                     alert("Error: " + response.status + ". Check the console for details.");
                     console.error("Error:", response);
@@ -182,6 +193,27 @@
                 alert("An error occurred. Check the console for details.");
             }
         });
+    }
+
+    // Function to handle search results
+    function handleResults(data) {
+        if (data.emailCount === 0) {
+            displayNoResults();
+        } else if (data.emailCount === 1) {
+            const email = data.sample[0].email.toLowerCase();
+            window.location.href = `https://my.sailthru.com/reports/user_profile?id=${email}`;
+        } else {
+            displayResults(data);
+        }
+    }
+
+    // Function to display "No results found" message
+    function displayNoResults() {
+        const modal = document.getElementById('searchResultModal');
+        const content = document.getElementById('searchResultContent');
+
+        content.innerHTML = '<p>No results found.</p>';
+        modal.style.display = "block";
     }
 
     // Function to display results in the modal
