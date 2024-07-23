@@ -2,19 +2,19 @@
 // @name         Global - Partial Email Search
 // @namespace    Violentmonkey Scripts
 // @match        https://my.sailthru.com/*
-// @version      0.4
+// @version      0.5
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @description  Add partial email search functionality to Sailthru with modal results. Opens profile if only 1 result returned, otherwise shows results in modal.
 // ==/UserScript==
 
-const hideNativeSearch = true;
+const hideNativeSearch = false;
 
 (function() {
     'use strict';
 
     GM_addStyle(`
-        .modal {
+        .partial-search-modal {
             display: none;
             position: fixed;
             z-index: 1000;
@@ -25,7 +25,7 @@ const hideNativeSearch = true;
             overflow: auto;
             background-color: rgba(0,0,0,0.4);
         }
-        .modal > p {
+        .partial-search-modal > p {
             margin: 10px 0;
         }
         div#searchResultContent > ul {
@@ -38,7 +38,7 @@ const hideNativeSearch = true;
         div#searchResultContent > h3 {
           margin-bottom: 0px;
         }
-        .modal-content {
+        .partial-search-modal-content {
             background-color: #fefefe;
             margin: 15% auto;
             padding: 20px;
@@ -110,9 +110,9 @@ const hideNativeSearch = true;
         // Create modal
         const modal = document.createElement('div');
         modal.id = 'searchResultModal';
-        modal.className = 'modal';
+        modal.className = 'partial-search-modal';
         modal.innerHTML = `
-            <div class="modal-content">
+            <div class="partial-search-modal-content">
                 <span class="close">&times;</span>
                 <h1>Search Results</h1>
                 <div id="searchResultContent"></div>
