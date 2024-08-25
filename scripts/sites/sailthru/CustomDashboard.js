@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/dashboard*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
-// @version     1.8.1
+// @version     1.8.3
 // @author      Colin Whelan
 // @description Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
 // - A complete view of all LO structures
@@ -18,6 +18,9 @@
 // - Add toggle for active LOs
 //
 // Updates://
+// v1.8.3 - Aug 25, 2024
+// Fixes datetime format, formatted numbers
+//
 // v1.8.2 - Aug 25, 2024
 // Link LO names to the LO
 // Add flag for template usage
@@ -160,7 +163,7 @@ async function displayTemplates(data) {
               <th>Mode</th>
               <th style="min-width: 180px;">Last Modified</th>
               <th>Status</th>
-              <th style="min-width: 50px;">Usage</th>
+              <th style="min-width: 70px;">Usage</th>
             </tr>`;
 
         data.forEach(template => {
@@ -381,11 +384,12 @@ function displayCampaigns(campaignsData, counts) {
 }
 
 function generateCampaignTableRows(campaigns) {
+    console.log(campaigns)
     return campaigns.map(campaign => `
         <tr>
             <td>${campaign.name}</td>
             <td>${campaign.status}</td>
-            <td>${campaign.schedule_time || 'N/A'}</td>
+            <td>${campaign.schedule_time ? campaign.schedule_time.str : (campaign.send_time ? campaign.send_time.str : 'N/A')}</td>
         </tr>
     `).join('');
 }
@@ -672,18 +676,41 @@ function generateClickEvent(stepId, step) {
 function displayPromotions(data) {
     const promotionsListDiv = document.getElementById('promotions-list');
     if (promotionsListDiv && data && data.items && data.items.length > 0) {
-        let tableHtml = '<table><tr><th>Name</th><th>Unassigned Codes</th><th>Created Date</th><th>Modified Date</th><th>Created By</th><th>Modified By</th><th>Refill Reminder</th><th>Refill Reminder Sent</th><th>Custom Fields</th></tr>';
+        let tableHtml = `<table>
+            <tr>
+                <th>Name</th>
+                <th>Unassigned Codes</th>
+                <th>Created Date</th>
+                <th>Modified Date</th>
+                <th>Created By</th>
+                <th>Modified By</th>
+                <th>Refill Reminder</th>
+                <th>Refill Reminder Sent</th>
+                <th>Custom Fields</th>
+            </tr>`;
+
         data.items.forEach(promo => {
+            let customFieldsHtml = '';
+            if (promo.vars) {
+                for (const [key, value] of Object.entries(promo.vars)) {
+                    if (value !== '') {
+                        customFieldsHtml += `<p><strong>${key}:</strong> ${value}</p>`;
+                    }
+                }
+            }
+            if (customFieldsHtml === '') {
+                customFieldsHtml = 'No custom fields';
+            }
             tableHtml += `<tr>
                 <td>${promo.name}</td>
-                <td>${promo.unassigned}</td>
-                <td>${new Date(promo.create_date * 1000).toLocaleString()}</td>
-                <td>${new Date(promo.modify_date * 1000).toLocaleString()}</td>
+                <td>${formatNumber(promo.unassigned)}</td>
+                <td>${new Date(promo.create_date).toLocaleString()}</td>
+                <td>${new Date(promo.modify_date).toLocaleString()}</td>
                 <td>${promo.create_user}</td>
                 <td>${promo.modify_user}</td>
                 <td>${promo.refill_reminder}</td>
                 <td>${promo.refill_reminder_sent ? 'Yes' : 'No'}</td>
-                <td>${JSON.stringify(promo.vars)}</td>
+                <td>${customFieldsHtml}</td>
             </tr>`;
         });
         tableHtml += '</table>';
@@ -1075,5 +1102,12 @@ GM_addStyle(`
     }
     .usage-cell a:hover span {
         filter: brightness(90%);
+    }
+    #promotions-list td p {
+        margin: 0;
+        padding: 2px 0;
+    }
+    #promotions-list td p strong {
+        margin-right: 5px;
     }
 `);
