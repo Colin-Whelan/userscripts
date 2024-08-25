@@ -2,10 +2,15 @@
 // @name        Sailthru Global - Custom Quicklinks
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/*
-// @grant       none
-// @version     1.1
+// @grant       GM_addStyle
+// @version     1.2
 // @author      Colin Whelan
 // @description Add quick links to the navbar. Add/remove as needed.
+//
+// v1.2
+// Updated to be a bit smaller.
+//
+// v1.1
 // -- patched for the May 2024 UI update
 // ==/UserScript==
 
@@ -20,6 +25,12 @@ const quicklinksJSON = `
 let quicklinksAdded = false;
 
 (function() {
+    GM_addStyle(`
+        .iIkGvM {
+          text-transform: none !important;
+        }
+    `);
+
     'use strict';
     const quicklinks = JSON.parse(quicklinksJSON);
 
@@ -37,7 +48,7 @@ let quicklinksAdded = false;
         const dividerElement = document.createElement('li');
         dividerElement.style.borderLeft = '1px solid rgb(223, 230, 231)';
         dividerElement.style.height = '100%';
-        dividerElement.style.margin = '0 12px';
+        dividerElement.style.margin = '0 8px';
         ulElement.appendChild(dividerElement);
 
         quicklinks.forEach(link => {
@@ -50,7 +61,7 @@ let quicklinksAdded = false;
 
             const spanElement = document.createElement('span');
             spanElement.innerText = link.text;
-            spanElement.style.fontSize = '0.8em'
+            spanElement.style.fontSize = '0.7em'
 
             if(link.text.length > 10) aElement.style.marginTop = '10px'
 
