@@ -4,9 +4,10 @@
 // @match       https://my.sailthru.com/dashboard*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
-// @version     1.8.3
+// @version     1.8.4
 // @author      Colin Whelan
-// @description Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
+// @description
+// Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
 // - A complete view of all LO structures
 // - A functioning fuzzy search for all data types - Templates, Campaigns, Lists, Promotions, LOs
 // - Adds ability to search other template properties like Subject, Mode(type), Modify Date
@@ -18,6 +19,9 @@
 // - Add toggle for active LOs
 //
 // Updates://
+// v1.8.4 - Aug 25, 2024
+// Added visual indicator for promocode #s, adding loading indicators, formatted numbers
+//
 // v1.8.3 - Aug 25, 2024
 // Fixes datetime format, formatted numbers
 //
@@ -25,12 +29,10 @@
 // Link LO names to the LO
 // Add flag for template usage
 //
-//
 // v1.8.1 - Aug 25, 2024
 // Added 'Lists' section
 // - description clips at 400 chars with toggle to expand
 // Updated search display for templates
-//
 //
 // v1.7.1 - Aug 24, 2024 (Summary up to this version)//
 // Templates in LO flowcharts are linked
@@ -43,6 +45,27 @@
 
 (function() {
 'use strict';
+
+function createLoadingIndicator(id) {
+    return `<div id="${id}-loading" class="loading-spinner">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>`;
+}
+
+function showLoading(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.innerHTML = createLoadingIndicator(sectionId);
+    }
+}
+
+function hideLoading(sectionId) {
+    const loadingElement = document.getElementById(`${sectionId}-loading`);
+    if (loadingElement) {
+        loadingElement.remove();
+    }
+}
 
 let templatesList = {};
 let loDetails = {};
@@ -286,7 +309,7 @@ function filterTemplatesFuzzy(fuse, searchTerm, property) {
     }
 
     const results = fuse.search(searchTerm, searchOptions);
-    console.log('results', results);
+    // console.log('results', results);
 
     const table = document.getElementById('templates-table');
     const rows = table.querySelectorAll('tr');
@@ -384,7 +407,6 @@ function displayCampaigns(campaignsData, counts) {
 }
 
 function generateCampaignTableRows(campaigns) {
-    console.log(campaigns)
     return campaigns.map(campaign => `
         <tr>
             <td>${campaign.name}</td>
@@ -673,6 +695,32 @@ function generateClickEvent(stepId, step) {
     return '';
 }
 
+function getUnassignedColor(unassigned, refill_reminder) {
+    const ratio = unassigned / refill_reminder;
+
+    // Use a logarithmic scale for a more dynamic range
+    const logRatio = Math.log(ratio) / Math.log(2); // log base 2 of the ratio
+
+    // Normalize the log ratio to a value between 0 and 1
+    const normalizedRatio = (logRatio + 1) / 2; // +1 to shift range from [-1, 1] to [0, 2], then divide by 2
+
+    // Clamp the value between 0 and 1
+    const clampedRatio = Math.max(0, Math.min(1, normalizedRatio));
+
+    // Calculate RGB values
+    const red = Math.round(255 * (1 - clampedRatio));
+    const green = Math.round(255 * clampedRatio);
+
+    return `rgb(${red}, ${green}, 0)`;
+}
+
+function getContrastColor(backgroundColor) {
+    // Extract RGB values
+    const rgb = backgroundColor.match(/\d+/g);
+    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+    return brightness > 125 ? 'black' : 'white';
+}
+
 function displayPromotions(data) {
     const promotionsListDiv = document.getElementById('promotions-list');
     if (promotionsListDiv && data && data.items && data.items.length > 0) {
@@ -680,11 +728,11 @@ function displayPromotions(data) {
             <tr>
                 <th>Name</th>
                 <th>Unassigned Codes</th>
+                <th>Refill Reminder</th>
                 <th>Created Date</th>
                 <th>Modified Date</th>
                 <th>Created By</th>
                 <th>Modified By</th>
-                <th>Refill Reminder</th>
                 <th>Refill Reminder Sent</th>
                 <th>Custom Fields</th>
             </tr>`;
@@ -701,14 +749,20 @@ function displayPromotions(data) {
             if (customFieldsHtml === '') {
                 customFieldsHtml = 'No custom fields';
             }
+
+            const unassignedColor = getUnassignedColor(promo.unassigned, promo.refill_reminder);
+            const textColor = getContrastColor(unassignedColor);
+
             tableHtml += `<tr>
                 <td>${promo.name}</td>
-                <td>${formatNumber(promo.unassigned)}</td>
+                <td style="background-color: ${unassignedColor}; color: ${textColor}; font-weight: bold;">
+                    ${formatNumber(promo.unassigned)}
+                </td>
+                <td>${formatNumber(promo.refill_reminder)}</td>
                 <td>${new Date(promo.create_date).toLocaleString()}</td>
                 <td>${new Date(promo.modify_date).toLocaleString()}</td>
                 <td>${promo.create_user}</td>
                 <td>${promo.modify_user}</td>
-                <td>${promo.refill_reminder}</td>
                 <td>${promo.refill_reminder_sent ? 'Yes' : 'No'}</td>
                 <td>${customFieldsHtml}</td>
             </tr>`;
@@ -854,23 +908,42 @@ async function initDashboard() {
             loadScript('https://cdn.jsdelivr.net/npm/fuse.js@6.4.6')
         ]);
 
+        // Show loading indicators for all sections
+        showLoading('templates-list');
+        showLoading('campaigns-list');
+        showLoading('lists-list');
+        showLoading('journeys-list');
+        showLoading('promotions-list');
+
+        // Fetch data and update sections
         templatesList = await makeUIAPIRequest('/uiapi/templates');
         displayTemplates(templatesList);
+        hideLoading('templates-list');
 
         const { campaignsData, counts } = await fetchCampaignsData();
         displayCampaigns(campaignsData, counts);
+        hideLoading('campaigns-list');
 
         const listsData = await fetchListsData();
         displayLists(listsData);
+        hideLoading('lists-list');
 
         const journeysData = await makeUIAPIRequest('/uiapi/lifecycle/');
         displayJourneys(journeysData);
+        hideLoading('journeys-list');
 
         const promotionsData = await makeUIAPIRequest('/uiapi/promotions/');
         displayPromotions(promotionsData);
+        hideLoading('promotions-list');
 
     } catch (error) {
         console.error('Error initializing dashboard:', error);
+        // Hide all loading indicators in case of error
+        hideLoading('templates-list');
+        hideLoading('campaigns-list');
+        hideLoading('lists-list');
+        hideLoading('journeys-list');
+        hideLoading('promotions-list');
     }
 }
 
@@ -1109,5 +1182,27 @@ GM_addStyle(`
     }
     #promotions-list td p strong {
         margin-right: 5px;
+    }
+    #promotions-list td {
+        padding: 8px;
+    }
+    .loading-spinner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100px;
+    }
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 `);
