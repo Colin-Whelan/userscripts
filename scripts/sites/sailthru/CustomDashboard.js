@@ -1,0 +1,803 @@
+// ==UserScript==
+// @name        Custom Dashboard
+// @namespace   Violentmonkey Scripts
+// @match       https://my.sailthru.com/dashboard*
+// @grant       GM_addStyle
+// @grant       GM_xmlhttpRequest
+// @version     1.7.1
+// @author      Colin Whelan
+// @description Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
+// - A complete view of all LO structures
+// - A functioning fuzzy search for all list types - Templates, Campaigns, Promotions, LOs
+// - Adds ability to search other template properties like Subject, Mode(type), Modify Date
+//
+//
+// Todo:
+// - Add support for full HTML search - Slows down page, it's a lot of data.
+// - Add support for lists section
+// - Mermaid charts to link to lists.
+//
+// Updates:
+//
+// v1.7.1 - Aug 24, 2024 (Summary to this version)//
+// Templates in LO flowcharts are linked
+// CSS for when boxes are linked
+// Improved fuzzy search using Fuse.io
+// Fix CSS of Nav bar so default dropdowns can show overtop.
+// General CSS fix
+//
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    let templatesList = {};
+    let loDetails = {};
+
+        function setupDashboard() {
+        document.title = "Custom Dashboard"
+        const mainDiv = document.getElementById('main');
+        if (mainDiv) {
+            mainDiv.innerHTML = '';
+
+            const dashboardContainer = document.createElement('div');
+            dashboardContainer.id = 'custom-dashboard';
+            dashboardContainer.innerHTML = `
+                <div id="sticky-nav">
+                    <a href="#templates-section">Templates</a>
+                    <a href="#campaigns-section">Campaigns</a>
+                    <a href="#journeys-section">Journeys</a>
+                    <a href="#promotions-section">Promotions</a>
+                    <button class="print-button" onclick="window.print()">Print Dashboard</button>
+                </div>
+                <h1>Custom Sailthru Dashboard</h1>
+                <div id="dashboard-content">
+                    <div id="templates-section" class="dashboard-section">
+                        <h2>Email Templates</h2>
+                        <div id="templates-list"></div>
+                    </div>
+                    <div id="campaigns-section" class="dashboard-section">
+                        <h2>Email Campaigns</h2>
+                        <div id="campaigns-list"></div>
+                    </div>
+                    <div id="journeys-section" class="dashboard-section">
+                        <h2>Lifecycle Optimizer Journeys</h2>
+                        <input type="text" class="search-bar" id="journeys-search" placeholder="Search journeys...">
+                        <div id="journeys-list"></div>
+                    </div>
+                    <div id="promotions-section" class="dashboard-section">
+                        <h2>Promotions</h2>
+                        <input type="text" class="search-bar" id="promotions-search" placeholder="Search promotions...">
+                        <div id="promotions-list"></div>
+                    </div>
+                </div>
+            `;
+            mainDiv.appendChild(dashboardContainer);
+        }
+    }
+
+    async function makeUIAPIRequest(endpoint) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: `https://my.sailthru.com${endpoint}`,
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                onload: function(response) {
+                    resolve(JSON.parse(response.responseText));
+                },
+                onerror: reject
+            });
+        });
+    }
+
+let templatesWithHtml = new Set();
+
+async function displayTemplates(data) {
+    const templatesListDiv = document.getElementById('templates-list');
+    if (templatesListDiv && data && data.length > 0) {
+        // Add advanced search controls
+        const searchControls = `
+            <div id="advanced-template-search">
+                <select id="template-search-property">
+                    <option value="name">Name</option>
+                    <option value="subject">Subject</option>
+                    <option value="mode">Mode</option>
+                    <option value="modify_time">Last Modified</option>
+                    <option value="is_disabled">Status</option>
+                </select>
+                <input type="text" id="template-search-input" placeholder="Search templates...">
+<!--                 <button id="toggle-html-search">Enable HTML Search</button> -->
+            </div>
+            <label class="inactive-template-checkbox">
+                <input type="checkbox" id="include-inactive-templates"> Include Inactive Templates
+            </label>
+        `;
+        templatesListDiv.innerHTML = searchControls;
+
+        let tableHtml = '<table id="templates-table"><tr><th>Name</th><th>Subject</th><th>Mode</th><th style="min-width: 150px;">Last Modified</th><th>Status</th></tr>';
+
+        data.forEach(template => {
+          let templateURL = ''
+          if(template.mode == 'email'){
+            templateURL = `https://my.sailthru.com/template/#${template.template_id}`
+          } else {
+            templateURL = `https://my.sailthru.com/email-composer/${template.template_id}`
+          }
+
+          tableHtml += `<tr class="template-row ${template.is_disabled ? 'inactive' : ''}" data-template-id="${template.template_id}">
+              <td><a href="${templateURL}" target="_blank">${template.name}</a></td>
+              <td>${template.subject}</td>
+              <td>${template.mode}</td>
+              <td>${template.modify_time}</td>
+              <td>${template.is_disabled ? 'Inactive' : 'Active'}</td>
+          </tr>`;
+        });
+        tableHtml += '</table>';
+        templatesListDiv.innerHTML += tableHtml;
+
+        const options = {
+          keys: ['templateName', 'subject', 'mode', 'modify_time', 'is_disabled'],
+          threshold: 0.3, // A lower threshold means a more strict matching
+          includeScore: true
+        };
+
+
+        const fuse = new Fuse(data, options);
+
+        document.getElementById('template-search-input').addEventListener('input', function() {
+            const property = document.getElementById('template-search-property').value;
+            const searchTerm = this.value;
+            console.log(fuse, searchTerm, property)
+            filterTemplatesFuzzy(fuse, searchTerm, property);
+        });
+
+        document.getElementById('include-inactive-templates').addEventListener('change', function() {
+            toggleInactiveTemplates(this.checked);
+        });
+
+        document.getElementById('toggle-html-search').addEventListener('click', function() {
+            toggleHtmlSearch(data);
+        });
+
+        toggleInactiveTemplates(false); // Initially hide inactive templates
+    } else {
+        templatesListDiv.innerHTML = 'No templates found.';
+    }
+}
+
+async function toggleHtmlSearch(data) {
+    const button = document.getElementById('toggle-html-search');
+    const searchProperty = document.getElementById('template-search-property');
+
+    if (button.textContent === 'Enable HTML Search') {
+        button.textContent = 'Disable HTML Search';
+        button.disabled = true;
+        searchProperty.innerHTML += '<option value="html">HTML Content</option>';
+
+        // Fetch HTML content for all templates
+        for (let template of data) {
+            if (!templatesWithHtml.has(template.template_id)) {
+                const details = await fetchTemplateDetails(template.template_id);
+                const row = document.querySelector(`tr[data-template-id="${template.template_id}"]`);
+                row.setAttribute('data-html', encodeURIComponent(details.content_html || ''));
+                templatesWithHtml.add(template.template_id);
+            }
+        }
+
+        button.disabled = false;
+    } else {
+        button.textContent = 'Enable HTML Search';
+        searchProperty.querySelector('option[value="html"]').remove();
+        if (searchProperty.value === 'html') {
+            searchProperty.value = 'name';
+        }
+        const fuse = initializeFuse(data, ['name', 'subject', 'mode', 'modify_time', 'is_disabled']);
+
+        document.getElementById('template-search-input').addEventListener('input', function() {
+            const property = document.getElementById('template-search-property').value;
+            const searchTerm = this.value;
+            filterTemplatesFuzzy(fuse, searchTerm, property);
+        });
+    }
+}
+
+async function fetchTemplateDetails(templateId) {
+    return await makeUIAPIRequest(`/uiapi/campaign/${templateId}`);
+}
+
+// New function for fuzzy filtering templates
+function filterTemplatesFuzzy(fuse, searchTerm, property) {
+    if (searchTerm === '') {
+        document.querySelectorAll('#templates-table tr').forEach((row, index) => {
+            if (index !== 0) row.style.display = '';
+        });
+        return;
+    }
+
+    const results = fuse.search(searchTerm);
+  // console.log('results',results)
+    const table = document.getElementById('templates-table');
+    const rows = table.querySelectorAll('tr');
+
+    rows.forEach((row, index) => {
+        if (index === 0) return; // Skip header row
+        const templateId = row.getAttribute('data-template-id');
+      // console.log('id',templateId)
+
+        for (let result of results) {
+          // console.log('thisID: ', result.item.template_id, ' Does it = ', templateId, ' ', result.item.template_id.toString() === templateId.toString())
+        }
+
+        const found = results.some(result => result.item.template_id.toString() === templateId.toString());
+      // console.log('found',found)
+        row.style.display = found ? '' : 'none';
+    });
+}
+
+function getColumnIndex(property) {
+    switch(property) {
+        case 'name': return 1;
+        case 'subject': return 2;
+        case 'mode': return 3;
+        case 'modify_time': return 4;
+        case 'is_disabled': return 5;
+        case 'html': return 6;
+        default: return 1;
+    }
+}
+
+
+function toggleInactiveTemplates(show) {
+    const inactiveRows = document.querySelectorAll('#templates-list .inactive');
+    inactiveRows.forEach(row => {
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+async function fetchCampaignsData() {
+    const statuses = ['drafts', 'scheduled', 'sending', 'sent', 'recurring'];
+    const campaignsData = {};
+    const countsData = await makeUIAPIRequest('/uiapi/campaigns');
+
+    for (const status of statuses) {
+        const data = await makeUIAPIRequest(`/uiapi/campaigns?sort=-modify_time&status=${status}`);
+        campaignsData[status] = data.items;
+    }
+
+    return { campaignsData, counts: countsData.counts };
+}
+
+function displayCampaigns(campaignsData, counts) {
+    const campaignsListDiv = document.getElementById('campaigns-list');
+    if (campaignsListDiv) {
+        let tabsHtml = '<div class="campaign-tabs">';
+        let contentHtml = '<div class="campaign-content">';
+
+        const statuses = ['drafts', 'scheduled', 'sending', 'sent', 'recurring'];
+
+        statuses.forEach((status, index) => {
+            const isActive = index === 0 ? 'active' : '';
+            tabsHtml += `<button class="campaign-tab ${isActive}" data-status="${status}">${status.charAt(0).toUpperCase() + status.slice(1)} (${counts[status]})</button>`;
+            contentHtml += `
+                <div class="campaign-tab-content ${isActive}" id="${status}-campaigns">
+                    <input type="text" class="campaign-search" data-status="${status}" placeholder="Search ${status} campaigns...">
+                    <table>
+                        <tr><th>Name</th><th>Status</th><th>Send Time</th></tr>
+                        ${generateCampaignTableRows(campaignsData[status])}
+                    </table>
+                </div>
+            `;
+        });
+
+        tabsHtml += '</div>';
+        contentHtml += '</div>';
+
+        campaignsListDiv.innerHTML = tabsHtml + contentHtml;
+
+        // Add event listeners for tabs
+        document.querySelectorAll('.campaign-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchCampaignTab(tab.dataset.status));
+        });
+
+        // Add event listeners for search inputs
+        document.querySelectorAll('.campaign-search').forEach(input => {
+            input.addEventListener('input', (e) => searchCampaigns(e.target.value, e.target.dataset.status));
+        });
+    }
+}
+
+function generateCampaignTableRows(campaigns) {
+    return campaigns.map(campaign => `
+        <tr>
+            <td>${campaign.name}</td>
+            <td>${campaign.status}</td>
+            <td>${campaign.schedule_time || 'N/A'}</td>
+        </tr>
+    `).join('');
+}
+
+function switchCampaignTab(status) {
+    document.querySelectorAll('.campaign-tab, .campaign-tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.campaign-tab[data-status="${status}"]`).classList.add('active');
+    document.getElementById(`${status}-campaigns`).classList.add('active');
+}
+
+function searchCampaigns(query, status) {
+    const rows = document.querySelectorAll(`#${status}-campaigns table tr:not(:first-child)`);
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+    });
+}
+
+  // New function for fuzzy filtering tables
+function filterTableFuzzy(fuse, searchTerm, tableId) {
+    const table = document.querySelector(`#${tableId} table`);
+    const rows = table.querySelectorAll('tr');
+
+    if (searchTerm === '') {
+        rows.forEach((row, index) => {
+            if (index !== 0) row.style.display = '';
+        });
+        return;
+    }
+
+    const results = fuse.search(searchTerm);
+    rows.forEach((row, index) => {
+        if (index === 0) return; // Skip header row
+        const found = results.some(result => row.textContent.includes(result.item.name));
+        row.style.display = found ? '' : 'none';
+    });
+}
+
+function displayJourneys(data) {
+    const journeysListDiv = document.getElementById('journeys-list');
+    if (journeysListDiv && data && data.length > 0) {
+        let journeysHtml = '';
+        data.forEach((journey, index) => {
+            const mermaidDiagram = generateMermaidDiagram(journey);
+          console.log('diagram',mermaidDiagram)
+            journeysHtml += `
+                <div class="journey">
+                    <h3>${journey.name}</h3>
+                    <p>Status: ${journey.status}</p>
+                    <p>Last Edited: ${new Date(journey.lastEditedTime * 1000).toLocaleString()}</p>
+                    <p>Re-entry: ${journey.reentry.isAllowed ? 'Allowed' : 'Not Allowed'}</p>
+                    <p>Block while in flow: ${journey.reentry.ifPresent ? 'Yes' : 'No'}</p>
+                    ${journey.reentry.afterDelay ? `<p>Re-entry delay: ${journey.reentry.afterDelay.amount} ${journey.reentry.afterDelay.unit}</p>` : ''}
+                    <div class="mermaid" id="mermaid-${index}">
+                        ${mermaidDiagram}
+                    </div>
+                </div>
+            `;
+        });
+        journeysListDiv.innerHTML = journeysHtml;
+
+        const fuse = initializeFuse(data, ['name', 'status']);
+
+        document.getElementById('journeys-search').addEventListener('input', function() {
+            filterJourneysFuzzy(fuse, this.value);
+        });
+
+        // We'll initialize Mermaid after a short delay to ensure DOM is updated
+        setTimeout(() => {
+            initializeMermaid();
+        }, 100);
+    } else {
+        journeysListDiv.innerHTML = 'No journeys found.';
+    }
+}
+
+// New function for fuzzy filtering journeys
+function filterJourneysFuzzy(fuse, searchTerm) {
+    const journeys = document.querySelectorAll('#journeys-list .journey');
+    if (searchTerm === '') {
+        journeys.forEach(journey => journey.style.display = '');
+        return;
+    }
+
+    const results = fuse.search(searchTerm);
+    journeys.forEach(journey => {
+        const journeyName = journey.querySelector('h3').textContent;
+        const found = results.some(result => result.item.name === journeyName);
+        journey.style.display = found ? '' : 'none';
+    });
+}
+
+function initializeMermaid() {
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        securityLevel: 'loose',
+        flowchart: {
+            useMaxWidth: true,
+            htmlLabels: true,
+            curve: 'basis'
+        },
+        themeVariables: {
+            background: '#FFFFFF',
+            primaryColor: '#DADEDF',
+            primaryTextColor: '#555F61',
+            primaryBorderColor: '#DADEDF',
+            lineColor: '#DADEDF',
+            secondaryColor: '#FFF8E1',
+            tertiaryColor: '#F3E5F5',
+            nodeBorder: '#CCCCCC',
+            edgeLabelBackground: '#FFFFFF',
+            nodeTextColor: '#333333',
+            mainBkg: '#DADEDF',
+            textColor: '#333333',
+            labelBackground: '#FFFFFF',
+            fontFamily: 'Arial, sans-serif',
+            nodePadding: '10px',
+            clusterBkg: '#E0E0E0',
+            clusterBorder: '#CCCCCC',
+            defaultLinkColor: '#333333'
+        }
+    });
+
+    // Render each Mermaid diagram individually
+    document.querySelectorAll('.mermaid').forEach((element, index) => {
+        try {
+            const id = `mermaid-svg-${index}`;
+            const graphDefinition = element.textContent.trim();
+            mermaid.render(id, graphDefinition, (svgCode) => {
+                element.innerHTML = svgCode;
+            });
+        } catch (error) {
+            console.error(`Error rendering Mermaid diagram ${index}:`, error);
+            console.log('Problematic Mermaid syntax:', element.textContent.trim());
+            element.innerHTML = `<p>Error rendering diagram: ${error.message}</p>`;
+        }
+    });
+}
+
+
+// function to handle Mermaid diagram clicks
+function mermaidClickCallback(url) {
+    window.open(url, '_blank');
+}
+
+// Make sure to expose the mermaidClickCallback function globally
+window.mermaidClickCallback = mermaidClickCallback;
+
+function generateMermaidDiagram(lo) {
+    let diagram = 'flowchart TD;\n';
+    let clickEvents = '';
+    for (const stepId in lo.steps) {
+        const step = lo.steps[stepId];
+        diagram += generateStepNode(stepId, step);
+        diagram += generateStepConnections(stepId, step);
+        clickEvents += generateClickEvent(stepId, step);
+    }
+    return diagram + clickEvents;
+}
+
+function generateStepNode(stepId, step) {
+    const stepLabel = getStepLabel(step);
+    return `${stepId}["${stepLabel}"];\n`;
+}
+
+function generateStepConnections(stepId, step) {
+    let connections = '';
+    if (step.children) {
+        step.children.forEach(child => {
+            const matchLabel = getMatchLabel(step, child);
+            connections += `${stepId} -->|${matchLabel}| ${child.nextId ? child.nextId : "END"};\n`;
+        });
+    }
+    return connections;
+}
+
+function getStepLabel(step, stepId) {
+        let stepLabel = step.subtype || 'Unknown Step';
+
+        switch (step.subtype) {
+            case 'customEvent':
+                if (step.taskAttributes) {
+                    stepLabel += `\n${step.taskAttributes.event}`;
+                }
+                break;
+            case 'sendEmail':
+                if (step.taskAttributes.templateId) {
+                    const template = templatesList.find(template => template.template_id === step.taskAttributes.templateId);
+                    const templateName = template ? template.name : "Unknown Template";
+                    stepLabel += `\n${templateName}`;
+                }
+                break;
+            case 'relative':
+                if (step.taskAttributes.time) {
+                    const amount = step.taskAttributes.time.amount;
+                    const unit = step.taskAttributes.time.unit.substring(0,step.taskAttributes.time.unit.length-1);
+                    const unitLabel = amount > 1 ? `${unit}s` : unit;
+                    stepLabel = `Wait: ${amount} ${unitLabel}`;
+                }
+                break;
+            case 'multiEventVarEq':
+            case 'multiVarEq':
+                if (step.taskAttributes) {
+                    stepLabel += `\nCheck if: '${step.taskAttributes.var}' == `;
+                }
+                break;
+            case 'optout':
+                if (step.taskAttributes) {
+                    stepLabel += `\nCheck if: 'optout' == ${step.taskAttributes.optout}`;
+                }
+                break;
+            case 'listMember':
+                if (step.taskAttributes) {
+                    stepLabel += `\nCheck if user in list: ${step.taskAttributes.listName}`;
+                }
+                break;
+            case 'addToList':
+            case 'removeFromList':
+                if (step.taskAttributes) {
+                    stepLabel += `\n${step.taskAttributes.listName}`;
+                }
+                break;
+            case 'profileVar':
+                if (step.taskAttributes.audienceBuilderQuery && step.taskAttributes.audienceBuilderQuery.criteriaMap) {
+                    const criteria = Object.values(step.taskAttributes.audienceBuilderQuery.criteriaMap)[0];
+                    let criteriaType = criteria.criteria
+                    switch (criteriaType) {
+                      case 'date':
+                        stepLabel += `\nType: ${criteriaType} (${criteria.key}) \nCheck if: ${criteria.field} ${criteria.timerange} ${criteria.value}`;
+                        break;
+                      case 'lo_between':
+                        stepLabel += `\nType: ${criteriaType} ${criteria.date_selector_type ? "(" + criteria.date_selector_type + ")" : ""} \nCheck if: '${criteria.field}' is between ${criteria.value[0]} and ${criteria.value[1]}`;
+                        break;
+                      case 'gt':
+                        stepLabel += `\nType: greater than \nCheck if: '${criteria.field}' > ${criteria.value}`;
+                        break;
+                      case 'lt':
+                        stepLabel += `\nType: less than \nCheck if: '${criteria.field}' < ${criteria.value}`;
+                        break;
+                      default:
+                        break;
+                    }
+
+                }
+                break;
+            case 'setVar':
+                if (step.taskAttributes) {
+                    stepLabel += `\nSet '${step.taskAttributes.variables[0].key}' to ${step.taskAttributes.variables[0].value == "" ? "''" : step.taskAttributes.variables[0].value}`;
+                }
+                break;
+            case null:
+                stepLabel = `END`;
+                break;
+            case 'abTest':
+                break;
+            default:
+                break;
+        }
+        // console.log(stepLabel.replace(/"/g, "'"))
+        return stepLabel.replace(/"/g, "'");
+    }
+
+function getMatchLabel(step, child) {
+    switch (step.subtype) {
+        case 'abTest':
+            return child.match.allocation + "%";
+        default:
+            return child.match !== undefined ? child.match.toString().replaceAll('"','').replaceAll('|', '/') : ' ';
+    }
+}
+
+function generateClickEvent(stepId, step) {
+    if (step.subtype === 'sendEmail' && step.taskAttributes.templateId) {
+        const template = templatesList.find(template => template.template_id === step.taskAttributes.templateId);
+        const templateUrl = template && template.mode === 'email'
+            ? `https://my.sailthru.com/template/#${template.template_id}`
+            : `https://my.sailthru.com/email-composer/${step.taskAttributes.templateId}`;
+        return `click ${stepId} "${templateUrl}" "Open template" _blank\n`;
+    }
+    return '';
+}
+
+function displayPromotions(data) {
+    const promotionsListDiv = document.getElementById('promotions-list');
+    if (promotionsListDiv && data && data.items && data.items.length > 0) {
+        let tableHtml = '<table><tr><th>Name</th><th>Unassigned Codes</th><th>Created Date</th><th>Modified Date</th><th>Created By</th><th>Modified By</th><th>Refill Reminder</th><th>Refill Reminder Sent</th><th>Custom Fields</th></tr>';
+        data.items.forEach(promo => {
+            tableHtml += `<tr>
+                <td>${promo.name}</td>
+                <td>${promo.unassigned}</td>
+                <td>${new Date(promo.create_date * 1000).toLocaleString()}</td>
+                <td>${new Date(promo.modify_date * 1000).toLocaleString()}</td>
+                <td>${promo.create_user}</td>
+                <td>${promo.modify_user}</td>
+                <td>${promo.refill_reminder}</td>
+                <td>${promo.refill_reminder_sent ? 'Yes' : 'No'}</td>
+                <td>${JSON.stringify(promo.vars)}</td>
+            </tr>`;
+        });
+        tableHtml += '</table>';
+        promotionsListDiv.innerHTML = tableHtml;
+
+        const fuse = initializeFuse(data.items, ['name', 'create_user', 'modify_user']);
+
+        document.getElementById('promotions-search').addEventListener('input', function() {
+            filterTableFuzzy(fuse, this.value, 'promotions-list');
+        });
+    } else {
+        promotionsListDiv.innerHTML = 'No promotions found.';
+    }
+}
+
+    function loadScript(url) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+  // New function to initialize Fuse instances
+function initializeFuse(data, keys) {
+    const options = {
+        keys: keys,
+        threshold: 0.3,
+        ignoreLocation: true
+    };
+    return new Fuse(data, options);
+}
+
+async function initDashboard() {
+    setupDashboard();
+
+    try {
+        // Load Mermaid and Fuse.js
+        await Promise.all([
+            loadScript('https://cdn.jsdelivr.net/npm/mermaid@8.11.0/dist/mermaid.min.js'),
+            loadScript('https://cdn.jsdelivr.net/npm/fuse.js@6.4.6')
+        ]);
+
+        templatesList = await makeUIAPIRequest('/uiapi/templates');
+        displayTemplates(templatesList);
+
+        const { campaignsData, counts } = await fetchCampaignsData();
+        displayCampaigns(campaignsData, counts);
+
+        const journeysData = await makeUIAPIRequest('/uiapi/lifecycle/');
+        displayJourneys(journeysData);
+
+        const promotionsData = await makeUIAPIRequest('/uiapi/promotions/');
+        displayPromotions(promotionsData);
+
+    } catch (error) {
+        console.error('Error initializing dashboard:', error);
+    }
+}
+
+// Call initDashboard when the script runs
+initDashboard();
+})();
+
+GM_addStyle(`
+    .campaign-tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+    }
+    .campaign-tab {
+        background-color: #f1f1f1;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 10px 20px;
+        transition: 0.3s;
+        font-size: 17px;
+    }
+    .campaign-tab:hover {
+        background-color: #ddd;
+    }
+    .campaign-tab.active {
+        background-color: #ccc;
+    }
+    .campaign-tab-content {
+        display: none;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-top: none;
+    }
+    .campaign-tab-content.active {
+        display: block;
+    }
+    .campaign-search {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+    }
+  #custom-dashboard {
+      padding: 20px;
+      font-family: Arial, sans-serif;
+  }
+  .dashboard-section {
+      margin-bottom: 20px;
+  }
+  h1, h2 {
+      color: #333;
+  }
+  table {
+      width: 100%;
+      border-collapse: collapse;
+  }
+  th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+  }
+  th {
+      background-color: #f2f2f2;
+  }
+  #sticky-nav {
+      position: sticky;
+      top: 0;
+      background-color: #fff;
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      z-index: 9;
+  }
+  #sticky-nav a {
+      margin-right: 15px;
+      text-decoration: none;
+      color: #007bff;
+  }
+  #sticky-nav a:hover {
+      text-decoration: underline;
+  }
+  .print-button {
+      float: right;
+      padding: 5px 10px;
+      background-color: #28a745;
+      background-image: none !important;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+  }
+  .print-button:hover {
+      background-color: #218838;
+  }
+  .lo-steps {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+  }
+  .lo-step {
+      margin-bottom: 5px;
+  }
+  .search-bar {
+      width: 100%;
+      padding: 5px;
+      margin-bottom: 10px;
+  }
+  .inactive-template-checkbox {
+      margin-left: 10px;
+  }
+  .mermaid .node.clickable > rect {
+      stroke: #0288D1 !important;
+      stroke-width: 2px !important;
+      filter: drop-shadow(3px 3px 2px rgba(0, 0, 0, .3));
+      transition: all 0.3s ease;
+  }
+  .mermaid .node.clickable:hover > rect {
+      filter: drop-shadow(3px 3px 4px rgba(0, 0, 0, .5));
+      transform: translateY(-1px);
+  }
+  .mermaid .node.clickable > .label {
+      cursor: pointer;
+  }
+  .mermaid .node.clickable > .label text {
+      fill: #01579B !important;
+      font-weight: bold;
+  }
+`);
