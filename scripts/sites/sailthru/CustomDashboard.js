@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/dashboard*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
-// @version     1.7.1
+// @version     1.8.1
 // @author      Colin Whelan
 // @description Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
 // - A complete view of all LO structures
@@ -14,12 +14,16 @@
 //
 // Todo:
 // - Add support for full HTML search - Slows down page, it's a lot of data.
-// - Add support for lists section
 // - Mermaid charts to link to lists.
 //
 // Updates:
+// v1.8.1 - Aug 24, 2024
+// Added 'Lists' section
+// - description clips at 400 chars with toggle to expand
+// Updated search display for templates
 //
-// v1.7.1 - Aug 24, 2024 (Summary to this version)//
+//
+// v1.7.1 - Aug 24, 2024 (Summary up to this version)//
 // Templates in LO flowcharts are linked
 // CSS for when boxes are linked
 // Improved fuzzy search using Fuse.io
@@ -29,69 +33,85 @@
 // ==/UserScript==
 
 (function() {
-    'use strict';
+'use strict';
 
-    let templatesList = {};
-    let loDetails = {};
+let templatesList = {};
+let loDetails = {};
 
-        function setupDashboard() {
-        document.title = "Custom Dashboard"
-        const mainDiv = document.getElementById('main');
-        if (mainDiv) {
-            mainDiv.innerHTML = '';
+    function setupDashboard() {
+    document.title = "Custom Dashboard"
+    const mainDiv = document.getElementById('main');
+    if (mainDiv) {
+        mainDiv.innerHTML = '';
 
-            const dashboardContainer = document.createElement('div');
-            dashboardContainer.id = 'custom-dashboard';
-            dashboardContainer.innerHTML = `
-                <div id="sticky-nav">
-                    <a href="#templates-section">Templates</a>
-                    <a href="#campaigns-section">Campaigns</a>
-                    <a href="#journeys-section">Journeys</a>
-                    <a href="#promotions-section">Promotions</a>
-                    <button class="print-button" onclick="window.print()">Print Dashboard</button>
+        const dashboardContainer = document.createElement('div');
+        dashboardContainer.id = 'custom-dashboard';
+        dashboardContainer.innerHTML = `
+            <div id="sticky-nav">
+                <a href="#templates-section">Templates</a>
+                <a href="#campaigns-section">Campaigns</a>
+                <a href="#lists-section">Lists</a>
+                <a href="#journeys-section">Journeys</a>
+                <a href="#promotions-section">Promotions</a>
+                <button class="print-button" onclick="window.print()">Print Dashboard</button>
+            </div>
+            <h1>Custom Sailthru Dashboard</h1>
+            <div id="dashboard-content">
+                <div id="templates-section" class="dashboard-section">
+                    <h2>Email Templates</h2>
+                    <div id="templates-list"></div>
                 </div>
-                <h1>Custom Sailthru Dashboard</h1>
-                <div id="dashboard-content">
-                    <div id="templates-section" class="dashboard-section">
-                        <h2>Email Templates</h2>
-                        <div id="templates-list"></div>
-                    </div>
-                    <div id="campaigns-section" class="dashboard-section">
-                        <h2>Email Campaigns</h2>
-                        <div id="campaigns-list"></div>
-                    </div>
-                    <div id="journeys-section" class="dashboard-section">
-                        <h2>Lifecycle Optimizer Journeys</h2>
-                        <input type="text" class="search-bar" id="journeys-search" placeholder="Search journeys...">
-                        <div id="journeys-list"></div>
-                    </div>
-                    <div id="promotions-section" class="dashboard-section">
-                        <h2>Promotions</h2>
-                        <input type="text" class="search-bar" id="promotions-search" placeholder="Search promotions...">
-                        <div id="promotions-list"></div>
-                    </div>
+                <div id="campaigns-section" class="dashboard-section">
+                    <h2>Email Campaigns</h2>
+                    <div id="campaigns-list"></div>
                 </div>
-            `;
-            mainDiv.appendChild(dashboardContainer);
-        }
+                <div id="lists-section" class="dashboard-section">
+                    <h2>Lists</h2>
+                    <div id="lists-list"></div>
+                </div>
+                <div id="journeys-section" class="dashboard-section">
+                    <h2>Lifecycle Optimizer Journeys</h2>
+                    <input type="text" class="search-bar" id="journeys-search" placeholder="Search journeys...">
+                    <div id="journeys-list"></div>
+                </div>
+                <div id="promotions-section" class="dashboard-section">
+                    <h2>Promotions</h2>
+                    <input type="text" class="search-bar" id="promotions-search" placeholder="Search promotions...">
+                    <div id="promotions-list"></div>
+                </div>
+            </div>
+        `;
+        mainDiv.appendChild(dashboardContainer);
     }
+}
 
-    async function makeUIAPIRequest(endpoint) {
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: `https://my.sailthru.com${endpoint}`,
-                headers: {
-                    "Accept": "application/json",
-                    "X-Requested-With": "XMLHttpRequest"
-                },
-                onload: function(response) {
-                    resolve(JSON.parse(response.responseText));
-                },
-                onerror: reject
-            });
+async function makeUIAPIRequest(endpoint) {
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: `https://my.sailthru.com${endpoint}`,
+            headers: {
+                "Accept": "application/json, text/html",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            onload: function(response) {
+                const contentType = response.responseHeaders.match(/content-type:\s*(.*)/i)[1];
+                if (contentType.includes('application/json')) {
+                    try {
+                        resolve(JSON.parse(response.responseText));
+                    } catch (error) {
+                        reject(new Error('Failed to parse JSON response'));
+                    }
+                } else if (contentType.includes('text/html')) {
+                    resolve(response.responseText);
+                } else {
+                    reject(new Error('Unexpected content type'));
+                }
+            },
+            onerror: reject
         });
-    }
+    });
+}
 
 let templatesWithHtml = new Set();
 
@@ -101,6 +121,7 @@ async function displayTemplates(data) {
         // Add advanced search controls
         const searchControls = `
             <div id="advanced-template-search">
+<!--                 <button id="toggle-html-search">Enable HTML Search</button> -->
                 <select id="template-search-property">
                     <option value="name">Name</option>
                     <option value="subject">Subject</option>
@@ -109,7 +130,6 @@ async function displayTemplates(data) {
                     <option value="is_disabled">Status</option>
                 </select>
                 <input type="text" id="template-search-input" placeholder="Search templates...">
-<!--                 <button id="toggle-html-search">Enable HTML Search</button> -->
             </div>
             <label class="inactive-template-checkbox">
                 <input type="checkbox" id="include-inactive-templates"> Include Inactive Templates
@@ -117,7 +137,7 @@ async function displayTemplates(data) {
         `;
         templatesListDiv.innerHTML = searchControls;
 
-        let tableHtml = '<table id="templates-table"><tr><th>Name</th><th>Subject</th><th>Mode</th><th style="min-width: 150px;">Last Modified</th><th>Status</th></tr>';
+        let tableHtml = '<table id="templates-table"><tr><th>Name</th><th>Subject</th><th>Mode</th><th style="min-width: 180px;">Last Modified</th><th>Status</th></tr>';
 
         data.forEach(template => {
           let templateURL = ''
@@ -150,7 +170,7 @@ async function displayTemplates(data) {
         document.getElementById('template-search-input').addEventListener('input', function() {
             const property = document.getElementById('template-search-property').value;
             const searchTerm = this.value;
-            console.log(fuse, searchTerm, property)
+            // console.log(fuse, searchTerm, property)
             filterTemplatesFuzzy(fuse, searchTerm, property);
         });
 
@@ -158,9 +178,9 @@ async function displayTemplates(data) {
             toggleInactiveTemplates(this.checked);
         });
 
-        document.getElementById('toggle-html-search').addEventListener('click', function() {
-            toggleHtmlSearch(data);
-        });
+        // document.getElementById('toggle-html-search').addEventListener('click', function() {
+        //     toggleHtmlSearch(data);
+        // });
 
         toggleInactiveTemplates(false); // Initially hide inactive templates
     } else {
@@ -359,7 +379,7 @@ function displayJourneys(data) {
         let journeysHtml = '';
         data.forEach((journey, index) => {
             const mermaidDiagram = generateMermaidDiagram(journey);
-          console.log('diagram',mermaidDiagram)
+          // console.log('diagram',mermaidDiagram)
             journeysHtml += `
                 <div class="journey">
                     <h3>${journey.name}</h3>
@@ -648,6 +668,104 @@ function initializeFuse(data, keys) {
     return new Fuse(data, options);
 }
 
+async function fetchListsData() {
+    const lists = await makeUIAPIRequest('/uiapi/lists/');
+    const smartLists = lists.filter(list => list.type === 'smart');
+
+    for (let list of smartLists) {
+        const details = await fetchListDetails(list.name);
+        list.details = details;
+    }
+
+    return lists;
+}
+
+async function fetchListDetails(name) {
+    return await makeUIAPIRequest(`/uiapi/proxy?api_endpoint=list&query=1&list=${encodeURIComponent(name)}`);
+}
+
+function clipText(text, maxLength) {
+    text = text.trim().replace(/\s+/g, ' ');
+    if (text.length <= maxLength) return text;
+    return text.substr(0, maxLength) + '...';
+}
+
+function displayLists(listsData) {
+    const listsListDiv = document.getElementById('lists-list');
+    if (listsListDiv) {
+        let html = `
+            <input type="text" id="lists-search" placeholder="Search lists...">
+            <div>
+                <input type="checkbox" id="toggle-all-descriptions" class="description-toggle">
+                <label for="toggle-all-descriptions" class="description-toggle-label">Show All Full Descriptions</label>
+            </div>
+            <table id="lists-table">
+                <tr>
+                    <th style="min-width:70px;">Is Primary</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Email Count</th>
+                    <th>Valid Count</th>
+                    <th style="min-width:180px;">Created</th>
+                    <th>Description</th>
+                </tr>
+        `;
+        listsData.forEach((list, index) => {
+            const details = list.type === 'smart' ? list.details : null;
+            const listUrl = list.type === 'smart'
+                ? `https://my.sailthru.com/audience_builder#/list/${encodeURIComponent(list.name)}`
+                : `https://my.sailthru.com/list?list=${encodeURIComponent(list.name)}`;
+            const description = details && details.description ? details.description.trim() : 'N/A';
+            const clippedDescription = clipText(description, 400);
+
+            html += `
+                <tr>
+                    <td>${details ? details.primary : 'N/A'}</td>
+                    <td><a href="${listUrl}" target="_blank">${list.name || 'Unnamed List'}</a></td>
+                    <td>${list.type}</td>
+                    <td>${formatNumber(list.email_count)}</td>
+                    <td>${formatNumber(list.valid_count)}</td>
+                    <td>${new Date(list.create_time).toLocaleString()}</td>
+                    <td>
+                        <div class="description-content">${clippedDescription}</div>
+                        <div class="full-description">${description}</div>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</table>';
+        listsListDiv.innerHTML = html;
+
+        // Add event listener for search
+        document.getElementById('lists-search').addEventListener('input', function() {
+            searchLists(this.value);
+        });
+
+        // Add event listener for global description toggle
+        document.getElementById('toggle-all-descriptions').addEventListener('change', function() {
+            const clippedDescriptions = document.querySelectorAll('.description-content');
+            const fullDescriptions = document.querySelectorAll('.full-description');
+            const label = document.querySelector('label[for="toggle-all-descriptions"]');
+
+            clippedDescriptions.forEach(el => el.style.display = this.checked ? 'none' : 'block');
+            fullDescriptions.forEach(el => el.style.display = this.checked ? 'block' : 'none');
+            label.textContent = this.checked ? 'Show Clipped Descriptions' : 'Show All Full Descriptions';
+        });
+    }
+}
+
+function formatNumber(number) {
+    return new Intl.NumberFormat('en-US').format(number);
+}
+
+function searchLists(query) {
+    const rows = document.querySelectorAll('#lists-table tr:not(:first-child)');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+    });
+}
+
 async function initDashboard() {
     setupDashboard();
 
@@ -663,6 +781,9 @@ async function initDashboard() {
 
         const { campaignsData, counts } = await fetchCampaignsData();
         displayCampaigns(campaignsData, counts);
+
+        const listsData = await fetchListsData();
+        displayLists(listsData);
 
         const journeysData = await makeUIAPIRequest('/uiapi/lifecycle/');
         displayJourneys(journeysData);
@@ -680,6 +801,62 @@ initDashboard();
 })();
 
 GM_addStyle(`
+    #toggle-all-descriptions {
+        margin-bottom: 10px;
+    }
+    .description-content {
+        white-space: normal;
+    }
+    .full-description {
+        display: none;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .description-toggle {
+        margin-right: 5px;
+    }
+    .description-toggle-label {
+        color: inherit;
+        cursor: pointer;
+    }
+    #lists-search {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+    }
+    #lists-table {
+        margin-top: 10px;
+        width: 100%;
+        border-collapse: collapse;
+    }
+    #lists-table th, #lists-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+    }
+    #lists-table th {
+        background-color: #f2f2f2;
+    }
+    #lists-table a {
+        color: #0066cc;
+        text-decoration: none;
+    }
+    #lists-table a:hover {
+        text-decoration: underline;
+    }
+    .list-details {
+        background-color: #f9f9f9;
+        padding: 10px;
+        border: 1px solid #ddd;
+        margin-top: 10px;
+    }
+    .list-details pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        max-height: 200px;
+        overflow-y: auto;
+    }
     .campaign-tabs {
         display: flex;
         border-bottom: 1px solid #ddd;
@@ -779,6 +956,7 @@ GM_addStyle(`
       width: 100%;
       padding: 5px;
       margin-bottom: 10px;
+        box-sizing: border-box;
   }
   .inactive-template-checkbox {
       margin-left: 10px;
@@ -800,4 +978,28 @@ GM_addStyle(`
       fill: #01579B !important;
       font-weight: bold;
   }
+    #advanced-template-search {
+        display: flex;
+        margin-bottom: 10px;
+    }
+    #template-search-property {
+        padding: 8px;
+        font-size: 14px;
+        border: 1px solid #ddd;
+        border-right: none;
+        border-radius: 4px 0 0 4px;
+        background-color: #f8f8f8;
+    }
+    #template-search-input {
+        flex-grow: 1;
+        padding: 8px;
+        font-size: 14px;
+        border: 1px solid #ddd;
+        border-radius: 0 4px 4px 0;
+    }
+    .inactive-template-checkbox {
+        display: block;
+        margin-top: 5px;
+        margin-bottom: 10px;
+    }
 `);
