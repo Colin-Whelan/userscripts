@@ -8,16 +8,22 @@
 // @author      Colin Whelan
 // @description Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
 // - A complete view of all LO structures
-// - A functioning fuzzy search for all list types - Templates, Campaigns, Promotions, LOs
+// - A functioning fuzzy search for all data types - Templates, Campaigns, Lists, Promotions, LOs
 // - Adds ability to search other template properties like Subject, Mode(type), Modify Date
 //
 //
 // Todo:
 // - Add support for full HTML search - Slows down page, it's a lot of data.
 // - Mermaid charts to link to lists.
+// - Add toggle for active LOs
 //
-// Updates:
-// v1.8.1 - Aug 24, 2024
+// Updates://
+// v1.8.2 - Aug 25, 2024
+// Link LO names to the LO
+// Add flag for template usage
+//
+//
+// v1.8.1 - Aug 25, 2024
 // Added 'Lists' section
 // - description clips at 400 chars with toggle to expand
 // Updated search display for templates
@@ -115,13 +121,20 @@ async function makeUIAPIRequest(endpoint) {
 
 let templatesWithHtml = new Set();
 
+async function checkTemplateUsage(templateId) {
+    const usageURL = `/uiapi/lifecycle/?template_id=${templateId}`;
+    const data = await makeUIAPIRequest(usageURL);
+    const activeItems = data.filter(item => item.status === 'active');
+    const inactiveItems = data.filter(item => item.status === 'inactive');
+    return { activeItems, inactiveItems };
+}
+
 async function displayTemplates(data) {
     const templatesListDiv = document.getElementById('templates-list');
     if (templatesListDiv && data && data.length > 0) {
         // Add advanced search controls
         const searchControls = `
             <div id="advanced-template-search">
-<!--                 <button id="toggle-html-search">Enable HTML Search</button> -->
                 <select id="template-search-property">
                     <option value="name">Name</option>
                     <option value="subject">Subject</option>
@@ -131,57 +144,80 @@ async function displayTemplates(data) {
                 </select>
                 <input type="text" id="template-search-input" placeholder="Search templates...">
             </div>
-            <label class="inactive-template-checkbox">
-                <input type="checkbox" id="include-inactive-templates"> Include Inactive Templates
-            </label>
+            <div>
+                <label class="inactive-template-checkbox">
+                    <input type="checkbox" id="include-inactive-templates"> Include Inactive Templates
+                </label>
+                <button id="check-template-usage">Check Template Usage in LOs</button>
+            </div>
         `;
         templatesListDiv.innerHTML = searchControls;
 
-        let tableHtml = '<table id="templates-table"><tr><th>Name</th><th>Subject</th><th>Mode</th><th style="min-width: 180px;">Last Modified</th><th>Status</th></tr>';
+        let tableHtml = `<table id="templates-table">
+            <tr>
+              <th>Name</th>
+              <th>Subject</th>
+              <th>Mode</th>
+              <th style="min-width: 180px;">Last Modified</th>
+              <th>Status</th>
+              <th style="min-width: 50px;">Usage</th>
+            </tr>`;
 
         data.forEach(template => {
-          let templateURL = ''
-          if(template.mode == 'email'){
-            templateURL = `https://my.sailthru.com/template/#${template.template_id}`
-          } else {
-            templateURL = `https://my.sailthru.com/email-composer/${template.template_id}`
-          }
+            let templateURL = template.mode == 'email'
+                ? `https://my.sailthru.com/template/#${template.template_id}`
+                : `https://my.sailthru.com/email-composer/${template.template_id}`;
 
-          tableHtml += `<tr class="template-row ${template.is_disabled ? 'inactive' : ''}" data-template-id="${template.template_id}">
-              <td><a href="${templateURL}" target="_blank">${template.name}</a></td>
-              <td>${template.subject}</td>
-              <td>${template.mode}</td>
-              <td>${template.modify_time}</td>
-              <td>${template.is_disabled ? 'Inactive' : 'Active'}</td>
-          </tr>`;
+            tableHtml += `<tr class="template-row ${template.is_disabled ? 'inactive' : ''}" data-template-id="${template.template_id}">
+                <td><a href="${templateURL}" target="_blank">${template.name}</a></td>
+                <td>${template.subject}</td>
+                <td>${template.mode}</td>
+                <td>${template.modify_time}</td>
+                <td>${template.is_disabled ? 'Inactive' : 'Active'}</td>
+                <td class="usage-cell"></td>
+            </tr>`;
         });
         tableHtml += '</table>';
         templatesListDiv.innerHTML += tableHtml;
 
-        const options = {
-          keys: ['templateName', 'subject', 'mode', 'modify_time', 'is_disabled'],
-          threshold: 0.3, // A lower threshold means a more strict matching
-          includeScore: true
-        };
+        const fuse = initializeFuse(data, ['name', 'subject', 'mode', 'modify_time', 'is_disabled']);
 
-
-        const fuse = new Fuse(data, options);
-
+        // Add event listeners
         document.getElementById('template-search-input').addEventListener('input', function() {
             const property = document.getElementById('template-search-property').value;
             const searchTerm = this.value;
-            // console.log(fuse, searchTerm, property)
             filterTemplatesFuzzy(fuse, searchTerm, property);
         });
 
-        document.getElementById('include-inactive-templates').addEventListener('change', function() {
-            toggleInactiveTemplates(this.checked);
-        });
-
-        // document.getElementById('toggle-html-search').addEventListener('click', function() {
-        //     toggleHtmlSearch(data);
+        // document.getElementById('include-inactive-templates').addEventListener('change', function() {
+        //     toggleInactiveTemplates(this.checked);
         // });
 
+        document.getElementById('check-template-usage').addEventListener('click', async function() {
+            const visibleRows = document.querySelectorAll('#templates-table tr:not([style*="display: none"])');
+            for (let i = 1; i < visibleRows.length; i++) { // Start from index 1 to skip the header row
+                const row = visibleRows[i];
+                const templateId = row.getAttribute('data-template-id');
+                const usageCell = row.querySelector('.usage-cell');
+                usageCell.textContent = 'Checking...';
+                const { activeItems, inactiveItems } = await checkTemplateUsage(templateId);
+                const count = activeItems.length + inactiveItems.length;
+                let color = '#34c132'; // Green
+                if (activeItems.length > 0) {
+                    color = '#e8253b'; // Red
+                } else if (inactiveItems.length > 0) {
+                    color = '#FF8C00'; // Orange
+                }
+                const usageUrl = `https://my.sailthru.com/email-composer/${templateId}/usage`;
+                usageCell.innerHTML = `
+                    <a href="${usageUrl}" target="_blank" style="text-decoration: none;">
+                        <span style="background-color: ${color}; color: white; border-radius: 10px; padding: 0px 5px; display: inline-block;">
+                            ${activeItems.length}${inactiveItems.length ? '(' + inactiveItems.length + ')' : ''} LO${count == 1 ? '' : 's'}
+                        </span>
+                    </a>
+                `;
+            }
+        });
         toggleInactiveTemplates(false); // Initially hide inactive templates
     } else {
         templatesListDiv.innerHTML = 'No templates found.';
@@ -237,22 +273,37 @@ function filterTemplatesFuzzy(fuse, searchTerm, property) {
         return;
     }
 
-    const results = fuse.search(searchTerm);
-  // console.log('results',results)
+    // Adjust the search based on the selected property
+    let searchOptions = {};
+    if (property !== 'name') {
+        searchOptions = {
+            keys: [property],
+            threshold: 0.2
+        };
+    }
+
+    const results = fuse.search(searchTerm, searchOptions);
+    console.log('results', results);
+
     const table = document.getElementById('templates-table');
     const rows = table.querySelectorAll('tr');
 
     rows.forEach((row, index) => {
         if (index === 0) return; // Skip header row
         const templateId = row.getAttribute('data-template-id');
-      // console.log('id',templateId)
 
-        for (let result of results) {
-          // console.log('thisID: ', result.item.template_id, ' Does it = ', templateId, ' ', result.item.template_id.toString() === templateId.toString())
-        }
+        const found = results.some(result => {
+            if (property === 'name') {
+                // For 'name' property, check if the templateId matches
+                return result.item.template_id.toString() === templateId;
+            } else {
+                // For other properties, check if the property value matches
+                return result.item.template_id.toString() === templateId &&
+                       result.item[property] &&
+                       result.item[property].toString().toLowerCase().includes(searchTerm.toLowerCase());
+            }
+        });
 
-        const found = results.some(result => result.item.template_id.toString() === templateId.toString());
-      // console.log('found',found)
         row.style.display = found ? '' : 'none';
     });
 }
@@ -382,7 +433,7 @@ function displayJourneys(data) {
           // console.log('diagram',mermaidDiagram)
             journeysHtml += `
                 <div class="journey">
-                    <h3>${journey.name}</h3>
+                    <h3><a href="https://my.sailthru.com/lifecycle_optimizer#/flows/${journey.id}" target="_blank" style="text-decoration:underline; color:black;">${journey.name}</a></h3>
                     <p>Status: ${journey.status}</p>
                     <p>Last Edited: ${new Date(journey.lastEditedTime * 1000).toLocaleString()}</p>
                     <p>Re-entry: ${journey.reentry.isAllowed ? 'Allowed' : 'Not Allowed'}</p>
@@ -929,7 +980,7 @@ GM_addStyle(`
   #sticky-nav a:hover {
       text-decoration: underline;
   }
-  .print-button {
+  .print-button, #check-template-usage {
       float: right;
       padding: 5px 10px;
       background-color: #28a745;
@@ -938,6 +989,11 @@ GM_addStyle(`
       border: none;
       cursor: pointer;
       border-radius: 4px;
+  }
+  #check-template-usage {
+      float: left !important;
+      margin-bottom: 10px;
+
   }
   .print-button:hover {
       background-color: #218838;
@@ -951,6 +1007,9 @@ GM_addStyle(`
   }
   .lo-step {
       margin-bottom: 5px;
+  }
+  .journey p {
+      margin: 5px 0;
   }
   .search-bar {
       width: 100%;
@@ -1001,5 +1060,20 @@ GM_addStyle(`
         display: block;
         margin-top: 5px;
         margin-bottom: 10px;
+    }
+    #check-template-usage {
+        margin-left: 10px;
+        padding: 5px 10px;
+        background-color: #3a7af0;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    #check-template-usage:hover {
+        background-color: #2E62C0;
+    }
+    .usage-cell a:hover span {
+        filter: brightness(90%);
     }
 `);
