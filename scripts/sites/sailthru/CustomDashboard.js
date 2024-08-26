@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/dashboard*
 // @grant       GM_addStyle
 // @grant       GM_xmlhttpRequest
-// @version     1.8.4
+// @version     1.8.5
 // @author      Colin Whelan
 // @description
 // Custom dashboard for Sailthru. This board brings together all the pieces I use on a daily basis for technical support and LO work, and offers some handy features like:
@@ -19,8 +19,11 @@
 // - Add toggle for active LOs
 //
 // Updates://
+// v1.8.5 - Aug 26, 2024
+// Added Back to top button in sticky bar
+//
 // v1.8.4 - Aug 25, 2024
-// Added visual indicator for promocode #s, adding loading indicators, formatted numbers
+// Added visual indicator for promocode #s, added loading indicators, formatted numbers
 //
 // v1.8.3 - Aug 25, 2024
 // Fixes datetime format, formatted numbers
@@ -86,6 +89,7 @@ let loDetails = {};
                 <a href="#journeys-section">Journeys</a>
                 <a href="#promotions-section">Promotions</a>
                 <button class="print-button" onclick="window.print()">Print Dashboard</button>
+                <a href="#header_first_row" class="to_top">Back to Top</a>
             </div>
             <h1>Custom Sailthru Dashboard</h1>
             <div id="dashboard-content">
@@ -1080,15 +1084,24 @@ GM_addStyle(`
   #sticky-nav a:hover {
       text-decoration: underline;
   }
+  .to_top {
+      float: right;
+    text-align: right;
+  }
+  #sticky-nav print-button {
+      top: -7x;
+  }
   .print-button, #check-template-usage {
       float: right;
-      padding: 5px 10px;
+      font-size: 14px;
       background-color: #28a745;
       background-image: none !important;
       color: white;
       border: none;
       cursor: pointer;
       border-radius: 4px;
+      position: relative;
+      top: -4px;
   }
   #check-template-usage {
       float: left !important;
