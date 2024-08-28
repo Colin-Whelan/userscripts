@@ -5,7 +5,7 @@
 // @match        https://my.sailthru.com/email-composer/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setClipboard
-// @version      1.2
+// @version      1.3
 // @author       Colin Whelan
 // @description  Adds a selection box for Sailthru 'includes' with a preview option to HTML + Drag & Drop editors. Click a name to copy the Zephyr code needed.
 // ==/UserScript==
@@ -17,10 +17,10 @@
     let selectionBox;
     let isCollapsed = true;
 
-    function createSelectionBox() {
-        selectionBox = document.createElement('div');
-        selectionBox.id = 'sailthru-includes-box';
-        selectionBox.style.cssText = `
+function createSelectionBox() {
+    selectionBox = document.createElement('div');
+    selectionBox.id = 'sailthru-includes-box';
+    selectionBox.style.cssText = `
         position: fixed;
         top: 250px;
         left: 20px;
@@ -28,15 +28,16 @@
         height: 600px;
         background-color: white;
         border: 1px solid #ccc;
+        border-radius: 10px;
         box-shadow: 0 0 10px rgba(0,0,0,0.1);
         z-index: 9999;
         overflow-y: auto;
         display: none;
     `;
 
-        const header = document.createElement('div');
-        header.style.cssText = `
-        padding: 10px;
+    const header = document.createElement('div');
+    header.style.cssText = `
+        padding: 10px 5px 10px 10px;
         background-color: #f0f0f0;
         cursor: move;
         user-select: none;
@@ -44,53 +45,94 @@
         position: sticky;
         top: 0;
         z-index: 1;
+        justify-content: space-between;
     `;
-        header.textContent = 'Includes - Click to copy';
 
-        const closeButton = document.createElement('button');
-        closeButton.textContent = 'X';
-        closeButton.style.cssText = `
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = 'Includes - Click to copy';
+    titleSpan.style.flexGrow = '1';
+
+    const refreshButton = document.createElement('button');
+    refreshButton.innerHTML = '&#x21BB;'; // Refresh symbol
+    refreshButton.style.cssText = `
+        float: center;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0 3px;
+        margin: 0 5px;
+        position: relative;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        top: 0;
+    `;
+    refreshButton.onclick = (e) => {
+        hidePreview()
+        e.stopPropagation(); // Prevent dragging when clicking refresh
+        fetchIncludes(() => {
+            showNotification('Includes list refreshed!');
+        });
+    };
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'X';
+    closeButton.style.cssText = `
         float: right;
         background: none;
         border: none;
         cursor: pointer;
+        position: relative;
+        position: relative;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        top: 1px;
+        font-size: 14px;
     `;
-        closeButton.onclick = toggleSelectionBox;
+    closeButton.onclick = toggleSelectionBox;
 
-        header.appendChild(closeButton);
-        selectionBox.appendChild(header);
+    header.appendChild(titleSpan);
+    header.appendChild(refreshButton);
+    header.appendChild(closeButton);
+    selectionBox.appendChild(header);
 
-        const content = document.createElement('div');
-        content.id = 'sailthru-includes-content';
-        selectionBox.appendChild(content);
+    const content = document.createElement('div');
+    content.id = 'sailthru-includes-content';
+    content.style.cssText = `
+        overflow-y: auto;
+        flex-grow: 1;
+    `;
+    selectionBox.appendChild(content);
 
-        document.body.appendChild(selectionBox);
+    document.body.appendChild(selectionBox);
 
-        // Make the selection box draggable
-        let isDragging = false;
-        let dragOffsetX, dragOffsetY;
+    // Make the selection box draggable
+    let isDragging = false;
+    let dragOffsetX, dragOffsetY;
 
-        header.onmousedown = startDragging;
-        document.onmousemove = drag;
-        document.onmouseup = stopDragging;
+    header.onmousedown = startDragging;
+    document.onmousemove = drag;
+    document.onmouseup = stopDragging;
 
-        function startDragging(e) {
+    function startDragging(e) {
+        if (e.target === header) {
             isDragging = true;
             dragOffsetX = e.clientX - selectionBox.offsetLeft;
             dragOffsetY = e.clientY - selectionBox.offsetTop;
         }
+    }
 
-        function drag(e) {
-            if (isDragging) {
-                selectionBox.style.left = (e.clientX - dragOffsetX) + 'px';
-                selectionBox.style.top = (e.clientY - dragOffsetY) + 'px';
-            }
-        }
-
-        function stopDragging() {
-            isDragging = false;
+    function drag(e) {
+        if (isDragging) {
+            selectionBox.style.left = (e.clientX - dragOffsetX) + 'px';
+            selectionBox.style.top = (e.clientY - dragOffsetY) + 'px';
         }
     }
+
+    function stopDragging() {
+        isDragging = false;
+    }
+}
 
     function resetAllIcons() {
         const allIcons = document.querySelectorAll('#sailthru-includes-content span[style*="cursor: pointer"]');
@@ -117,8 +159,9 @@
       transition: opacity 0.2s;
       width: 120px;
     }
+    }
     `;
-        button.onclick = toggleSelectionBox;
+        button.onclick = handleButtonClick;
 
         function addButtonToTemplateEditor() {
             const standardControls = document.getElementById('standard-controls');
@@ -166,6 +209,33 @@
         });
     }
 
+    function handleButtonClick() {
+        if (isCollapsed) {
+            // If the selection box is currently collapsed, fetch includes and show the box
+            fetchIncludes(() => {
+                toggleSelectionBox();
+            });
+        } else {
+            // If the selection box is already open, just toggle it closed
+            toggleSelectionBox();
+        }
+    }
+
+function fetchIncludes(callback) {
+    const content = document.getElementById('sailthru-includes-content');
+    content.innerHTML = '<div style="text-align: center; padding: 20px;">Loading...</div>';
+
+    GM_xmlhttpRequest({
+        method: 'GET',
+        url: 'https://my.sailthru.com/ajax/include',
+        onload: function(response) {
+            includes = JSON.parse(response.responseText).options;
+            populateSelectionBox();
+            if (callback) callback();
+        }
+    });
+}
+
     function toggleSelectionBox() {
         isCollapsed = !isCollapsed;
         selectionBox.style.display = isCollapsed ? 'none' : 'block';
@@ -178,18 +248,6 @@
         } else {
             resetAllIcons();
         }
-    }
-
-    function fetchIncludes() {
-        GM_xmlhttpRequest({
-            method: 'GET',
-            url: 'https://my.sailthru.com/ajax/include',
-            onload: function(response) {
-                includes = JSON.parse(response.responseText).options;
-                populateSelectionBox();
-                // console.log(includes)
-            }
-        });
     }
 
     function populateSelectionBox() {
@@ -323,7 +381,7 @@
             if (preview) {
                 preview.style.display = 'none';
             }
-        }, 1000);
+        }, 150);
     }
 
     function showNotification(message) {
@@ -372,6 +430,5 @@
     window.addEventListener('load', function() {
         createSelectionBox();
         createToggleButton();
-        fetchIncludes();
     });
 })();
