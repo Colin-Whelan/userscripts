@@ -187,7 +187,7 @@
             onload: function(response) {
                 includes = JSON.parse(response.responseText).options;
                 populateSelectionBox();
-                console.log(includes)
+                // console.log(includes)
             }
         });
     }
