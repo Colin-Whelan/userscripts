@@ -7,7 +7,7 @@
 // @author      Colin Whelan
 // @description Add quick links to the navbar. Add/remove as needed.
 //
-// v1.3
+// v1.3.1
 // Updated to use CSS constants for easier maintenance.
 //
 // v1.2
@@ -28,7 +28,8 @@ const quicklinksJSON = `
 [
   {"text": "Triggered Send Log", "url": "/reports/transactional_log"},
   {"text": "Templates", "url": "/templates-list"},
-  {"text": "LOs", "url": "/lifecycle_optimizer#/"}
+  {"text": "LOs", "url": "/lifecycle_optimizer#/"},
+  {"text": "Dashboard", "url": "/dashboard"}
 ]`;
 
 let quicklinksAdded = false;
@@ -43,22 +44,25 @@ let quicklinksAdded = false;
           font-size: ${FONT_SIZE} !important;
           font-weight: ${FONT_WEIGHT} !important;
         }
-#header_logo {
-  margin-top: 8px !important;
-      width: 165px !important;
-    height: 30px !important;
-  background-size: auto 25px !important;
-  margin-right: 0px !important;
-}
-#header_first_row{
-  height: 50px  !important;
-}
+        #header_logo {
+          margin-top: 8px !important;
+              width: 165px !important;
+            height: 30px !important;
+          background-size: auto 25px !important;
+          margin-right: 0px !important;
+        }
+        #header_first_row{
+          height: 50px  !important;
+        }
         .fkevmP {
           padding: 6px 30px 6px 9px !important;
         }
         .bQxlQZ {
           width: 45px !important;
           height: 45px !important;
+        }
+        .btpnFb {
+          top: 45px !important;
         }
     `);
 
