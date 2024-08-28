@@ -145,9 +145,9 @@ function createSelectionBox() {
     function createToggleButton() {
         const button = document.createElement('button');
         button.textContent = 'Select Includes';
-        button.style.cssText = `  margin-left: 5px;
-      margin-top: 15px;
-      margin-bottom: 15px;
+        button.style.cssText = `
+      margin: auto 8px;
+      font-size: 12px;
       background-color: #eee;
       background-image: none;
       border: 1px solid #ccc;
@@ -342,7 +342,7 @@ function fetchIncludes(callback) {
                 left: 50%;
                 transform: translate(-50%, -50%);
                 width: auto;
-                max-width: 70%;
+                max-width: 50vw;
                 max-height: 80%;
                 background-color: white;
                 border: 1px solid #ccc;
