@@ -4,7 +4,7 @@
 // @match       https://my.sailthru.com/email-composer/*
 // @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.2
+// @version     1.3
 // @run-at      document-idle
 // @author      Colin Whelan
 // @description Adds a button to show where the template is being used.
@@ -16,9 +16,8 @@ function addStylesheet() {
     const style = document.createElement('style');
     style.textContent = `
         .template-usage-btn {
-            margin-left: 5px;
-            margin-top: 15px;
-            margin-bottom: 15px;
+            margin: auto 8px;
+            font-size: 12px;
             background-color: rgb(0, 169, 250);
             background-image: none;
             border: none;
