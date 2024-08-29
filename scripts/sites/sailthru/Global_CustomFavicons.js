@@ -4,8 +4,9 @@
 // @match       https://my.sailthru.com/*
 // @match       https://sailthru.zendesk.com/*
 // @match       https://getstarted.sailthru.com/*
+// @match       https://getstarted.meetmarigold.com/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Add a custom favicon to different Sailthru pages depending on the doomain. Could be configured for other pages with bit of know-how.
 // ==/UserScript==
@@ -20,7 +21,7 @@ function getFaviconForURL(url) {
         return sailthruMainFavicon;
     } else if (url.includes('sailthru.zendesk.com')) {
         return sailthruZendeskFavicon;
-    } else if (url.includes('getstarted.sailthru.com')) {
+    } else if (url.includes('getstarted.sailthru.com') || url.includes('getstarted.meetmarigold.com')) {
         return sailthruStartFavicon;
     }
     return null;  // default fallback, can be removed if not needed
