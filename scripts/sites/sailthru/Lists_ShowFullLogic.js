@@ -2,59 +2,39 @@
 // @name        Lists - Show Full Logic
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/lists*
-// @grant       none
-// @version     1.0
+// @grant       GM_addStyle
+// @grant       GM_xmlhttpRequest
+// @version     1.2
 // @author      Colin Whelan
 // @description Adds a checkbox to show the full list logic for all rows at once. Checkbox states saves to browser.
+//
+// Sept 2024:
+// v1.2
+// Fixed for the new UI update
+// Adds Total List count
+//
 // ==/UserScript==
 
 (function() {
     'use strict';
 
+    const defaultListsPerPage = 20
+
     // Function to toggle the display of list descriptions
     const toggleListDescriptions = (showFull) => {
-        const descriptions = document.querySelectorAll('.list_description');
+        const style = showFull
+            ? `.fkOUpx {
+                 overflow: visible;
+                 white-space: normal;
+                 text-overflow: clip;
+               }`
+            : `.fkOUpx {
+                 overflow: hidden;
+                 white-space: nowrap;
+                 text-overflow: ellipsis;
+               }`;
 
-        descriptions.forEach(desc => {
-            let croppedTextSpan = desc.querySelector('.cropped_text');
-            let fullTextSpan = desc.querySelector('.full_text_custom');
-            const croppedTextContent = extractDirectTextContent(desc);
-
-            if (!croppedTextSpan || !fullTextSpan) {
-                // Store the full text content and remove the original text nodes
-                const fullTextContent = desc.querySelector('.full_text').textContent.trim();
-
-                // Clear all direct text nodes in 'list_description'
-                Array.from(desc.childNodes).forEach(node => {
-                    if (node.nodeType === Node.TEXT_NODE) {
-                        node.nodeValue = '';
-                    }
-                });
-
-                // Create a span for the cropped text (hidden by default)
-                croppedTextSpan = document.createElement('span');
-                croppedTextSpan.className = 'cropped_text';
-                // Use a placeholder or an ellipsis if you need initial cropped text content
-                croppedTextSpan.textContent = croppedTextContent + '...'; // Placeholder text
-                croppedTextSpan.style.display = 'none';
-
-                // Create a span for the full text
-                fullTextSpan = document.createElement('span');
-                fullTextSpan.className = 'full_text_custom';
-                fullTextSpan.textContent = fullTextContent;
-
-                // Insert custom spans into the description element
-                desc.appendChild(croppedTextSpan);
-                desc.appendChild(fullTextSpan);
-
-                // Hide the original full text container
-                desc.querySelector('.full_text').style.display = 'none';
-            }
-
-            // Toggle visibility based on the 'showFull' flag
-            croppedTextSpan.style.display = showFull ? 'none' : 'block';
-            fullTextSpan.style.display = showFull ? 'block' : 'none';
-        });
+        GM_addStyle(style);
     };
 
     function extractDirectTextContent(parentElement) {
@@ -69,13 +49,48 @@
     }
 
 
+    // Function to fetch and display the total list count
+    const fetchAndDisplayTotalCount = () => {
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: "https://my.sailthru.com/uiapi/lists/",
+            onload: function(response) {
+                if (response.status === 200) {
+                    const data = JSON.parse(response.responseText);
+                    const totalCount = data.length;
+                  console.log(totalCount)
+                    displayTotalCount(totalCount);
+                } else {
+                    console.error("Failed to fetch list data");
+                }
+            },
+            onerror: function(error) {
+                console.error("Error fetching list data:", error);
+            }
+        });
+    };
+
+    // Function to display the total count
+    const displayTotalCount = (count) => {
+        const container = document.querySelector('div[orientation="horizontal"].sc-gueYoa.bLtTHE');
+        if (container) {
+            const countElement = document.createElement('div');
+            countElement.textContent = `Total Lists: ${count}`;
+            countElement.style.margin = 'auto 0';
+            countElement.style.fontWeight = 'bold';
+            container.appendChild(countElement);
+        }
+    };
+
+    // Modify the existing observer to also set up page size functionality
     const observer = new MutationObserver((mutations, obs) => {
-        const table = document.querySelector('table.standard.start-0');
+        const table = document.querySelector('table.sc-eKYjST.ekXNtx');
         if (table) {
             console.log('Table is now available.');
             const savedStatus = localStorage.getItem('showFullLogicStatus') === 'true';
             toggleListDescriptions(savedStatus);
-            obs.disconnect(); // Stop observing once the desired element is found and action is taken
+            fetchAndDisplayTotalCount();
+            obs.disconnect();
         }
     });
 
@@ -92,6 +107,7 @@
 
         const formGroup = document.createElement('div');
         formGroup.className = 'form-group';
+        formGroup.style.margin = 'auto 0';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = 'showFullLogicCheckbox';
@@ -123,7 +139,7 @@
 
     // MutationObserver to wait for the sidebar to be available
     const sidebarObserver = new MutationObserver((mutations, obs) => {
-        const sidebar = document.querySelector('.stui-layout__sidebar');
+        const sidebar = document.querySelector('.sc-gueYoa.fKQZAI');
         if (sidebar) {
             addCheckbox(sidebar);
             obs.disconnect(); // Stop observing once the checkbox is added
