@@ -4,67 +4,109 @@
 // @match       https://my.sailthru.com/email-composer/*
 // @match       https://my.sailthru.com/template/*
 // @grant       none
-// @version     1.3
+// @version     1.6
 // @run-at      document-idle
 // @author      Colin Whelan
-// @description Adds a button to show where the template is being used.
+// @description Shows live template usage status on page load
 // ==/UserScript==
-
-let buttonAdded = false;
 
 function addStylesheet() {
     const style = document.createElement('style');
     style.textContent = `
-        .template-usage-btn {
+        .template-usage-status {
             margin: auto 8px;
             font-size: 12px;
-            background-color: rgb(0, 169, 250);
-            background-image: none;
-            border: none;
-            border-radius: 4px;
-            color: white;
-            padding: 5px 10px;
+            padding: 4px 8px;
+            border-radius: 12px;
             cursor: pointer;
-            outline: none;
             transition: opacity 0.2s;
-            width: 120px;
+            display: inline-block;
+            font-weight: 500;
         }
-        .template-usage-btn:hover {
-            opacity: 0.7;
+        .template-usage-status:hover {
+            opacity: 0.8;
+        }
+        .status-active {
+            background-color: #FF4444;
+            color: white;
+        }
+        .status-inactive {
+            background-color: #FF9500;
+            color: white;
+        }
+        .status-none {
+            background-color: #4CD964;
+            color: white;
+        }
+        .status-loading {
+            background-color: #999;
+            color: white;
         }
     `;
     document.head.appendChild(style);
 }
 
-function observeHeaderNavLinks() {
-    const targetNode = document.querySelector('#header_nav_links');
-    if (!targetNode) return;
+async function fetchTemplateUsage(templateId) {
+    try {
+        const response = await fetch(`https://my.sailthru.com/uiapi/lifecycle/?template_id=${templateId}`);
+        if (!response.ok) throw new Error('Failed to fetch template usage');
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching template usage:', error);
+        return null;
+    }
+}
 
-    const config = { attributes: true, childList: true, subtree: true };
-    const observer = new MutationObserver(() => {
-        if (buttonAdded) return;
+function createStatusElement(usage) {
+    const container = document.createElement('div');
+    container.classList.add('template-usage-status');
 
-        const btn = document.createElement('button');
-        btn.textContent = 'Template Usage';
-        btn.classList.add('template-usage-btn');
+    if (!usage) {
+        container.textContent = '...';
+        container.classList.add('status-loading');
+        return container;
+    }
 
-        const idMatch = window.location.href.match(/(\d+)/);
-        if (idMatch) {
-            const id = idMatch[1];
-            btn.addEventListener('click', () => window.location.href = `https://my.sailthru.com/email-composer/${id}/usage`);
-        }
+    const activeCount = usage.filter(flow => flow.status === 'active').length;
+    const inactiveCount = usage.filter(flow => flow.status === 'inactive').length;
 
-        const insertAfterElem = document.querySelector('#header_nav_links');
-        if (insertAfterElem && insertAfterElem.parentNode) {
-            insertAfterElem.appendChild(btn, insertAfterElem.nextSibling);
+    // Format text with proper pluralization
+    container.textContent = `${activeCount} ${activeCount === 1 ? 'LO' : 'LOs'}`;
 
-            buttonAdded = true;
-            observer.disconnect();
-        }
+    if (activeCount > 0) {
+        container.classList.add('status-active');
+    } else if (inactiveCount > 0) {
+        container.classList.add('status-inactive');
+        container.textContent = `${inactiveCount} ${inactiveCount === 1 ? 'LO' : 'LOs'}`;
+    } else {
+        container.classList.add('status-none');
+        container.textContent = '0 LOs';
+    }
+
+    container.addEventListener('click', () => {
+        window.location.href = `https://my.sailthru.com/email-composer/${templateId}/usage`;
     });
 
-    observer.observe(targetNode, config);
+    return container;
+}
+
+async function addStatusIndicator() {
+    const insertAfterElem = document.querySelector('#header_nav_links');
+    if (!insertAfterElem) return;
+
+    const idMatch = window.location.href.match(/(\d+)/);
+    if (!idMatch) return;
+
+    const templateId = idMatch[1];
+
+    const statusElement = createStatusElement(null);
+    insertAfterElem.appendChild(statusElement);
+
+    const usageData = await fetchTemplateUsage(templateId);
+    const updatedStatusElement = createStatusElement(usageData);
+    insertAfterElem.replaceChild(updatedStatusElement, statusElement);
 }
 
 addStylesheet();
-observeHeaderNavLinks();
+addStatusIndicator();
