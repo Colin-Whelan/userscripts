@@ -70,18 +70,17 @@ function createStatusElement(usage) {
 
     const activeCount = usage.filter(flow => flow.status === 'active').length;
     const inactiveCount = usage.filter(flow => flow.status === 'inactive').length;
+    const maxCount = Math.max(activeCount, inactiveCount);
 
-    // Format text with proper pluralization
-    container.textContent = `${activeCount} ${activeCount === 1 ? 'LO' : 'LOs'}`;
+    // Format text showing both counts with pluralization based on max value
+    container.textContent = `${activeCount}(${inactiveCount}) ${maxCount === 1 ? 'LO' : 'LOs'}`;
 
     if (activeCount > 0) {
         container.classList.add('status-active');
     } else if (inactiveCount > 0) {
         container.classList.add('status-inactive');
-        container.textContent = `${inactiveCount} ${inactiveCount === 1 ? 'LO' : 'LOs'}`;
     } else {
         container.classList.add('status-none');
-        container.textContent = '0 LOs';
     }
 
     container.addEventListener('click', () => {
