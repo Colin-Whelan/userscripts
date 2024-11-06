@@ -6,6 +6,7 @@
 // @version     1.0
 // @author      Colin Whelan
 // @description Adds buttons to the Campaign Designer page so you can add custom page title, favicon, and styles quickly and easily.
+// Also makes the HTML editor a bit easier to read by enabling work wrap and allowing custom display options.
 // ==/UserScript==
 
 // Change these to suit your needs
@@ -16,19 +17,19 @@ const defaultStyle = `<style>
   img {
     font-size: 18px;
     line-height: 26px;
-    color: #888888
+    color: #222222
   }
 
   /* Only supported on apple. Makes underlines same color */
   a:has(img) {
-    color: #888888
+    color: #222222
   }
 
   /* Smaller text for icons */
   .socialBar img {
     font-size: 12px;
     line-height: 18px;
-    color: #888888
+    color: #222222
   }
 </style>`
 
@@ -38,7 +39,7 @@ const tabSize = 2; // spaces per tab
 const dragDelay = 0; // in ms. how long before dragging text will work
 const fontFamily = "Fira Code"; // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false;
-const theme = 'monokai';
+const theme = 'monokai'; // default - full list: https://github.com/ajaxorg/ace/tree/master/src/theme
 
 let defaultEditor = true
 
@@ -118,11 +119,9 @@ function addUI() {
     uiContainer.style.zIndex = '1000'; // Set a high z-index value
     uiContainer.style.boxSizing = 'border-box'; // This ensures padding does not add to the width
 
-
- // Attempt to get saved values from localStorage, or use default if not available
-  const userTitle = localStorage.getItem('userTitle') || defaultTitle;
-  const userLink = localStorage.getItem('userLink') || defaultFavicon;
-  const userStyle = localStorage.getItem('userStyle') || defaultStyle;
+  const userTitle = defaultTitle;
+  const userLink = defaultFavicon;
+  const userStyle = defaultStyle;
 
   const elements = [
     { type: 'title', content: userTitle },
@@ -156,9 +155,6 @@ function addUI() {
       button.onclick = () => {
         const editor = ace.edit("editor");
         const newValue = textarea.value;
-        // Save the new value to localStorage
-        localStorage.setItem(`user${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`, newValue);
-        console.log('localStorage', `user${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`, newValue)
         addElementsToHead(editor, [{ type: element.type, content: newValue }]);
       };
 
