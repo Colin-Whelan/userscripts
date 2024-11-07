@@ -5,28 +5,17 @@
 // @match       https://app.segment.com/*/engage/spaces/*/audiences/*
 // @match       https://app.segment.com/*
 // @grant       GM_addStyle
-// @version     1.4
+// @version     1.5
 // @author      Colin Whelan
 // @description Adds these improvements:
 // - Makes text areas for JSON bigger and easier to work with.
 // - Makes 'New Audience' a bit better.
 // - Makes 'And who/And who not' more visible.
 // - Audience window takes full space.
-// - Option for custom tooltips in audience conditions.
 // - Adds custom quick links to the sidebar
 // ==/UserScript==
 
-
-const addConditionTooltips = false
-
-const tips = [
-  `API Event+Payload`, // event
-  `Part of a List`, // audience
-  `Campaign interactions or test groups`, // computedTrait
-  `Customer flags`, // sql
-  `Customer details(PII)` // customTrait
-]
-
+// set to true to enable quicklinks (recommended)
 const addCustomQuicklinks = false
 
 const quicklinksJson = `[
@@ -119,87 +108,12 @@ const eventViewObserver = new MutationObserver((mutationsList, eventViewObserver
 // Start observing changes in the DOM
 eventViewObserver.observe(document.body, { childList: true, subtree: true });
 
-// Function to insert styles for the tooltip
-function insertTooltipStyles() {
-  GM_addStyle(`
-    .custom-tooltip {
-      position: relative;
-      display: inline-block;
-      border-bottom: 1px dotted #222222; /* Optional style */
-    }
-
-    .custom-tooltip .tooltip-text {
-      width: 200px;
-      text-align: left;
-    }
-
-    .custom-tooltip:hover .tooltip-text {
-      visibility: visible;
-      opacity: 1;
-    }
-  `);
-}
-
-// Function to add tooltips
-function addTooltips() {
-  // Insert tooltip CSS styles
-  insertTooltipStyles();
-
-  // MutationObserver to watch for the specific span element
-  const tooltipObserver = new MutationObserver((mutationsList, observer) => {
-
-
-    for (let mutation of mutationsList) {
-      if (mutation.addedNodes.length) {
-        mutation.addedNodes.forEach((node) => {
-          if (node.role == 'dialog' && node.attributes['data-state'] && node.attributes['data-state'].value && node.textContent != 'AudienceFolder') {
-            if (node.querySelector('.📦otln_iu2jf4_1849h0v.📦bg_2u3whs_1849h0v.📦bs_iarjze_1849h0v').children[1].textContent != 'Performed an Event') return // some other similar element
-
-            tooltipObserver.disconnect()
-            node.style.width = '400px'
-
-            // Set the parent element to a flex container to center its children
-            const parentElement = node.parentElement; // Adjust this if the structure is different
-            parentElement.style.display = 'flex';
-            parentElement.style.justifyContent = 'center';
-            parentElement.style.alignItems = 'center';
-            parentElement.style.flexDirection = 'column';
-
-            let childCount = 0
-
-            for(let child of node.firstChild.children) {
-              child.classList.add('custom-tooltip')
-              child.classList.add('📦otln_iu2jf4_1849h0v', '📦bg_2u3whs_1849h0v', '📦bs_iarjze_1849h0v', 'ub-box-szg_border-box', '📦flx_1', '📦dspl_flex', '📦algn-itms_center', '📦flx-srnk_0', '📦ovflw-x_hidden', '📦ovflw-y_hidden', '📦pl_12px', '📦pr_12px');
-              const tooltipDiv = document.createElement('div');
-              tooltipDiv.className = 'tooltip-text';
-              tooltipDiv.textContent = tips[childCount];
-              child.appendChild(tooltipDiv);
-
-              childCount++
-            }
-            
-            tooltipObserver.observe(document.body, { childList: true, subtree: true });
-          }
-        });
-      }
-    }
-  });
-
-  // Start observing changes in the DOM for the tooltip
-  tooltipObserver.observe(document.body, { childList: true, subtree: true });
-}
-
-// Call the function to start adding tooltips
-if(addConditionTooltips){
-  addTooltips();
-}
-
 function addQuicklinks(){
   // Parse the JSON structure
   const quicklinks = JSON.parse(quicklinksJson);
 
   // Target div where existing links are placed
-  const targetDiv = document.querySelector('.fs-unmask.css-r8gsu9');
+  const targetDiv = document.querySelector('.fs-unmask');
 
   // Function to create a link element
   function createLinkElement(text, url, i) {
@@ -221,13 +135,15 @@ function addQuicklinks(){
   const callback = function(mutationsList, observer) {
       for(const mutation of mutationsList) {
           if (mutation.type === 'childList') {
-              const targetDiv = document.querySelector('.fs-unmask.css-r8gsu9');
+              const targetDiv = document.querySelector('.fs-unmask');
               if (targetDiv && targetDiv.children[0]) {
+                  console.log('Found: ', targetDiv)
                   // Stop observing
                   observer.disconnect();
 
                   // create the header and append it to the target div
                   if(!document.getElementById('quicklinksHeader')){
+                    console.log('adding new quicklinksHeader', JSON.parse(quicklinksJson))
                     const header = document.createElement('div');
                     header.id = 'quicklinksHeader';
                     header.style.borderTop = '1px solid #ccc'; // Change the color as needed
@@ -248,6 +164,7 @@ function addQuicklinks(){
                       const linkElement = createLinkElement(link.textToShow, link.url, index);
                       if(document.querySelector(`#quicklink_${index}`)) return
                       targetDiv.children[0].appendChild(linkElement);
+                      console.log(targetDiv)
                   });
               }
           }
