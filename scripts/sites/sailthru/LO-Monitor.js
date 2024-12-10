@@ -395,7 +395,7 @@
   setInterval(refreshMetrics, 60000); // 1 min
 }
 
-  GM_addStyle(` /* Update metrics grid container */
+  GM_addStyle(`
   .metrics-grid {
     position: relative;
     background: white;
@@ -410,7 +410,7 @@
     position: sticky;
     top: 0;
     z-index: 101;
-    background: #f5f5f5;
+    background: #ffffff;
     padding: 8px 16px;
     border-bottom: 1px solid #e0e0e0;
     border-radius: 8px 8px 0 0;
@@ -428,7 +428,7 @@
     background-color: #f5f5f5;
     font-weight: bold;
     z-index: 100;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
   }
 
   /* Add solid background to header cells */
@@ -586,7 +586,10 @@
     .error {
         color: #dc3545;
     }
-    footer, header {
+    header {
+/*         display: none !important; */
+    }
+    footer {
         display: none !important;
     }
     .debug-label {
@@ -691,7 +694,7 @@
     .monitor-header {
         position: sticky;
         top: 0;
-        background-color: #f0f4f5;
+/*         background-color: #f0f4f5; */
         z-index: 1;
         padding-bottom: 20px;
     }
