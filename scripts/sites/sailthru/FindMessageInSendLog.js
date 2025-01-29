@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/user_profile?id=*
 // @grant       none
-// @version     1.3
+// @version     1.4
 // @author      Colin Whelan
 // @description Adds a button beside each 'Message' of the User Profile + a button at the top to get all at one.
 // How it works: In the background(or foreground if watchSearch is true) an iframe is made for each message which navigates to the Triggered Send Log with the date limited to that day and the message selected.
@@ -12,7 +12,7 @@
 
 // Options:
 // Choose a speed to search at. The faster the search the more likely a result is to be missed and require a re-run
-const newPageDelay = 200 // (ms) How long to look at each page for before loading the next page. <100 = Fast, ~150 = Normal, 200+ = Reliable.
+const newPageDelay = 150 // (ms) How long to look at each page for before loading the next page. <100 = Fast, ~150 = Normal, 200+ = Reliable.
 const watchSearch = false // Toggle to true to watch the search for the message in real time
 
 const style = document.createElement('style');
@@ -90,7 +90,7 @@ const observer = new MutationObserver(function (mutations) {
           // Get the template name and send date from the cells relative to the current one
           const templateNameCell = table.rows[rowIndex].cells[cellIndex - 2];
           const templateName = templateNameCell.textContent.trim();
-          const sendDate = table.rows[rowIndex].cells[cellIndex + 2].textContent.trim();
+          const sendDate = table.rows[rowIndex].cells[cellIndex + 3].textContent.trim();
 
           // Button Settings
           const button = document.createElement("button");
@@ -109,7 +109,11 @@ const observer = new MutationObserver(function (mutations) {
             automatedCheck(templateName, sendDate, profileId, templateNameCell, button);
           };
 
-          templateNameCell.appendChild(button);
+          console.log(templateNameCell)
+
+          if(templateNameCell.textContent != 'Email'){
+            templateNameCell.appendChild(button);
+          }
         }
       }
     }
@@ -145,6 +149,8 @@ function automatedCheck(templateName, sendDate, profileId, templateNameCell, but
 
   // end date must be 1 day behind for some reason
   endDateTime.setDate(endDateTime.getDate() - 1);
+
+  console.log(startDateTime, endDateTime)
 
   // Convert datetime to string for Send Log: YYYYMMDDhhmmss
   const formattedStartDateTime = createDateTimeString(startDateTime); // URL date
