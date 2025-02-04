@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/campaign*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      Colin Whelan
 // @description Adds buttons to the Campaign Designer page so you can add custom page title, favicon, and styles quickly and easily.
 // Also makes the HTML editor a bit easier to read by enabling work wrap and allowing custom display options.
@@ -39,7 +39,7 @@ const tabSize = 2; // spaces per tab
 const dragDelay = 0; // in ms. how long before dragging text will work
 const fontFamily = "Fira Code"; // need to have font installed locally. Love this font: https://github.com/tonsky/FiraCode/
 const showPrintMargin = false;
-const theme = 'monokai'; // default - full list: https://github.com/ajaxorg/ace/tree/master/src/theme
+const theme = 'monokai';
 
 let defaultEditor = true
 
@@ -112,13 +112,16 @@ function addUI() {
 
     uiContainer = document.createElement('div');
     uiContainer.id = 'uiContainer';
-    uiContainer.style.position = 'absolute'; // Set position to relative or absolute
-    uiContainer.style.marginLeft = '10px'; //
-    uiContainer.style.marginTop = '320px';
-    uiContainer.style.width = '200px'; //
-    uiContainer.style.zIndex = '1000'; // Set a high z-index value
-    uiContainer.style.boxSizing = 'border-box'; // This ensures padding does not add to the width
+    uiContainer.className = 'wizard_sidebar_item';
+    // uiContainer.style.position = 'relative'; // Set position to relative or absolute
+    // uiContainer.style.marginLeft = '10px'; //
+    // uiContainer.style.marginTop = '20px';
+    uiContainer.style.width = '190px'; //
+    // uiContainer.style.zIndex = '10'; // Set a high z-index value
+    // uiContainer.style.boxSizing = 'border-box'; // This ensures padding does not add to the width
 
+
+ // Attempt to get saved values from localStorage, or use default if not available
   const userTitle = defaultTitle;
   const userLink = defaultFavicon;
   const userStyle = defaultStyle;
@@ -132,7 +135,7 @@ function addUI() {
     elements.forEach(element => {
       const textarea = document.createElement('textarea');
       textarea.id = `inject-${element.type}`;
-      textarea.style.width = '190px';
+      textarea.style.width = '170px';
       textarea.style.height = '100px';
       textarea.style.marginTop = '5px';
       textarea.style.marginBottom = '10px';
@@ -145,7 +148,7 @@ function addUI() {
       const button = document.createElement('button');
       button.textContent = `Inject ${element.type}`;
       button.style.marginBottom = '5px';
-      button.style.width = '200px';
+      button.style.width = '180px';
       button.style.backgroundColor = '#00a2be';
       button.style.color = 'white';
       button.style.border = 'none';
@@ -155,6 +158,9 @@ function addUI() {
       button.onclick = () => {
         const editor = ace.edit("editor");
         const newValue = textarea.value;
+        // Save the new value to localStorage
+        // localStorage.setItem(`user${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`, newValue);
+        // console.log('localStorage', `user${element.type.charAt(0).toUpperCase() + element.type.slice(1)}`, newValue)
         addElementsToHead(editor, [{ type: element.type, content: newValue }]);
       };
 
@@ -169,7 +175,7 @@ function addUI() {
     injectAllButton.style.backgroundColor = '#00a2be';
     injectAllButton.style.fontSize = '16px';
     injectAllButton.style.color = 'white';
-    injectAllButton.style.width = '200px';
+    injectAllButton.style.width = '180px';
     injectAllButton.style.border = 'none';
     injectAllButton.style.marginTop = '5px';
     injectAllButton.style.borderRadius = '4px';
