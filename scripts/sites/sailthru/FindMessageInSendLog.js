@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/user_profile?id=*
 // @grant       none
-// @version     1.5
+// @version     1.5.1
 // @author      Colin Whelan
 // @description Adds a button beside each 'Message' of the User Profile + a button at the top to get all at one.
 // How it works: In the background(or foreground if watchSearch is true) an iframe is made for each message which navigates to the Triggered Send Log with the date limited to that day and the message selected.
@@ -87,7 +87,7 @@ const observer = new MutationObserver(function (mutations) {
           const rowIndex = cell.parentNode.rowIndex;
 
           // Get the template name and send date from the cells relative to the current one
-          console.log('table.rows[rowIndex].cells', table.rows[rowIndex].cells)
+          // console.log('table.rows[rowIndex].cells', table.rows[rowIndex].cells)
           const templateNameCell = table.rows[rowIndex].cells[0];
           const templateName = templateNameCell.textContent.trim();
           const sendDate = table.rows[rowIndex].cells[5].textContent.trim();
