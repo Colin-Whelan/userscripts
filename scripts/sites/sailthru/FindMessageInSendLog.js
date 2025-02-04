@@ -83,15 +83,14 @@ const observer = new MutationObserver(function (mutations) {
     // Issues may occur if the Message/Campaign ID is either of those values
     for (let row of table.rows) {
       for (let cell of row.cells) {
-        if (cell.textContent.trim() === 'Triggered' || cell.textContent.trim() === 'Transactional') {
+        if (cell.cellIndex == 3 && cell.textContent.trim() === 'Triggered') {
           const rowIndex = cell.parentNode.rowIndex;
-          const cellIndex = cell.cellIndex;
 
           // Get the template name and send date from the cells relative to the current one
           console.log('table.rows[rowIndex].cells', table.rows[rowIndex].cells)
-          const templateNameCell = table.rows[rowIndex].cells[cellIndex - 3];
+          const templateNameCell = table.rows[rowIndex].cells[0];
           const templateName = templateNameCell.textContent.trim();
-          const sendDate = table.rows[rowIndex].cells[cellIndex + 2].textContent.trim();
+          const sendDate = table.rows[rowIndex].cells[5].textContent.trim();
 
           // Button Settings
           const button = document.createElement("button");
