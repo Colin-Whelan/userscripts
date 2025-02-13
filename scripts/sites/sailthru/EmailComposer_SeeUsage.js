@@ -3,12 +3,22 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/email-composer/*
 // @match       https://my.sailthru.com/template/*
-// @grant       none
-// @version     1.6
+// @grant       GM_addStyle
+// @version     1.7
 // @run-at      document-idle
 // @author      Colin Whelan
 // @description Shows live template usage status on page load
 // ==/UserScript==
+
+
+
+GM_addStyle(`
+        .FileManager_fileManager__sagQH .FileManager_fileManagerDropbox__sagQH {
+        top: 58px !important;
+        }
+`);
+
+let templateId;
 
 function addStylesheet() {
     const style = document.createElement('style');
@@ -42,6 +52,7 @@ function addStylesheet() {
             background-color: #999;
             color: white;
         }
+
     `;
     document.head.appendChild(style);
 }
@@ -84,7 +95,10 @@ function createStatusElement(usage) {
     }
 
     container.addEventListener('click', () => {
-        window.location.href = `https://my.sailthru.com/email-composer/${templateId}/usage`;
+        const link = document.createElement('a');
+        link.href = `https://my.sailthru.com/email-composer/${templateId}/usage`;
+        link.target = '_blank';
+        link.click();
     });
 
     return container;
@@ -97,7 +111,7 @@ async function addStatusIndicator() {
     const idMatch = window.location.href.match(/(\d+)/);
     if (!idMatch) return;
 
-    const templateId = idMatch[1];
+    templateId = idMatch[1];
 
     const statusElement = createStatusElement(null);
     insertAfterElem.appendChild(statusElement);
