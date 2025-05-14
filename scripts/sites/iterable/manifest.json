@@ -1,29 +1,43 @@
 {
-  "version": "0.1.0",
+ "version": "0.2.0",
   "lastUpdated": "2025-05-14",
   
   "categories": {
     "basic-qol": [
-      "Custom Quicklinks.js",
-      "User Lookup Bar.js"
+      "Custom-Quicklinks.js",
+      "User-Lookup-Bar.js"
     ],
     "profile-only": [
-      "User Lookup Bar.js"
+      "User-Lookup-Bar.js"
     ],
     "dashboard-only": [
-      "Custom Quicklinks.js"
+      "Custom-Quicklinks.js"
+    ],
+    "common": [
+      "common-utils.js"
     ]
   },
   
   "users": {
     "basic": {
-      "profile": ["basic-qol"],
-      "dashboard": ["basic-qol"],
-      "other": ["basic-qol"]
+      "global": ["common", "basic-qol"],
+      "profile": [],
+      "dashboard": [],
+      "settings": [],
+      "other": []
     },
     "minimal": {
-      "profile": ["profile-only"],
-      "dashboard": ["dashboard-only"],
+      "global": ["common"],
+      "profile": [],
+      "dashboard": [],
+      "settings": [],
+      "other": []
+    },
+    "dev": {
+      "global": ["common", "basic-qol"],
+      "profile": [],
+      "dashboard": [],
+      "settings": [],
       "other": []
     }
   },
@@ -38,6 +52,12 @@
       "version": "1.0.0",
       "type": "feature",
       "description": "Adds a user lookup bar for quick profile access"
+    },
+    "common-utils.js": {
+      "version": "0.1.0",
+      "type": "utility",
+      "description": "Common utility functions used by multiple scripts",
+      "updated": "2025-05-14"
     }
   }
 }
