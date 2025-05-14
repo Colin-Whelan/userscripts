@@ -4,14 +4,14 @@
   
   "categories": {
     "basic-qol": [
-      "Custom-Quicklinks.js",
-      "User-Lookup-Bar.js"
+      "Custom Quicklinks.js",
+      "User Lookup Bar.js"
     ],
     "profile-only": [
-      "User-Lookup-Bar.js"
+      "User Lookup Bar.js"
     ],
     "dashboard-only": [
-      "Custom-Quicklinks.js"
+      "Custom Quicklinks.js"
     ],
     "common": [
       "common-utils.js"
