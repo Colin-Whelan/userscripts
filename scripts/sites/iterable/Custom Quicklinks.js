@@ -14,6 +14,25 @@
 (function() {
     'use strict';
 
+    // Register script with the loader system
+    window.SiteEnhancer = window.SiteEnhancer || {};
+    window.SiteEnhancer.scripts = window.SiteEnhancer.scripts || {};
+    window.SiteEnhancer.scripts['Custom Quicklinks'] = {
+        name: 'Custom Quicklinks',
+        version: '1.0',
+        author: 'Colin Whelan',
+        type: 'feature',
+        description: 'Adds customizable quick links to navigation',
+        init: init,
+        // NEW: Expose config UI function for the loader
+        configUI: showConfigUI,
+        // NEW: Expose settings data and functions
+        settings: {
+            get: () => GM_getValue('iterableQuicklinks', defaultQuicklinks),
+            set: (links) => saveQuicklinks(links)
+        }
+    };
+
     // Add styles for the configuration UI
     GM_addStyle(`
         .quicklink-config-overlay {
@@ -215,25 +234,6 @@
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
     }
-
-    // Register script with the loader system
-    window.SiteEnhancer = window.SiteEnhancer || {};
-    window.SiteEnhancer.scripts = window.SiteEnhancer.scripts || {};
-    window.SiteEnhancer.scripts['Custom-Quicklinks'] = {
-        name: 'Custom Quicklinks',
-        version: '1.0',
-        author: 'Colin Whelan',
-        type: 'feature',
-        description: 'Adds customizable quick links to navigation',
-        init: init,
-        // NEW: Expose config UI function for the loader
-        configUI: showConfigUI,
-        // NEW: Expose settings data and functions
-        settings: {
-            get: () => GM_getValue('iterableQuicklinks', defaultQuicklinks),
-            set: (links) => saveQuicklinks(links)
-        }
-    };
 
     // If this script is loaded directly, register menu command
     if (!window.SiteEnhancer || !window.SiteEnhancer.loader) {
