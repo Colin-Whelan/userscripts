@@ -11,6 +11,7 @@
 
 (function() {
     'use strict';
+  console.log('[User Lookup Bar] STARTING')
 
     // Add styles for the lookup bar and messages
     GM_addStyle(`
