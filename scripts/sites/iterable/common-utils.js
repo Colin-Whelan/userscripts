@@ -417,11 +417,129 @@
             }
         `);
 
+
+        // Configuration button utility
+        utils.addConfigButton = function(parentElement, configFunction, buttonText = '⚙️ Configure') {
+            // Skip if parent element doesn't exist
+            if (!parentElement) return null;
+
+            // Check if a button already exists with the same text in this container
+            const existingButton = Array.from(parentElement.querySelectorAll('.se-config-button'))
+                .find(btn => btn.textContent === buttonText);
+
+            if (existingButton) return existingButton;
+
+            // Create a styled button
+            const configButton = document.createElement('button');
+            configButton.textContent = buttonText;
+            configButton.className = 'se-config-button';
+            configButton.title = 'Open settings';
+
+            // Style the button
+            configButton.style.cssText = `
+                background: #f1f1f1;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 4px 8px;
+                margin-left: 5px;
+                font-size: 12px;
+                cursor: pointer;
+                color: #333;
+                transition: background 0.2s, opacity 0.2s;
+            `;
+
+            // Add hover effects
+            configButton.addEventListener('mouseenter', () => {
+                configButton.style.background = '#e0e0e0';
+            });
+
+            configButton.addEventListener('mouseleave', () => {
+                configButton.style.background = '#f1f1f1';
+            });
+
+            // Add click event
+            configButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configFunction();
+            });
+
+            // Add to parent
+            parentElement.appendChild(configButton);
+
+            return configButton;
+        };
+
+        // Floating config button that can be added to any page position
+        utils.addFloatingConfigButton = function(configFunction, position = 'bottom-right', buttonText = '⚙️') {
+            // Determine position CSS based on requested position
+            let positionCSS = '';
+            switch (position) {
+                case 'top-right':
+                    positionCSS = 'top: 20px; right: 20px;';
+                    break;
+                case 'top-left':
+                    positionCSS = 'top: 20px; left: 20px;';
+                    break;
+                case 'bottom-left':
+                    positionCSS = 'bottom: 20px; left: 20px;';
+                    break;
+                case 'bottom-right':
+                default:
+                    positionCSS = 'bottom: 20px; right: 20px;';
+                    break;
+            }
+
+            // Create a styled button
+            const configButton = document.createElement('div');
+            configButton.textContent = buttonText;
+            configButton.className = 'se-floating-config-button';
+            configButton.title = 'Configure script settings';
+
+            // Style the button
+            configButton.style.cssText = `
+                ${positionCSS}
+                position: fixed;
+                width: 36px;
+                height: 36px;
+                background: #4CAF50;
+                color: white;
+                border-radius: 50%;
+                text-align: center;
+                line-height: 36px;
+                cursor: pointer;
+                z-index: 9997;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                font-size: 18px;
+                transition: transform 0.2s, background 0.2s;
+            `;
+
+            // Add hover effects
+            configButton.addEventListener('mouseenter', () => {
+                configButton.style.transform = 'scale(1.1)';
+                configButton.style.background = '#43A047';
+            });
+
+            configButton.addEventListener('mouseleave', () => {
+                configButton.style.transform = 'scale(1)';
+                configButton.style.background = '#4CAF50';
+            });
+
+            // Add click event
+            configButton.addEventListener('click', configFunction);
+
+            // Add to body
+            document.body.appendChild(configButton);
+
+            return configButton;
+        };
+
         // Make utilities available globally
         window.SiteEnhancer.utils = utils;
 
         console.log('Common utilities initialized');
     }
+
 
     // Call init if this script is loaded directly
     if (!window.SiteEnhancer || !window.SiteEnhancer.loader) {
