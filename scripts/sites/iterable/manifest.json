@@ -1,0 +1,43 @@
+{
+  "version": "0.1.0",
+  "lastUpdated": "2025-05-14",
+  
+  "categories": {
+    "basic-qol": [
+      "Custom Quicklinks.js",
+      "User Lookup Bar.js"
+    ],
+    "profile-only": [
+      "User Lookup Bar.js"
+    ],
+    "dashboard-only": [
+      "Custom Quicklinks.js"
+    ]
+  },
+  
+  "users": {
+    "basic": {
+      "profile": ["basic-qol"],
+      "dashboard": ["basic-qol"],
+      "other": ["basic-qol"]
+    },
+    "minimal": {
+      "profile": ["profile-only"],
+      "dashboard": ["dashboard-only"],
+      "other": []
+    }
+  },
+  
+  "scripts": {
+    "Custom Quicklinks.js": {
+      "version": "1.0.0",
+      "type": "feature",
+      "description": "Adds customizable quick links to navigation"
+    },
+    "User Lookup Bar.js": {
+      "version": "1.0.0",
+      "type": "feature",
+      "description": "Adds a user lookup bar for quick profile access"
+    }
+  }
+}
