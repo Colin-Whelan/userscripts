@@ -20,8 +20,6 @@ The easiest way to add these scripts is with the 'raw' URL which allows for easy
 8.  Click 'Install' in the top left.
 9.  Reload the target page to see the new feature.
 
-Note: For Chrome
-
 Now when you navigate to the page from '// @match' near the top of the script, the script will execute.
 
 ## Editing Variables
