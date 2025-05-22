@@ -8,17 +8,19 @@ Feel free to copy or modify as you like.
 
 ## Adding Scripts
 
-The easiest way to add these scripts is with the URL which allows for easy updates later.
+The easiest way to add these scripts is with the 'raw' URL which allows for easy updates later.
 
-1.  Install [Violent Monkey](https://violentmonkey.github.io/) on the browser of your choice - I recommend pinning it to the toolbar.
-2.  Click the extension, then the Gear icon to open the dashboard.
-3.  Click the '+' in the top left corner and choose 'Install from URL'
-4.  In a separate tab, navigate to the script of your choice.
-5.  Click the 'Raw' button on the right hand side.
+1.  Install [TamperMonkey](https://www.tampermonkey.net/) on the browser of your choice - Pinning it to the toolbar is recommended.
+2.  In a separate tab, navigate to the script of your choice.
+3.  Click the 'Raw' button on the right hand side.
   ![in top right of the code section](https://cdn.glitch.global/4c74f8d5-b1a6-4a37-91dc-9b40f9d9d76e/firefox_TY0MXfG7ia.png?raw=true)
-6.  Copy and paste this URL into the ViolentMonkey URL box.
-7.  Click 'OK', then 'Confirm Installation' on the next page.
-8.  Reload the dashboard to see the new script added.
+4.  Click the extension, then the Gear icon at the bottom to open the dashboard.
+5.  Click 'Utilities' in the top right corner.
+7.  Paste the URL of the raw script in the 'Install from URL' box and click 'Install'
+8.  Click 'Install' in the top left.
+9.  Reload the target page to see the new feature.
+
+Note: For Chrome
 
 Now when you navigate to the page from '// @match' near the top of the script, the script will execute.
 
