@@ -1,21 +1,85 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
-// @grant        none
+// @grant        GM_registerMenuCommand
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @description  Preview & prepare schedule times before launching, improved page layout with tighter spacing, and streamlined workflow for campaign scheduling
 // ==/UserScript==
 
 (function() {
     'use strict';
 
+    // Debug flag - set to true to enable console logging
+    const _DEBUG = false;
+
     let scheduledDateTime = null;
     let schedulePreviewUI = null;
 
-    // Debug flag - set to true to enable console logging
-    const _DEBUG = false;
+    // Global variable to track the relative time update interval
+    let relativeTimeInterval = null;
+
+    // Configuration with defaults
+    let config = {
+        seedListCheck: false,
+        seedListKeyword: "Seed", // Customizable seed list keyword
+        suppressListCheck: false,
+        campaignRules: [
+            {
+                keywords: ["mother", "mom"],
+                requiredSuppressionLists: ["Mothers Days"],
+                isGlobal: false
+            },
+            {
+                keywords: ["father", "dad"],
+                requiredSuppressionLists: ["Fathers Days"],
+                isGlobal: false
+            },
+            {
+                keywords: ["survey", "research"],
+                requiredSuppressionLists: ["explicitOptOut_Surveys"],
+                isGlobal: false
+            },
+            {
+                keywords: [],
+                requiredSuppressionLists: ["Daily Exclusions"],
+                isGlobal: true
+            }
+        ]
+    };
+
+    // Load configuration
+    function loadConfig() {
+        try {
+            const savedConfig = GM_getValue('campaignConfig', JSON.stringify(config));
+            const loadedConfig = JSON.parse(savedConfig);
+
+            // Ensure seedListKeyword exists in loaded config
+            if (!loadedConfig.seedListKeyword) {
+                loadedConfig.seedListKeyword = "Seed";
+            }
+
+            config = loadedConfig;
+            log('Configuration loaded', config);
+        } catch (e) {
+            log('Error loading config, using defaults', e);
+            // Ensure seedListKeyword is set
+            config.seedListKeyword = config.seedListKeyword || "Seed";
+        }
+    }
+
+    // Save configuration
+    function saveConfig() {
+        try {
+            GM_setValue('campaignConfig', JSON.stringify(config));
+            log('Configuration saved', config);
+        } catch (e) {
+            log('Error saving config', e);
+        }
+    }
 
     // Logging helper
     function log(message, data = null) {
@@ -48,6 +112,134 @@
             .cRjXNc {
                 margin-bottom: 0.3rem !important;
             }
+
+            /* Settings modal styles */
+            .config-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .config-modal-content {
+                background: white;
+                border-radius: 8px;
+                padding: 24px;
+                max-width: 600px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            }
+
+            .config-section {
+                margin-bottom: 24px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+
+            .config-section:last-child {
+                border-bottom: none;
+            }
+
+            .config-toggle {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+
+            .config-rule {
+                background: #f5f5f5;
+                padding: 12px;
+                border-radius: 4px;
+                margin-bottom: 8px;
+            }
+
+            .rules-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 12px;
+            }
+
+            .rules-table th {
+                background: #f5f5f5;
+                padding: 8px;
+                text-align: left;
+                border: 1px solid #ddd;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .rules-table td {
+                padding: 8px;
+                border: 1px solid #ddd;
+                vertical-align: middle;
+            }
+
+            .rules-table input[type="text"] {
+                width: 100%;
+                padding: 4px;
+                border: 1px solid #ccc;
+                border-radius: 2px;
+            }
+
+            .rules-table input[type="text"]:disabled {
+                background: #f5f5f5;
+                color: #999;
+            }
+
+            .icon-button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 2px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .icon-button:hover {
+                background: #f0f0f0;
+            }
+
+            .icon-button.add {
+                color: #4CAF50;
+            }
+
+            .icon-button.remove {
+                color: #f44336;
+            }
+
+            .validation-warning {
+                display: inline-flex;
+                align-items: center;
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                color: #856404;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                gap: 6px;
+            }
+
+            .validation-success {
+                display: inline-flex;
+                align-items: center;
+                background: #d4edda;
+                border: 1px solid #c3e6cb;
+                color: #155724;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 12px;
+                gap: 6px;
+            }
         `;
 
         style.innerHTML = css;
@@ -64,22 +256,395 @@
 
     log('Userscript loaded and initialized');
 
-    // Wait for page to load
-    function waitForElement(selector, callback, timeout = 10000) {
-        log(`Waiting for element: ${selector}`);
-        const startTime = Date.now();
-        const checkForElement = () => {
-            const element = document.querySelector(selector);
-            if (element) {
-                log(`Element found: ${selector}`);
-                callback(element);
-            } else if (Date.now() - startTime < timeout) {
-                setTimeout(checkForElement, 100);
+    // Create settings modal
+    function createSettingsModal() {
+    const modal = document.createElement('div');
+    modal.className = 'config-modal';
+    modal.innerHTML = `
+        <div class="config-modal-content">
+            <h2 style="margin-top: 0; color: #333;">Campaign Enhancement Settings</h2>
+
+            <div class="config-section">
+                <h3 style="color: #555;">Seed List Check</h3>
+                <div class="config-toggle">
+                    <input type="checkbox" id="seedListCheck" ${config.seedListCheck ? 'checked' : ''}>
+                    <label for="seedListCheck">Enable seed list validation</label>
+                </div>
+                <div style="margin-top: 12px;">
+                    <label for="seedListKeyword" style="font-weight: 600;">Check for keyword in send list names:</label>
+                    <input type="text" id="seedListKeyword" value="${config.seedListKeyword || 'Seed'}"
+                           style="width: 200px; padding: 4px; margin-left: 8px; border: 1px solid #ccc; border-radius: 2px;">
+                </div>
+                <p style="color: #666; font-size: 12px; margin: 8px 0 0 0;">When enabled, warns if no send lists contain this keyword.</p>
+            </div>
+
+            <div class="config-section">
+                <h3 style="color: #555;">Suppress List Check</h3>
+                <div class="config-toggle">
+                    <input type="checkbox" id="suppressListCheck" ${config.suppressListCheck ? 'checked' : ''}>
+                    <label for="suppressListCheck">Enable suppression list validation</label>
+                </div>
+                <p style="color: #666; font-size: 12px; margin-bottom: 16px;">Validates required suppression lists based on campaign keywords.</p>
+
+                <h4 style="color: #555; margin-bottom: 12px;">Campaign Rules:</h4>
+                <table class="rules-table">
+                    <thead>
+                        <tr>
+                            <th>Global</th>
+                            <th>Keywords</th>
+                            <th>Required Suppression Lists</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rulesTableBody">
+                        ${config.campaignRules.map((rule, index) => `
+                            <tr data-index="${index}">
+                                <td>
+                                    <input type="checkbox" class="global-checkbox" ${rule.isGlobal ? 'checked' : ''}>
+                                </td>
+                                <td>
+                                    <input type="text" class="keywords-input"
+                                           value="${rule.isGlobal ? '' : rule.keywords.join(', ')}"
+                                           ${rule.isGlobal ? 'disabled' : ''}
+                                           placeholder="mother, mom">
+                                </td>
+                                <td>
+                                    <input type="text" class="lists-input"
+                                           value="${rule.requiredSuppressionLists.join(', ')}"
+                                           placeholder="Mothers Days">
+                                </td>
+                                <td>
+                                    <button class="icon-button remove" title="Remove Rule">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <button class="icon-button add" id="addTableRule" style="margin-top: 12px; padding: 8px 12px; background: #4CAF50; color: white; border-radius: 4px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
+                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    Add New Rule
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                <button id="saveSettings" style="background: #2196F3; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer;">Save Settings</button>
+                <button id="cancelSettings" style="background: #666; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Function to apply global toggle behavior to a checkbox
+    function applyGlobalToggle(checkbox) {
+        const row = checkbox.closest('tr');
+        const keywordsInput = row.querySelector('.keywords-input');
+
+        function updateKeywordsField() {
+            if (checkbox.checked) {
+                keywordsInput.disabled = true;
+                keywordsInput.value = '';
+                keywordsInput.style.background = '#f5f5f5';
+                keywordsInput.style.color = '#999';
             } else {
-                log(`Timeout waiting for element: ${selector}`);
+                keywordsInput.disabled = false;
+                keywordsInput.style.background = 'white';
+                keywordsInput.style.color = '#333';
+            }
+        }
+
+        // Apply initial state
+        updateKeywordsField();
+
+        // Add change listener
+        checkbox.addEventListener('change', updateKeywordsField);
+    }
+
+    // Function to add remove functionality to a button
+    function applyRemoveButton(button) {
+        button.addEventListener('click', () => {
+            const row = button.closest('tr');
+            if (row) {
+                log('Removing table row');
+                row.remove();
+            }
+        });
+    }
+
+    // Apply functionality to existing rows
+    modal.querySelectorAll('.global-checkbox').forEach(applyGlobalToggle);
+    modal.querySelectorAll('.remove').forEach(applyRemoveButton);
+
+    // Add new rule functionality
+    modal.querySelector('#addTableRule').addEventListener('click', () => {
+        const tbody = modal.querySelector('#rulesTableBody');
+        const newIndex = tbody.children.length;
+        const newRow = document.createElement('tr');
+        newRow.setAttribute('data-index', newIndex);
+        newRow.innerHTML = `
+            <td>
+                <input type="checkbox" class="global-checkbox">
+            </td>
+            <td>
+                <input type="text" class="keywords-input" placeholder="mother, mom">
+            </td>
+            <td>
+                <input type="text" class="lists-input" placeholder="Mothers Days">
+            </td>
+            <td>
+                <button class="icon-button remove" title="Remove Rule">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(newRow);
+
+        // Apply functionality to the new row
+        const newCheckbox = newRow.querySelector('.global-checkbox');
+        const newRemoveButton = newRow.querySelector('.remove');
+
+        applyGlobalToggle(newCheckbox);
+        applyRemoveButton(newRemoveButton);
+    });
+
+    // Save settings
+    modal.querySelector('#saveSettings').addEventListener('click', () => {
+        // Save settings
+        config.seedListCheck = modal.querySelector('#seedListCheck').checked;
+        config.seedListKeyword = modal.querySelector('#seedListKeyword').value.trim() || 'Seed';
+        config.suppressListCheck = modal.querySelector('#suppressListCheck').checked;
+
+        // Update rules from table
+        config.campaignRules = [];
+        modal.querySelectorAll('#rulesTableBody tr').forEach(row => {
+            const isGlobal = row.querySelector('.global-checkbox').checked;
+            const keywordsValue = row.querySelector('.keywords-input').value.trim();
+            const listsValue = row.querySelector('.lists-input').value.trim();
+
+            const keywords = isGlobal ? [] : keywordsValue.split(',').map(k => k.trim()).filter(k => k);
+            const lists = listsValue.split(',').map(l => l.trim()).filter(l => l);
+
+            if ((isGlobal || keywords.length > 0) && lists.length > 0) {
+                config.campaignRules.push({
+                    keywords: keywords,
+                    requiredSuppressionLists: lists,
+                    isGlobal: isGlobal
+                });
+            }
+        });
+
+        saveConfig();
+        modal.remove();
+        log('Settings saved');
+
+        // Re-run validations if on summary page
+        if (isOnSummaryView()) {
+            setTimeout(runValidations, 100);
+        }
+    });
+
+    // Cancel settings
+    modal.querySelector('#cancelSettings').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    // Close on background click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+    // Display warning/success message to the right of an element
+    function displayValidationMessage(targetElement, message, isSuccess = false) {
+        // Remove existing validation messages for this element
+        const parent = targetElement.closest('[data-test="form-field"]');
+        if (!parent) return;
+
+        const existing = parent.querySelector('.validation-warning, .validation-success');
+        if (existing) {
+            existing.remove();
+        }
+
+        // If message is null/empty, just clear existing messages and return
+        if (!message) return;
+
+        const messageEl = document.createElement('div');
+        messageEl.className = isSuccess ? 'validation-success' : 'validation-warning';
+        messageEl.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                ${isSuccess ?
+                    '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>' :
+                    '<path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>'
+                }
+            </svg>
+            ${message}
+        `;
+
+        targetElement.parentElement.appendChild(messageEl);
+    }
+
+    // Validate seed lists
+    function validateSeedLists() {
+        const sendListContainer = document.querySelector('[data-test="form-readonly-field-sendLists"]');
+        if (!sendListContainer) return;
+
+        // If setting is disabled, remove any existing warnings and return
+        if (!config.seedListCheck) {
+            displayValidationMessage(sendListContainer, null); // Clear existing messages
+            return;
+        }
+
+        log('Running seed list validation');
+
+        const sendListLinks = sendListContainer.querySelectorAll('a');
+        const sendListNames = Array.from(sendListLinks).map(link => link.textContent.trim());
+
+        log('Send lists found:', sendListNames);
+        log('Checking for keyword:', config.seedListKeyword);
+
+        const hasSeedList = sendListNames.some(name =>
+            name.toLowerCase().includes(config.seedListKeyword.toLowerCase())
+        );
+
+        if (hasSeedList) {
+            displayValidationMessage(sendListContainer, `"${config.seedListKeyword}" list detected`, true);
+        } else {
+            displayValidationMessage(sendListContainer, `Warning: No "${config.seedListKeyword}" list found in send lists`);
+        }
+    }
+
+    // Validate suppression lists
+    function validateSuppressionLists() {
+        const suppressListContainer = document.querySelector('[data-test="form-readonly-field-suppressionLists"]');
+        if (!suppressListContainer) return;
+
+        // If setting is disabled, remove any existing warnings and return
+        if (!config.suppressListCheck) {
+            displayValidationMessage(suppressListContainer, null); // Clear existing messages
+            return;
+        }
+
+        log('Running suppression list validation');
+
+        // Get campaign name from page title or URL
+        const campaignName = document.title || window.location.pathname;
+        log('Campaign name:', campaignName);
+
+        const suppressListLinks = suppressListContainer.querySelectorAll('a');
+        const suppressionLists = Array.from(suppressListLinks).map(link => link.textContent.trim());
+
+        log('Suppression lists found:', suppressionLists);
+
+        let allMissingLists = new Set();
+        let validationFailed = false;
+
+        config.campaignRules.forEach(rule => {
+            const shouldApplyRule = rule.isGlobal ||
+                rule.keywords.some(keyword =>
+                    campaignName && campaignName.toLowerCase().includes(keyword.toLowerCase())
+                );
+
+            if (shouldApplyRule) {
+                const requiredLists = rule.requiredSuppressionLists;
+                const missingLists = requiredLists.filter(requiredList =>
+                    !suppressionLists.some(existingList =>
+                        existingList.toLowerCase().includes(requiredList.toLowerCase())
+                    )
+                );
+
+                if (missingLists.length > 0) {
+                    validationFailed = true;
+                    missingLists.forEach(list => allMissingLists.add(list));
+                }
+            }
+        });
+
+        const missingListsArray = Array.from(allMissingLists);
+
+        if (validationFailed) {
+            const boldedMissingLists = missingListsArray.map(list => `<strong>${list}</strong>`);
+            const message = `Missing suppression lists: ${boldedMissingLists.join(', ')}`;
+            displayValidationMessage(suppressListContainer, message);
+        } else {
+            displayValidationMessage(suppressListContainer, 'Suppression validation passed', true);
+        }
+    }
+
+    // Run all validations
+    function runValidations() {
+        log('Running all validations');
+        setTimeout(() => {
+            // Always run validations so they can clean up warnings when disabled
+            validateSeedLists();
+            validateSuppressionLists();
+        }, 1000);
+    }
+
+    // More robust element waiting with periodic checksaddPrepareScheduleButton
+    function waitForElement(selector, callback, maxWaitTime = 30000) {
+        log(`Starting robust wait for element: ${selector}`);
+        const startTime = Date.now();
+        let attempts = 0;
+
+        const checkForElement = () => {
+            attempts++;
+            const element = document.querySelector(selector);
+            const elapsed = Date.now() - startTime;
+
+            log(`Attempt ${attempts}: Looking for ${selector} (${elapsed}ms elapsed)`);
+
+            if (element) {
+                log(`Element found after ${attempts} attempts (${elapsed}ms): ${selector}`);
+                callback(element);
+                return true;
+            } else if (elapsed < maxWaitTime) {
+                // Continue checking every 250ms
+                setTimeout(checkForElement, 250);
+                return false;
+            } else {
+                log(`Timeout after ${attempts} attempts (${elapsed}ms): ${selector}`);
+                return false;
             }
         };
+
         checkForElement();
+    }
+
+    // Wait for page to be in a more stable state
+    function waitForPageStability(callback, timeout = 10000) {
+        log('Waiting for page stability...');
+
+        let stabilityChecks = 0;
+        const maxChecks = timeout / 500; // Check every 500ms
+
+        const checkStability = () => {
+            stabilityChecks++;
+            const isStable = document.readyState === 'complete' ||
+                           document.querySelector('[data-test="form-readonly-field-scheduleStartTime"]') ||
+                           stabilityChecks >= maxChecks;
+
+            log(`Stability check ${stabilityChecks}/${maxChecks}: readyState=${document.readyState}, hasScheduleElement=${!!document.querySelector('[data-test="form-readonly-field-scheduleStartTime"]')}`);
+
+            if (isStable) {
+                log('Page appears stable, proceeding...');
+                callback();
+            } else {
+                setTimeout(checkStability, 500);
+            }
+        };
+
+        checkStability();
     }
 
     // Check if we're on the summary view
@@ -91,8 +656,98 @@
         return isSummary;
     }
 
-    // Create the schedule preview UI
+    // Updated relative time calculation function
+    function calculateRelativeTime(dateString, timeString) {
+        // Convert our input format (2024-12-15, 14:30) to the target date
+        const dateStr = `${dateString}T${timeString}:00`;
+        const scheduledDate = new Date(dateStr);
+        const now = new Date();
+        const diffMs = scheduledDate - now;
+
+        if (diffMs <= 0) {
+            return { text: "(time has passed)", color: "#f44336" };
+        }
+
+        const diffMins = Math.round(diffMs / 60000);
+        const diffHours = Math.round(diffMs / 3600000);
+        const diffDays = Math.round(diffMs / 86400000);
+
+        let text, color;
+
+        if (diffMins < 60) {
+            text = `(in ${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'})`;
+            color = "#f44336"; // Red - next hour
+        } else if (diffHours < 24) {
+            text = `(in ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'})`;
+            color = "#ff9800"; // Orange - between 1-24 hours
+        } else {
+            text = `(in ${diffDays} ${diffDays === 1 ? 'day' : 'days'})`;
+            color = "#4CAF50"; // Green - more than 24 hours
+        }
+
+        return { text, color };
+    }
+
+    // Function to create and update the relative time display next to time input
+    function createRelativeTimeDisplay(timeInput, dateInput) {
+        // Remove existing relative time display
+        const existing = timeInput.parentElement.querySelector('.relative-time-display');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Clear any existing interval
+        if (relativeTimeInterval) {
+            clearInterval(relativeTimeInterval);
+            relativeTimeInterval = null;
+        }
+
+        // Create the relative time display element
+        const relativeTimeEl = document.createElement('span');
+        relativeTimeEl.className = 'relative-time-display';
+        relativeTimeEl.style.cssText = `
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid;
+        white-space: nowrap;
+    `;
+
+        // Function to update the relative time display
+        const updateRelativeTime = () => {
+            const dateValue = dateInput.value;
+            const timeValue = timeInput.value;
+
+            if (dateValue && timeValue) {
+                const { text, color } = calculateRelativeTime(dateValue, timeValue);
+                relativeTimeEl.textContent = text;
+                relativeTimeEl.style.color = color;
+                relativeTimeEl.style.borderColor = color;
+                relativeTimeEl.style.display = 'inline-block';
+            } else {
+                relativeTimeEl.style.display = 'none';
+            }
+        };
+
+        // Initial update
+        updateRelativeTime();
+
+        // Update every minute
+        relativeTimeInterval = setInterval(updateRelativeTime, 60000);
+
+        // Add to the page (next to time input)
+        timeInput.parentElement.appendChild(relativeTimeEl);
+
+        return { element: relativeTimeEl, update: updateRelativeTime };
+    }
+
+    // Updated function to create the schedule preview UI
     function createSchedulePreviewUI(notLaunchedElement) {
+
+        log('Hiding prepare button');
+
         log('Creating schedule preview UI');
         // Find the parent container for the launch time field
         const launchTimeField = notLaunchedElement.closest('[data-test="form-field"]');
@@ -102,46 +757,42 @@
         }
         log('Found launch time field container');
 
-        // Store reference to the prepare button for the clear function
-        const prepareButton = document.querySelector('.prepare-schedule-btn');
-
         // Create container for our UI
         const container = document.createElement('div');
         container.style.cssText = `
-            margin-top: 12px;
-            padding: 16px;
-            border: 2px dashed #e0e0e0;
-            border-radius: 8px;
-            background-color: #f9f9f9;
-            font-family: inherit;
-        `;
+        padding: 16px;
+        border: 2px dashed #e0e0e0;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        font-family: inherit;
+    `;
 
         // Create header with NOT LAUNCHED flag
         const header = document.createElement('div');
         header.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-        `;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    `;
 
         const notLaunchedFlag = document.createElement('span');
         notLaunchedFlag.textContent = 'NOT LAUNCHED';
         notLaunchedFlag.style.cssText = `
-            background-color: #ff9800;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        `;
+        background-color: #ff9800;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+    `;
 
         const title = document.createElement('span');
         title.textContent = 'Schedule Preview';
         title.style.cssText = `
-            font-weight: 600;
-            color: #333;
-        `;
+        font-weight: 600;
+        color: #333;
+    `;
 
         header.appendChild(notLaunchedFlag);
         header.appendChild(title);
@@ -150,28 +801,28 @@
         const dateInput = document.createElement('input');
         dateInput.type = 'date';
         dateInput.style.cssText = `
-            margin-right: 12px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: inherit;
-        `;
+        margin-right: 12px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: inherit;
+    `;
 
         // Create time input
         const timeInput = document.createElement('input');
         timeInput.type = 'time';
         timeInput.style.cssText = `
-            margin-right: 12px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: inherit;
-        `;
+        margin-right: 12px;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: inherit;
+    `;
 
         // Set default values (current date, current time + 1 hour)
         const now = new Date();
         const defaultDate = now.toISOString().split('T')[0];
-        const defaultTime = new Date(now.getTime() + 60 * 60 * 1000).toTimeString().slice(0, 5);
+        const defaultTime = new Date(now.getTime() + 61 * 60 * 1000).toTimeString().slice(0, 5);
 
         dateInput.value = defaultDate;
         timeInput.value = defaultTime;
@@ -179,36 +830,43 @@
         // Create input container
         const inputContainer = document.createElement('div');
         inputContainer.style.cssText = `
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-            gap: 8px;
-        `;
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+    `;
 
         inputContainer.appendChild(dateInput);
         inputContainer.appendChild(timeInput);
 
+        // Create and setup relative time display
+        const relativeTimeDisplay = createRelativeTimeDisplay(timeInput, dateInput);
+
+        // Add event listeners to update relative time when date/time changes
+        dateInput.addEventListener('change', relativeTimeDisplay.update);
+        timeInput.addEventListener('change', relativeTimeDisplay.update);
+
         // Create button container
         const buttonContainer = document.createElement('div');
         buttonContainer.style.cssText = `
-            display: flex;
-            gap: 12px;
-        `;
+        display: flex;
+        gap: 12px;
+    `;
 
         // Create Confirm Schedule Time button
         const confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm Schedule Time';
         confirmButton.style.cssText = `
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: 600;
-        `;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 600;
+    `;
 
         confirmButton.addEventListener('click', () => {
             const dateValue = dateInput.value;
@@ -237,32 +895,39 @@
         const clearButton = document.createElement('button');
         clearButton.textContent = 'Clear & Hide';
         clearButton.style.cssText = `
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-family: inherit;
-            font-weight: 600;
-        `;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: inherit;
+        font-weight: 600;
+    `;
 
         clearButton.addEventListener('click', () => {
             log('Clear & Hide button clicked - resetting and hiding panel');
+
+            // Clear the relative time interval
+            if (relativeTimeInterval) {
+                clearInterval(relativeTimeInterval);
+                relativeTimeInterval = null;
+            }
+
+            // Reset values
             dateInput.value = defaultDate;
             timeInput.value = defaultTime;
             scheduledDateTime = null;
 
-            // Hide the panel and restore the prepare button
+            // Hide the panel
             container.remove();
             schedulePreviewUI = null;
 
-            // Restore the prepare button text and color
-            if (prepareButton) {
-                prepareButton.textContent = 'Prepare Schedule Time';
-                prepareButton.style.backgroundColor = '#2196F3'; // Restore original blue color
-                log('Restored prepare button text and color');
-            }
+            // show the 'prepare' button again
+            let button = document.querySelector('.prepare-schedule-btn')
+            button.style.display = 'block'
+
+            log('Schedule preview cleared and hidden');
         });
 
         buttonContainer.appendChild(confirmButton);
@@ -376,16 +1041,15 @@
         button.textContent = 'Prepare Schedule Time';
         button.className = 'prepare-schedule-btn';
         button.style.cssText = `
-            margin-left: 12px;
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-family: inherit;
-        `;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: inherit;
+    `;
 
         button.addEventListener('click', () => {
             log('Prepare Schedule Time button clicked');
@@ -395,8 +1059,8 @@
             } else {
                 log('Creating new schedule preview UI');
                 schedulePreviewUI = createSchedulePreviewUI(notLaunchedElement);
-                button.textContent = 'Schedule Preview Active';
-                button.style.backgroundColor = '#4CAF50'; // Change to green when active
+                button.style.display = 'none'
+                // Note: Button text stays the same - status is shown in the right column
             }
         });
 
@@ -465,6 +1129,9 @@
                     log('Hidden original "Not launched" text');
 
                     addPrepareScheduleButton(targetElement);
+
+                    // Run validations
+                    runValidations();
                 } else {
                     log('Campaign already launched or different status, not adding button');
                 }
@@ -483,6 +1150,13 @@
 
     // Run on page load and navigation changes
     log('Running initial initialization');
+
+    // Load configuration
+    loadConfig();
+
+    // Register menu command
+    GM_registerMenuCommand('Campaign Enhancement Settings', createSettingsModal);
+
     initialize();
 
     // Handle SPA navigation
@@ -492,7 +1166,10 @@
         if (url !== lastUrl) {
             log('URL changed, re-initializing', { from: lastUrl, to: url });
             lastUrl = url;
-            setTimeout(initialize, 1000);
+            // Give the page more time to load after navigation
+            setTimeout(() => {
+                initialize();
+            }, 2000);
         }
     }).observe(document, { subtree: true, childList: true });
 
