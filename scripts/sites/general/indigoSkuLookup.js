@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Indigo SKU URL Generator
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Generate final Indigo product URLs from SKUs
 // @author       Colin Whelan
 // @match        *://*/*
@@ -33,6 +33,7 @@
     // State
     let currentLang = 'en-ca';
     let modal = null;
+    let isDarkMode = localStorage.getItem('indigo-sku-generator-dark') === 'true';
 
     // Initialize
     GM_registerMenuCommand("Indigo SKU URL Generator", showModal);
@@ -85,10 +86,11 @@
     }
 
     function getModalStyles() {
+        const bgColor = isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)';
         return `
             position: fixed !important; top: 0 !important; left: 0 !important;
             width: 100% !important; height: 100% !important;
-            background: rgba(0, 0, 0, 0.5) !important; z-index: 999999 !important;
+            background: ${bgColor} !important; z-index: 999999 !important;
             display: flex !important; justify-content: center !important; align-items: center !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
             font-size: 14px !important; line-height: 1.4 !important; color: #333 !important; box-sizing: border-box !important;
@@ -100,34 +102,43 @@
             .map(([value, text]) => `<option value="${value}">${text}</option>`)
             .join('');
 
+        // Theme-based colors
+        const theme = getThemeColors();
+
         return `
-            <div style="background: white !important; padding: 20px !important; border-radius: 8px !important;
+            <div style="background: ${theme.modalBg} !important; padding: 20px !important; border-radius: 8px !important;
                         max-width: 500px !important; width: 90% !important; max-height: 80vh !important;
                         overflow-y: auto !important; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
                         font-family: inherit !important; box-sizing: border-box !important; margin: 0 !important;">
 
                 <div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 20px !important;">
-                    <h3 style="margin: 0 !important; color: #333 !important; font-size: 18px !important; font-weight: bold !important;">Indigo SKU URL Generator</h3>
-                    <button id="closeModal" style="background: none !important; border: none !important; font-size: 20px !important; cursor: pointer !important; color: #666 !important; padding: 0 !important;">&times;</button>
+                    <h3 style="margin: 0 !important; color: ${theme.text} !important; font-size: 18px !important; font-weight: bold !important;">Indigo SKU URL Generator</h3>
+                    <div style="display: flex !important; align-items: center !important; gap: 10px !important;">
+                        <button id="darkModeToggle" title="Toggle dark mode" style="background: ${theme.toggleBg} !important; color: ${theme.toggleText} !important; border: 1px solid ${theme.border} !important;
+                                                                                  padding: 5px 8px !important; border-radius: 4px !important; cursor: pointer !important; font-size: 12px !important;">
+                            ${isDarkMode ? '☀️' : '🌙'}
+                        </button>
+                        <button id="closeModal" style="background: none !important; border: none !important; font-size: 20px !important; cursor: pointer !important; color: ${theme.closeBtn} !important; padding: 0 !important;">&times;</button>
+                    </div>
                 </div>
 
                 <div style="margin-bottom: 15px !important;">
                     <label style="display: flex !important; align-items: center !important; gap: 10px !important; margin-bottom: 10px !important;">
-                        <span style="font-weight: bold !important; color: #333 !important;">Language:</span>
-                        <select id="langSelect" style="padding: 5px !important; border: 1px solid #ddd !important; border-radius: 4px !important; background: white !important; color: #333 !important;">
+                        <span style="font-weight: bold !important; color: ${theme.text} !important;">Language:</span>
+                        <select id="langSelect" style="padding: 5px !important; border: 1px solid ${theme.border} !important; border-radius: 4px !important; background: ${theme.inputBg} !important; color: ${theme.text} !important;">
                             ${languageOptions}
                         </select>
                     </label>
                 </div>
 
                 <div style="margin-bottom: 15px !important;">
-                    <label style="display: block !important; margin-bottom: 5px !important; font-weight: bold !important; color: #333 !important;">
+                    <label style="display: block !important; margin-bottom: 5px !important; font-weight: bold !important; color: ${theme.text} !important;">
                         SKUs (comma or newline separated):
                     </label>
                     <textarea id="skuInput" placeholder="Enter SKUs like: 882709965732, 123456789012"
-                        style="width: 100% !important; height: 100px !important; padding: 10px !important; border: 1px solid #ddd !important;
+                        style="width: 100% !important; height: 100px !important; padding: 10px !important; border: 1px solid ${theme.border} !important;
                                border-radius: 4px !important; font-family: 'Courier New', Consolas, monospace !important; resize: vertical !important;
-                               background: white !important; color: #333 !important; font-size: 13px !important; box-sizing: border-box !important;"></textarea>
+                               background: ${theme.inputBg} !important; color: ${theme.text} !important; font-size: 13px !important; box-sizing: border-box !important;"></textarea>
                 </div>
 
                 <div style="margin-bottom: 15px !important;">
@@ -135,24 +146,52 @@
                                                    padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-size: 14px !important;">
                         Generate URLs
                     </button>
-                    <span id="loadingText" style="margin-left: 10px !important; display: none !important; color: #666 !important;">Processing...</span>
+                    <span id="loadingText" style="margin-left: 10px !important; display: none !important; color: ${theme.muted} !important;">Processing...</span>
                 </div>
 
                 <div id="results" style="display: none !important;">
                     <div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 10px !important;">
-                        <label style="font-weight: bold !important; color: #333 !important;">Results:</label>
+                        <label style="font-weight: bold !important; color: ${theme.text} !important;">Results:</label>
                         <button id="copyResults" style="background: #28a745 !important; color: white !important; border: none !important;
                                                        padding: 5px 10px !important; border-radius: 4px !important; cursor: pointer !important; font-size: 12px !important;">
                             Copy All
                         </button>
                     </div>
                     <textarea id="resultOutput" readonly
-                        style="width: 100% !important; height: 150px !important; padding: 10px !important; border: 1px solid #ddd !important;
-                               border-radius: 4px !important; font-family: 'Courier New', Consolas, monospace !important; background: #f9f9f9 !important;
-                               resize: vertical !important; color: #333 !important; font-size: 13px !important; box-sizing: border-box !important;"></textarea>
+                        style="width: 100% !important; height: 150px !important; padding: 10px !important; border: 1px solid ${theme.border} !important;
+                               border-radius: 4px !important; font-family: 'Courier New', Consolas, monospace !important; background: ${theme.readonlyBg} !important;
+                               resize: vertical !important; color: ${theme.text} !important; font-size: 13px !important; box-sizing: border-box !important;"></textarea>
                 </div>
             </div>
         `;
+    }
+
+    function getThemeColors() {
+        if (isDarkMode) {
+            return {
+                modalBg: '#2d3748',
+                text: '#f7fafc',
+                inputBg: '#4a5568',
+                readonlyBg: '#2d3748',
+                border: '#4a5568',
+                muted: '#a0aec0',
+                closeBtn: '#a0aec0',
+                toggleBg: '#4a5568',
+                toggleText: '#f7fafc'
+            };
+        } else {
+            return {
+                modalBg: 'white',
+                text: '#333',
+                inputBg: 'white',
+                readonlyBg: '#f9f9f9',
+                border: '#ddd',
+                muted: '#666',
+                closeBtn: '#666',
+                toggleBg: '#f8f9fa',
+                toggleText: '#333'
+            };
+        }
     }
 
     function setupEventListeners() {
@@ -161,7 +200,34 @@
         document.getElementById('langSelect').onchange = (e) => { currentLang = e.target.value; };
         document.getElementById('generateUrls').onclick = generateUrls;
         document.getElementById('copyResults').onclick = copyResults;
+        document.getElementById('darkModeToggle').onclick = toggleDarkMode;
         modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
+
+    function toggleDarkMode() {
+        isDarkMode = !isDarkMode;
+        localStorage.setItem('indigo-sku-generator-dark', isDarkMode.toString());
+
+        // Recreate modal with new theme
+        const wasVisible = modal !== null;
+        if (wasVisible) {
+            const skuInput = document.getElementById('skuInput').value;
+            const langValue = document.getElementById('langSelect').value;
+            const resultOutput = document.getElementById('resultOutput');
+            const resultsVisible = document.getElementById('results').style.display !== 'none';
+            const resultValue = resultOutput ? resultOutput.value : '';
+
+            modal.remove();
+            createModal();
+
+            // Restore state
+            document.getElementById('skuInput').value = skuInput;
+            document.getElementById('langSelect').value = langValue;
+            if (resultsVisible && resultValue) {
+                document.getElementById('resultOutput').value = resultValue;
+                document.getElementById('results').style.display = 'block';
+            }
+        }
     }
 
     // URL Generation
