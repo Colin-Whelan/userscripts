@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.3
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
 // @grant        GM_registerMenuCommand
@@ -977,7 +977,7 @@
 
         // Wait for modal elements to be available
         const checkAndPopulate = (attempts = 0) => {
-            log(`Attempting to find modal inputs (attempt ${attempts + 1}/20)`);
+            log(`Attempting to find modal inputs (attempt ${attempts + 1}/30)`);
             const dateInput = document.querySelector('#scheduleCampaignStartDateAndTime');
             const timeInput = document.querySelector('#typeahead-input');
 
@@ -986,7 +986,7 @@
                 timeInput: !!timeInput
             });
 
-            if (dateInput && timeInput && attempts < 20) {
+            if (dateInput && timeInput && attempts < 30) {
                 // Format date for the modal (MM/DD/YYYY)
                 const [year, month, day] = scheduledDateTime.date.split('-');
                 const formattedDate = `${month}/${day}/${year}`;
@@ -1004,30 +1004,317 @@
                     formattedTime: formattedTime
                 });
 
-                // Set the date
-                log('Setting date input value');
-                dateInput.value = formattedDate;
-                dateInput.dispatchEvent(new Event('input', { bubbles: true }));
-                dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                // More aggressive approach to setting values
+                setTimeout(() => {
+                    setModalValues(dateInput, timeInput, formattedDate, formattedTime);
+                }, 100);
 
-                // Set the time
-                log('Setting time input value');
-                timeInput.value = formattedTime;
-                timeInput.dispatchEvent(new Event('input', { bubbles: true }));
-                timeInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-                log('Schedule modal populated successfully with:', formattedDate, formattedTime);
-            } else if (attempts < 20) {
+            } else if (attempts < 30) {
                 log(`Modal inputs not ready, retrying in 200ms...`);
                 setTimeout(() => checkAndPopulate(attempts + 1), 200);
             } else {
-                log('ERROR: Could not find modal inputs after 20 attempts');
+                log('ERROR: Could not find modal inputs after 30 attempts');
             }
         };
 
         checkAndPopulate();
     }
+// Replace the setModalValues function with this corrected version
+function setModalValues(dateInput, timeInput, formattedDate, formattedTime) {
+    log('Setting modal values with React Calendar approach');
 
+    // Parse the target date
+    const [month, day, year] = formattedDate.split('/');
+    const targetDate = new Date(year, month - 1, day); // month is 0-indexed
+    const targetDay = parseInt(day);
+
+    log('Target date info:', {
+        formattedDate,
+        targetDay,
+        targetDate: targetDate.toDateString()
+    });
+
+    // First, we need to click the date input to open the calendar
+    log('Clicking date input to open calendar...');
+
+    // Focus and click the date input field to open the calendar
+    dateInput.focus();
+    dateInput.click();
+
+    // Trigger additional events that might be needed
+    dateInput.dispatchEvent(new Event('mousedown', { bubbles: true }));
+    dateInput.dispatchEvent(new Event('mouseup', { bubbles: true }));
+    dateInput.dispatchEvent(new Event('click', { bubbles: true }));
+
+    // Wait for the calendar to appear, then find and click the date
+    setTimeout(() => {
+        selectDateFromCalendar(dateInput, targetDay, formattedDate, () => {
+            // After date is selected, handle time input
+            setTimeout(() => {
+                // Focus on time input
+            timeInput.focus();
+            timeInput.click();
+
+            // Clear and set value
+            timeInput.value = '';
+            timeInput.value = formattedTime;
+
+            // Trigger multiple events
+            ['input', 'change', 'blur', 'keyup', 'keydown', 'paste'].forEach(eventType => {
+                timeInput.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+
+            // For React components, also try setting the React props
+            if (timeInput._valueTracker) {
+                timeInput._valueTracker.setValue('');
+            }
+
+            // Double-check values after setting
+            setTimeout(() => {
+                log('Final values check:', {
+                    dateValue: dateInput.value,
+                    timeValue: timeInput.value,
+                    expectedDate: formattedDate,
+                    expectedTime: formattedTime
+                });
+
+                // If values don't match, try one more time
+                if (dateInput.value !== formattedDate || timeInput.value !== formattedTime) {
+                    log('Values did not stick, trying one more time...');
+
+                    if (dateInput.value !== formattedDate) {
+                        dateInput.focus();
+                        dateInput.select();
+                        document.execCommand('insertText', false, formattedDate);
+                        dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (timeInput.value !== formattedTime) {
+                        timeInput.focus();
+                        timeInput.select();
+                        document.execCommand('insertText', false, formattedTime);
+                        timeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        timeInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            }, 300);
+            }, 300);
+        });
+    }, 500);
+}
+
+// New function to handle date selection from the calendar popup
+function selectDateFromCalendar(dateInput, targetDay, formattedDate, callback) {
+    log('Looking for React Calendar popup...');
+
+    // Wait for calendar to appear with multiple attempts
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const findAndClickDate = () => {
+        attempts++;
+        log(`Attempt ${attempts}/${maxAttempts} to find calendar`);
+
+        // Find the calendar container
+        const calendar = document.querySelector('.react-calendar');
+        if (!calendar) {
+            if (attempts < maxAttempts) {
+                log('Calendar not found yet, retrying...');
+                setTimeout(findAndClickDate, 200);
+                return;
+            } else {
+                log('ERROR: React Calendar popup never appeared');
+                return;
+            }
+        }
+
+        log('React Calendar popup found, looking for date buttons...');
+
+        // Look for the specific date button
+        const dateButtons = calendar.querySelectorAll('.react-calendar__tile');
+        let targetButton = null;
+
+        for (const button of dateButtons) {
+            const abbr = button.querySelector('abbr');
+            if (abbr) {
+                const buttonDay = parseInt(abbr.textContent.trim());
+                const ariaLabel = abbr.getAttribute('aria-label') || '';
+
+                // Check if this button represents our target day
+                if (buttonDay === targetDay) {
+                    // Check if it matches our target date or is available for selection
+                    if (ariaLabel.includes(formattedDate) || (!button.disabled && !button.hasAttribute('disabled'))) {
+                        targetButton = button;
+                        log('Found matching date button:', {
+                            buttonDay,
+                            ariaLabel,
+                            buttonText: abbr.textContent,
+                            disabled: button.disabled
+                        });
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (targetButton) {
+            log('Clicking target date button...');
+
+            // Scroll the button into view if needed
+            targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Click the button to select the date
+            setTimeout(() => {
+                targetButton.focus();
+                targetButton.click();
+
+                // Trigger additional events that React might be listening for
+                targetButton.dispatchEvent(new Event('mousedown', { bubbles: true }));
+                targetButton.dispatchEvent(new Event('mouseup', { bubbles: true }));
+                targetButton.dispatchEvent(new Event('click', { bubbles: true }));
+
+                log('Date button clicked successfully');
+
+                // Verify the date was set in the input field
+                setTimeout(() => {
+                    if (dateInput) {
+                        log('Date input value after selection:', dateInput.value);
+                        log('Expected date value:', formattedDate);
+
+                        // If the visual field didn't update, try to force it
+                        if (dateInput.value !== formattedDate) {
+                            log('Date input value mismatch, trying to force update...');
+
+                            // Try to set the input value directly
+                            dateInput.value = formattedDate;
+
+                            // Trigger events on the input field
+                            ['input', 'change', 'blur', 'focus'].forEach(eventType => {
+                                dateInput.dispatchEvent(new Event(eventType, { bubbles: true }));
+                            });
+
+                            // Check again
+                            setTimeout(() => {
+                                log('Date input value after force update:', dateInput.value);
+                            }, 100);
+                        } else {
+                            log('Date selection verified successfully!');
+                        }
+                    }
+
+                    // Call the callback after verification
+                    if (callback) {
+                        callback();
+                    }
+                }, 200);
+
+            }, 100);
+
+        } else {
+            log('ERROR: Could not find target date button for day:', targetDay);
+
+            // Try to navigate to the correct month first
+            const [month, day, year] = formattedDate.split('/');
+            const targetDate = new Date(year, month - 1, day);
+
+            navigateToCorrectMonth(calendar, targetDate, () => {
+                // Retry finding the button after navigation
+                setTimeout(() => {
+                    selectDateFromCalendar(dateInput, targetDay, formattedDate, callback);
+                }, 500);
+            });
+        }
+    };
+
+    findAndClickDate();
+}
+
+// Helper function to set time value (original working method)
+function setTimeValue(timeInput, formattedTime) {
+    log('Setting time input value:', formattedTime);
+
+    // Focus on time input
+    timeInput.focus();
+    timeInput.click();
+
+    // Clear and set value
+    timeInput.value = '';
+    timeInput.value = formattedTime;
+
+    // Trigger multiple events
+    ['input', 'change', 'blur', 'keyup', 'keydown', 'paste'].forEach(eventType => {
+        timeInput.dispatchEvent(new Event(eventType, { bubbles: true }));
+    });
+
+    // For React components, also try setting the React props
+    if (timeInput._valueTracker) {
+        timeInput._valueTracker.setValue('');
+    }
+
+    log('Time value set successfully');
+}
+
+// Helper function to navigate to the correct month if needed
+function navigateToCorrectMonth(calendar, targetDate, callback) {
+    log('Attempting to navigate to correct month...');
+
+    // Get current displayed month from the calendar
+    const monthLabel = calendar.querySelector('.react-calendar__navigation__label__labelText, .react-calendar__navigation__label');
+    if (!monthLabel) {
+        log('ERROR: Could not find month label');
+        callback(); // Proceed anyway
+        return;
+    }
+
+    const currentMonthText = monthLabel.textContent.trim(); // e.g., "June 2025"
+    log('Current calendar month:', currentMonthText);
+
+    const targetMonthText = targetDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    log('Target month:', targetMonthText);
+
+    if (currentMonthText === targetMonthText) {
+        log('Already on correct month');
+        callback();
+        return;
+    }
+
+    // Determine if we need to go forward or backward
+    const currentDate = new Date(currentMonthText + ' 1');
+    const needsForward = targetDate > currentDate;
+
+    // Find the appropriate navigation button
+    const navButton = needsForward
+        ? calendar.querySelector('.react-calendar__navigation__next-button')
+        : calendar.querySelector('.react-calendar__navigation__prev-button');
+
+    if (!navButton || navButton.disabled) {
+        log('Navigation button not available or disabled');
+        callback(); // Proceed anyway
+        return;
+    }
+
+    log(`Clicking ${needsForward ? 'next' : 'previous'} month button`);
+    navButton.click();
+
+    // Wait for navigation to complete, then check again
+    setTimeout(() => {
+        // Limit recursion to prevent infinite loops
+        const maxNavigationAttempts = 12; // Maximum months to navigate
+        if (!calendar._navigationAttempts) {
+            calendar._navigationAttempts = 0;
+        }
+        calendar._navigationAttempts++;
+
+        if (calendar._navigationAttempts > maxNavigationAttempts) {
+            log('Max navigation attempts reached, proceeding anyway');
+            callback();
+            return;
+        }
+
+        navigateToCorrectMonth(calendar, targetDate, callback);
+    }, 300);
+}
     // Add the "Prepare Schedule Time" button
     function addPrepareScheduleButton(notLaunchedElement) {
         log('Adding Prepare Schedule Time button');
