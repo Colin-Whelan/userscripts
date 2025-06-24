@@ -1,4 +1,4 @@
-# Userscripts for Violent Monkey
+# Userscripts
 
 These are my collection of userscripts that I use with [Violent Monkey](https://violentmonkey.github.io/) to enhance websites I use. 
 
