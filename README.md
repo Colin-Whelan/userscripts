@@ -12,7 +12,7 @@ The easiest way to add these scripts is with the 'raw' URL which allows for easy
 
 1.  Install [TamperMonkey](https://www.tampermonkey.net/) on the browser of your choice - Pinning it to the toolbar is recommended.
 2.  In a separate tab, navigate to the script of your choice.
-3.  Click the 'Raw' button on the right hand side.
+3.  Click the 'Raw' button on the right hand side and copy the resulting URL.
   ![in top right of the code section](https://cdn.glitch.global/4c74f8d5-b1a6-4a37-91dc-9b40f9d9d76e/firefox_TY0MXfG7ia.png?raw=true)
 4.  Click the extension, then the Gear icon at the bottom to open the dashboard.
 5.  Click 'Utilities' in the top right corner.
