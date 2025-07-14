@@ -3,16 +3,14 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/reports/user_profile?id=*
 // @grant       none
-// @version     1.5.1
+// @version     1.6.0
 // @author      Colin Whelan
-// @description Adds a button beside each 'Message' of the User Profile + a button at the top to get all at one.
-// How it works: In the background(or foreground if watchSearch is true) an iframe is made for each message which navigates to the Triggered Send Log with the date limited to that day and the message selected.
-// It then scans over each row of the table, checking to make sure all the details match the profile. When a match is found, it add the corresponding link to the User Profile.
+// @description Adds a button beside each 'Message' of the User Profile + a button at the top to get all at once.
+// How it works: Uses the new email-based lookup to search the Triggered Send Log filtered by the user's email address, making searches much faster and more reliable.
 // ==/UserScript==
 
 // Options:
-// Choose a speed to search at. The faster the search the more likely a result is to be missed and require a re-run
-const newPageDelay = 150 // (ms) How long to look at each page for before loading the next page. <100 = Fast, ~150 = Normal, 200+ = Reliable.
+const newPageDelay = 100 // (ms) How long to look at each page for before loading the next page. Much faster now due to email filtering.
 const watchSearch = false // Toggle to true to watch the search for the message in real time
 
 const style = document.createElement('style');
@@ -37,29 +35,32 @@ const observer = new MutationObserver(function (mutations) {
   const dataCell = document.querySelector('.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4 .legacy-components-Table-dist---Table-body-cell-align-left--1cMUg');
   const table = document.querySelector('.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4');
 
-  //Get the profileId from the 'Overview' tab the User Profile. TODO: Test to make sure this is consistent across clients/accounts
+  // Get the profileId from the 'Overview' tab the User Profile
   const profileId = document.querySelector('#profile-overview .pv2:nth-of-type(2) .pl3 strong').innerHTML.trim();
+
+  // Extract the URL id parameter (will be validated when needed)
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlId = decodeURIComponent(urlParams.get('id') || '');
 
   if (dataCell.innerHTML) {
     observer.disconnect(); // Stop observing
 
-    // Get the target table header cell (may need to make a better query)
+    // Get the target table header cell
     const headerCell = document.querySelector('div.legacy-components-Tabs-src---Tabs-tab-panel-active--2qyFC .w-100.mt4 .legacy-components-Table-dist---Table-head-cell-align-left--3aEVX');
     if (headerCell) {
       // Create 'Preview All' button element
       const previewAllButton = document.createElement('button');
       previewAllButton.innerHTML = 'Preview All';
       previewAllButton.id = 'previewAll';
-      previewAllButton.style.backgroundColor = "rgb(0, 169, 250)";  // Blue background
-      previewAllButton.style.color = "white";  // White text
-      previewAllButton.style.border = "none";  // No border
-      previewAllButton.style.borderRadius = "10px";  // No border
-      previewAllButton.style.padding = "10px 15px";  // Padding
-      previewAllButton.style.margin = "5px 10px";  // Margin
-      previewAllButton.style.cursor = "pointer";  // Cursor pointer
+      previewAllButton.style.backgroundColor = "rgb(0, 169, 250)";
+      previewAllButton.style.color = "white";
+      previewAllButton.style.border = "none";
+      previewAllButton.style.borderRadius = "10px";
+      previewAllButton.style.padding = "10px 15px";
+      previewAllButton.style.margin = "5px 10px";
+      previewAllButton.style.cursor = "pointer";
       previewAllButton.style.position = "relative";
 
-      // Append the button to the header cell
       headerCell.appendChild(previewAllButton);
     }
 
@@ -67,27 +68,23 @@ const observer = new MutationObserver(function (mutations) {
       const buttons = document.querySelectorAll('button.previewMessage');
       let index = 0;
 
-      // Recursively clicks all the 'Preview' buttons
       function triggerNextButton() {
         if (index < buttons.length) {
           buttons[index].click();
           index++;
-          triggerNextButton();
+          setTimeout(triggerNextButton, 500); // Small delay between clicks
         }
       }
 
-      triggerNextButton(); // Start the recursive clicks
+      triggerNextButton();
     });
 
-    // Loop through each row, checking to see if the text is 'Triggered' or 'Transactional'
-    // Issues may occur if the Message/Campaign ID is either of those values
+    // Loop through each row, checking for 'Triggered' messages
     for (let row of table.rows) {
       for (let cell of row.cells) {
         if (cell.cellIndex == 3 && cell.textContent.trim() === 'Triggered') {
           const rowIndex = cell.parentNode.rowIndex;
 
-          // Get the template name and send date from the cells relative to the current one
-          // console.log('table.rows[rowIndex].cells', table.rows[rowIndex].cells)
           const templateNameCell = table.rows[rowIndex].cells[0];
           const templateName = templateNameCell.textContent.trim();
           const sendDate = table.rows[rowIndex].cells[5].textContent.trim();
@@ -95,21 +92,19 @@ const observer = new MutationObserver(function (mutations) {
           // Button Settings
           const button = document.createElement("button");
           button.innerHTML = "Preview";
-          button.style.backgroundColor = "rgb(0, 169, 250)";  // Blue background
-          button.style.color = "white";  // White text
-          button.style.border = "none";  // No border
-          button.style.borderRadius = "10px";  // No border
-          button.style.padding = "10px 15px";  // Padding
-          button.style.margin = "2px 10px";  // Margin
-          button.style.cursor = "pointer";  // Cursor pointer
+          button.style.backgroundColor = "rgb(0, 169, 250)";
+          button.style.color = "white";
+          button.style.border = "none";
+          button.style.borderRadius = "10px";
+          button.style.padding = "10px 15px";
+          button.style.margin = "2px 10px";
+          button.style.cursor = "pointer";
           button.style.position = "relative";
-          button.className = 'previewMessage' // class name so it can be selected later
+          button.className = 'previewMessage';
 
           button.onclick = function() {
-            automatedCheck(templateName, sendDate, profileId, templateNameCell, button);
+            automatedEmailCheck(templateName, sendDate, profileId, urlId, templateNameCell, button);
           };
-
-          // console.log('templateNameCell.textContent', templateNameCell.textContent)
 
           if(templateNameCell.textContent != 'Email'){
             templateNameCell.appendChild(button);
@@ -121,17 +116,35 @@ const observer = new MutationObserver(function (mutations) {
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
-function createDateTimeString(dateTimeObject){
-    const year = dateTimeObject.getFullYear();
-    const month = String(dateTimeObject.getMonth() + 1).padStart(2, '0');
-    const day = String(dateTimeObject.getDate()).padStart(2, '0');
-    const hour = String(dateTimeObject.getHours()).padStart(2, '0');
-    const minute = String(dateTimeObject.getMinutes()).padStart(2, '0');
-    const second = String(dateTimeObject.getSeconds()).padStart(2, '0');
 
-    return `${year}${month}${day}${hour}${minute}${second}`
+function formatDateForURL(dateString) {
+  const date = new Date(dateString);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
 }
-function automatedCheck(templateName, sendDate, profileId, templateNameCell, button) {
+
+function automatedEmailCheck(templateName, sendDate, profileId, urlId, templateNameCell, button) {
+  // Extract and validate email when actually needed
+  let userEmail = '';
+
+  // Check if the URL id parameter is an email (contains @ and .)
+  if (urlId && urlId.includes('@') && urlId.includes('.')) {
+    userEmail = urlId;
+    console.log('Email extracted from URL:', userEmail);
+  } else {
+    // If URL id is not an email format, prompt user for email
+    userEmail = prompt('The profile ID is not in email format. Please enter the user\'s email address:');
+    if (!userEmail || !userEmail.includes('@')) {
+      console.error('Valid email address is required for this script to work.');
+      button.innerHTML = "Error - No Email";
+      button.style.backgroundColor = "rgb(220, 53, 69)"; // Red for error
+      return;
+    }
+    console.log('Email entered by user:', userEmail);
+  }
+
   button.textContent = "";
 
   // Spinner div
@@ -140,142 +153,153 @@ function automatedCheck(templateName, sendDate, profileId, templateNameCell, but
   spinner.style.position = 'relative';
   button.appendChild(spinner);
 
-  const startDateTime = new Date(sendDate);
-  const endDateTime = new Date(sendDate)
+  const sendDateObj = new Date(sendDate);
 
-  // since second value is missing initially, send log requires a bit of wiggle room. Increase search range by 1 minute either side
-  startDateTime.setMinutes(startDateTime.getMinutes() - 1)
-  endDateTime.setMinutes(endDateTime.getMinutes() + 1)
+  // Create a wider date range for better results (±1 day)
+  const startDate = new Date(sendDateObj);
+  startDate.setDate(startDate.getDate() - 1);
 
-  // end date must be 1 day behind for some reason
-  endDateTime.setDate(endDateTime.getDate() - 1);
+  const endDate = new Date(sendDateObj);
+  endDate.setDate(endDate.getDate() + 1);
 
-  console.log(startDateTime, endDateTime)
+  const formattedStartDate = formatDateForURL(startDate);
+  const formattedEndDate = formatDateForURL(endDate);
 
-  // Convert datetime to string for Send Log: YYYYMMDDhhmmss
-  const formattedStartDateTime = createDateTimeString(startDateTime); // URL date
-  const formattedEndDateTime = createDateTimeString(endDateTime); // URL date
+  console.log('Searching for:', {
+    templateName,
+    sendDate,
+    userEmail,
+    dateRange: `${formattedStartDate} to ${formattedEndDate}`
+  });
 
-  console.log(sendDate, formattedStartDateTime, formattedEndDateTime)
-
-  // Construct the URL you want to navigate to
-  const newURL = `https://my.sailthru.com/reports/transactional_log?start_date=${formattedStartDateTime}&end_date=${formattedEndDateTime}&template=${templateName}`;
+  // Construct the new URL using email-based lookup
+  const newURL = `https://my.sailthru.com/reports/transactional_log#start_date=${formattedStartDate}&end_date=${formattedEndDate}&start_time=12:00 AM&end_time=11:59 PM&email=${encodeURIComponent(userEmail)}`;
 
   // Create an invisible iframe
   const iframe = document.createElement('iframe');
 
-  // Show the hidden iframe if watchSearch is true. Can help with debugging, especially with a long newPageDelay
   if(watchSearch){
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
     iframe.style.bottom = '0';
     iframe.style.width = '40%';
     iframe.style.height = '40%';
-    iframe.style.border = '2px solid black';  // Optional, for visibility
+    iframe.style.border = '2px solid black';
   } else {
     iframe.style.display = 'none';
   }
 
-  // Set iframe source to the new URL
   iframe.src = newURL;
-
-  // Append iframe to body
   document.body.appendChild(iframe);
 
-  let matchFound = false;
-  let currentPage = 0
-
-  // Listen for load event on iframe to start AJAX refresh checks
   iframe.onload = function() {
     const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
     let matchFound = false;
     let currentPage = 0;
-    let rowCounter = 0; // Initialize a counter for rows checked
 
     const checkTable = function() {
-      // Create iframe
-      let iframeWindow = iframe.contentWindow;
+      const iframeWindow = iframe.contentWindow;
+
       iframeWindow.addEventListener('error', function(event) {
-        console.log("Network error occurred, stopping future requests.");
-        clearInterval(intervalId);
+        console.log("Network error occurred, stopping search.");
+        button.innerHTML = "Error - Try Again";
+        document.body.removeChild(iframe);
       });
 
       const targetTable = iframeDocument.querySelector('.standard');
       const checkFailure = iframeDocument.querySelector('.row2 .row2');
 
-      //Check to see if the end of the list was reached. If so, reset the button
+      // Check if no results found
       if (checkFailure && checkFailure.textContent.includes('You have not sent')) {
-        button.innerHTML = "Error - Try Again";
-        console.log("Error - Reached end of list. Please click the button again or try a longer delay.");
+        button.innerHTML = "Not Found";
+        button.style.backgroundColor = "rgb(255, 193, 7)"; // Yellow for not found
+        console.log("No messages found for this email in the date range.");
+        setTimeout(() => document.body.removeChild(iframe), 1000);
         return;
       }
 
       if (targetTable) {
         for (let row of targetTable.rows) {
-          rowCounter++; // Increment row counter
-
           const cells = row.cells;
+          if (cells.length < 4) continue; // Skip header or invalid rows
 
           const iframeTemplateName = cells[0].textContent.trim();
-          const iframeProfileId = cells[1].textContent.trim();
+          const iframeEmail = cells[1].textContent.trim();
           const iframeSendDate = cells[3].textContent.trim();
 
-          // Stop early if the search is too far back
-          if (new Date(sendDate) > new Date(iframeSendDate)){
-            button.innerHTML = "Error - Try Again";
-            console.log("Error - Past the send date. Please click the button again or try a longer delay.", iframeTemplateName, iframeSendDate, sendDate);
+          // Since we're already filtered by email, we mainly need to match template and date
+          if (iframeTemplateName === templateName.trim() &&
+              iframeEmail === userEmail.trim() &&
+              iframeSendDate === sendDate.trim()) {
 
-            clearInterval(intervalId); // Stop the interval if match is found
-            return;
-          }
-
-          if (iframeTemplateName === templateName.trim() && iframeProfileId === profileId.trim() && iframeSendDate === sendDate.trim()) {
             matchFound = true;
 
             const magnifierCell = row.cells[6];
-            const magnifierURL = magnifierCell.querySelector('.magnifier').getAttribute('href');
+            const magnifierLink = magnifierCell.querySelector('.magnifier') || magnifierCell.querySelector('a');
 
-            // Link settings
-            const templateLink = document.createElement('a');
-            templateLink.href = magnifierURL;
-            templateLink.target = '_blank';
-            templateLink.style.textDecoration = 'underline';
-            templateLink.style.color = '#333';  // Dark grey color
-            templateLink.style.fontWeight = 'bold';
-            templateLink.style.fontSize = 'larger';  // A font size or 2 larger
+            if (magnifierLink) {
+              const magnifierURL = magnifierLink.getAttribute('href');
 
-            templateLink.innerText = templateName;
+              // Create the link to replace the template name
+              const templateLink = document.createElement('a');
+              templateLink.href = magnifierURL;
+              templateLink.target = '_blank';
+              templateLink.style.textDecoration = 'underline';
+              templateLink.style.color = '#333';
+              templateLink.style.fontWeight = 'bold';
+              templateLink.style.fontSize = 'larger';
+              templateLink.innerText = templateName;
 
-            templateNameCell.innerHTML = ''; // Remove the previous content
+              templateNameCell.innerHTML = '';
+              templateNameCell.appendChild(templateLink);
 
-            templateNameCell.appendChild(templateLink); // Add the new link
+              button.removeChild(spinner);
 
-            button.removeChild(spinner);
-
-            clearInterval(intervalId); // Stop the interval if match is found
-            return;
+              console.log('Match found and link created successfully');
+              setTimeout(() => document.body.removeChild(iframe), 1000);
+              return;
+            }
           }
         }
 
-        // If no match found, simulate AJAX refresh.
+        // If no match found on this page, try the next page
         if (!matchFound) {
-          let iframeWindow = iframe.contentWindow;
-          iframeWindow.eval(`
-            if (true) {
-              ajax.refresh(this, { start: ${(currentPage + 1) * 20} });
+          // Check if there are more pages
+          const nextPageLink = iframeDocument.querySelector('.pagination .next') ||
+                              iframeDocument.querySelector('[title="Next"]');
+
+          if (nextPageLink && !nextPageLink.classList.contains('disabled')) {
+            // Load next page using AJAX refresh if available
+            try {
+              iframeWindow.eval(`
+                if (typeof ajax !== 'undefined' && ajax.refresh) {
+                  ajax.refresh(this, { start: ${(currentPage + 1) * 20} });
+                }
+              `);
+
+              currentPage++;
+              setTimeout(checkTable, newPageDelay);
+            } catch (e) {
+              console.log('Could not load next page, stopping search');
+              button.innerHTML = "Partial Search";
+              button.style.backgroundColor = "rgb(255, 193, 7)";
+              setTimeout(() => document.body.removeChild(iframe), 1000);
             }
-          `);
-
-          // Run checkTable again after the delay
-          setTimeout(checkTable, newPageDelay);
-
-          // Go to the next page
-          currentPage++;
+          } else {
+            // No more pages, message not found
+            button.innerHTML = "Not Found";
+            button.style.backgroundColor = "rgb(255, 193, 7)";
+            console.log("Message not found in search results");
+            setTimeout(() => document.body.removeChild(iframe), 1000);
+          }
         }
+      } else {
+        // Table not loaded yet, try again
+        setTimeout(checkTable, newPageDelay);
       }
     };
 
-    // Initially call checkTable
-    checkTable();
+    // Start checking after a brief delay to let the page load
+    setTimeout(checkTable, newPageDelay);
   };
 }
