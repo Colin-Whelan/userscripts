@@ -2,7 +2,7 @@
 // @name        Templates List - Custom Fuzzy Search
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/templates-list*
-// @version     2.1
+// @version     2.2
 // @author      Colin Whelan
 // @grant       GM_xmlhttpRequest
 // @description Adds an improved fuzzy search filter for templates + shows more template info + allows for searching of all text fields + show template usage for all templates.
@@ -18,7 +18,7 @@ let usageLoadingInProgress = false;
 
 // Configurable image sizes
 const imageConfig = {
-    thumbnailSize: { width: 80, height: 50 },
+    thumbnailSize: { width: 50, height: 50 },
     hoverSize: { width: 200, height: 'auto' }
 };
 
@@ -374,7 +374,7 @@ function populateModal(initial = false) {
         .template-preview {
             max-width: ${imageConfig.thumbnailSize.width}px;
             max-height: ${imageConfig.thumbnailSize.height}px;
-            width: ${imageConfig.thumbnailSize.width * 0.75}px;
+            width: auto;
             height: auto;
             border-radius: 4px;
             cursor: pointer;
@@ -384,26 +384,33 @@ function populateModal(initial = false) {
         .template-preview:hover {
             transform: scale(1.05);
         }
-        .preview-hover-modal {
-            display: none;
-            position: fixed;
-            z-index: 10000;
-            background: white;
-            border: 3px solid #333;
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            padding: 8px;
-            pointer-events: auto;
-            max-width: 90vw;
-            max-height: 90vh;
-            opacity: 0;
-            transition: opacity 0.2s ease;
+        a.image-tooltip {
+            border-bottom: none;
+            text-decoration: none;
+            color: #333;
+            position: relative;
+            display: inline-block;
         }
-        .preview-hover-modal img {
-            max-width: ${imageConfig.hoverSize.width}px;
-            height: auto;
+        a.image-tooltip span.hover-preview {
+            display: none;
+        }
+        a.image-tooltip:hover {
+            cursor: pointer;
+            position: relative;
+        }
+        a.image-tooltip:hover span.hover-preview {
             display: block;
-            border-radius: 4px;
+            z-index: 99999;
+            background: #fff;
+            border: 3px solid #333;
+            padding: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            left: 60px;
+            width: ${imageConfig.hoverSize.width}px;
+            position: absolute;
+            top: -50px;
+            text-decoration: none;
+            border-radius: 8px;
         }
         a.tooltip {
             border-bottom: 1px dashed;
@@ -413,11 +420,16 @@ function populateModal(initial = false) {
         a.tooltip span {
             display: none;
         }
+        a.tooltip:hover {
+            cursor: help;
+            color: #333;
+            position: relative;
+        }
         a.tooltip:hover span {
             border: #666 2px dotted;
             padding: 5px 20px 5px 5px;
             display: block;
-            z-index: 100;
+            z-index: 10000;
             background: #f9f9f9;
             border: 1px solid #ccc;
             padding: 10px;
@@ -572,12 +584,16 @@ function populateModal(initial = false) {
         row.innerHTML = `
             <td>
                 <div style="position: relative; display: inline-block;">
-                    <img src="${previewUrl}"
-                         class="template-preview"
-                         onclick="window.open('https://my.sailthru.com/email-composer/${item._id}', '_blank')"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
-                         style="opacity: 1;" />
-                    <span style="display: none; color: #999; font-size: 12px;">No preview</span>
+                    <a href="#" class="image-tooltip" onclick="event.preventDefault(); window.open('https://my.sailthru.com/email-composer/${item._id}', '_blank');">
+                        <img src="${previewUrl}"
+                             class="template-preview"
+                             onerror="this.style.display='none'; this.parentElement.parentElement.querySelector('.no-preview').style.display='inline';"
+                             style="opacity: 1;" />
+                        <span class="hover-preview">
+                            <img src="${previewUrl}" style="max-width: ${imageConfig.hoverSize.width}px; height: auto; border-radius: 4px;" />
+                        </span>
+                    </a>
+                    <span class="no-preview" style="display: none; color: #999; font-size: 12px;">No preview</span>
                 </div>
             </td>
             <td><b><a href="https://my.sailthru.com/email-composer/${item._id}" target="_blank">${item.name}</a></b></td>
@@ -826,51 +842,6 @@ function generateLabelHTML(labels_string) {
     return labelsArray.map(label =>
         `<span class="customLabel" style="background-color: ${stringToColor(label)};">${label}</span>`
     ).join('');
-}
-
-// Image hover functions
-function showHoverPreview(event, imageUrl) {
-    let hoverModal = document.getElementById('globalHoverPreview');
-    if (!hoverModal) {
-        hoverModal = document.createElement('div');
-        hoverModal.id = 'globalHoverPreview';
-        hoverModal.className = 'preview-hover-modal';
-        hoverModal.innerHTML = `<img style="max-width: 100%; height: auto;" />`;
-        document.body.appendChild(hoverModal);
-
-        // Add mouse leave event to the modal itself
-        hoverModal.addEventListener('mouseleave', hideHoverPreview);
-    }
-
-    const img = hoverModal.querySelector('img');
-    img.src = imageUrl;
-
-    // Position the modal near the mouse cursor
-    const x = event.clientX + 15;
-    const y = event.clientY - 100;
-
-    // Ensure it doesn't go off screen
-    const maxX = window.innerWidth - imageConfig.hoverSize.width - 40;
-    const maxY = window.innerHeight - 300; // Approximate hover modal height
-
-    hoverModal.style.left = Math.min(x, Math.max(maxX, 20)) + 'px';
-    hoverModal.style.top = Math.max(y, 20) + 'px';
-    hoverModal.style.display = 'block';
-
-    // Add a small delay to prevent flickering
-    setTimeout(() => {
-        if (hoverModal.style.display === 'block') {
-            hoverModal.style.opacity = '1';
-        }
-    }, 50);
-}
-
-function hideHoverPreview() {
-    const hoverModal = document.getElementById('globalHoverPreview');
-    if (hoverModal) {
-        hoverModal.style.display = 'none';
-        hoverModal.style.opacity = '0';
-    }
 }
 
 function fuzzyFilter(query, list) {
