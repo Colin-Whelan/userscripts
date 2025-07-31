@@ -15,12 +15,61 @@ let currentPage = 1;
 let itemsPerPage = 100;
 let filteredResults = [];
 let usageLoadingInProgress = false;
+let accountId = null; // Will be detected dynamically
+
+const FALLBACK_IMAGE_ACCOUNT_ID = 999;
 
 // Configurable image sizes
 const imageConfig = {
-    thumbnailSize: { width: 50, height: 50 },
+    thumbnailSize: { width: 75, height: 50 },
     hoverSize: { width: 200, height: 'auto' }
 };
+
+// Function to detect account ID from existing template images
+function detectAccountId() {
+    if (accountId) {
+        return accountId; // Already detected
+    }
+
+    const existingImages = document.querySelectorAll('img[src*="sailthru-html-thumbnail-generator"]');
+    const accountIds = [];
+
+    // console.log(`🔍 Checking ${existingImages.length} existing images for account ID...`);
+
+    existingImages.forEach((img, index) => {
+        if (index < 5) { // Only check first 5 as requested
+            console.log(`📋 Image ${index + 1}: ${img.src}`);
+            // Updated regex to capture alphanumeric account IDs (not just digits)
+            const match = img.src.match(/sailthru-html-thumbnail-generator[^\/]*\.s3\.amazonaws\.com\/([^\/]+)\//);
+            if (match) {
+                const detectedId = match[1];
+                accountIds.push(detectedId);
+                console.log(`✅ Account ID detected: ${detectedId}`);
+            } else {
+                console.log(`❌ No account ID found in URL`);
+            }
+        }
+    });
+
+    if (accountIds.length > 0) {
+        // Find the most common account ID
+        const idCounts = {};
+        accountIds.forEach(id => {
+            idCounts[id] = (idCounts[id] || 0) + 1;
+        });
+
+        // Get the most frequent account ID
+        accountId = Object.keys(idCounts).reduce((a, b) => idCounts[a] > idCounts[b] ? a : b);
+
+        // console.log(`✅ Final detected account ID: ${accountId} (appeared ${idCounts[accountId]}/${accountIds.length} times)`);
+        // console.log(`📊 All detected IDs:`, idCounts);
+    } else {
+        // console.warn('⚠️ Could not detect account ID from existing images, falling back to FALLBACK_IMAGE_ACCOUNT_ID');
+        accountId = FALLBACK_IMAGE_ACCOUNT_ID;
+    }
+
+    return accountId;
+}
 
 function getTemplateUsageData(item, callback) {
     const usageURL = `https://my.sailthru.com/uiapi/lifecycle/?template_id=${item._id}`;
@@ -60,11 +109,11 @@ function createSearchButton() {
         try {
             buttonContainer = document.querySelector(selector);
             if (buttonContainer) {
-                console.log(`Found button container using selector: ${selector}`);
+                // console.log(`Found button container using selector: ${selector}`);
                 break;
             }
         } catch (e) {
-            console.log(`Selector ${selector} not supported, trying next...`);
+            // console.log(`Selector ${selector} not supported, trying next...`);
             continue;
         }
     }
@@ -77,7 +126,7 @@ function createSearchButton() {
                 btn.style.zIndex === '9999' ||
                 btn.style.position === 'absolute') {
                 buttonContainer = btn.parentElement;
-                console.log('Found button container using existing button parent fallback');
+                // console.log('Found button container using existing button parent fallback');
                 break;
             }
         }
@@ -86,11 +135,11 @@ function createSearchButton() {
     if (buttonContainer) {
         // Check if our button already exists
         if (document.getElementById('advancedSearchButton')) {
-            console.log('Advanced Search button already exists');
+            // console.log('Advanced Search button already exists');
             return;
         }
 
-        console.log('Found button container, adding Advanced Search button');
+        // console.log('Found button container, adding Advanced Search button');
 
         const button = document.createElement('button');
         button.innerHTML = 'Advanced Search';
@@ -138,7 +187,7 @@ function createSearchButton() {
 
         buttonContainer.appendChild(button);
     } else {
-        console.log('Could not find suitable button container');
+        // console.log('Could not find suitable button container');
     }
 }
 
@@ -246,15 +295,15 @@ function createModal() {
         e.stopImmediatePropagation();
 
         if (paginationInProgress) {
-            console.log('Pagination already in progress, ignoring click');
+            // console.log('Pagination already in progress, ignoring click');
             return;
         }
 
-        console.log(`Previous clicked: currentPage was ${currentPage}`);
+        // console.log(`Previous clicked: currentPage was ${currentPage}`);
         if (currentPage > 1) {
             paginationInProgress = true;
             currentPage--;
-            console.log(`Moving to page ${currentPage}`);
+            // console.log(`Moving to page ${currentPage}`);
             populateModal();
 
             setTimeout(() => {
@@ -273,20 +322,20 @@ function createModal() {
             return;
         }
 
-        console.log(`Next clicked: currentPage was ${currentPage}, filteredResults length: ${filteredResults.length}`);
+        // console.log(`Next clicked: currentPage was ${currentPage}, filteredResults length: ${filteredResults.length}`);
         const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
-        console.log(`Total pages: ${totalPages}`);
+        // console.log(`Total pages: ${totalPages}`);
         if (currentPage < totalPages && totalPages > 0) {
             paginationInProgress = true;
             currentPage++;
-            console.log(`Moving to page ${currentPage}`);
+            // console.log(`Moving to page ${currentPage}`);
             populateModal();
 
             setTimeout(() => {
                 paginationInProgress = false;
             }, 500);
         } else {
-            console.log(`Cannot move to next page: currentPage=${currentPage}, totalPages=${totalPages}`);
+            // console.log(`Cannot move to next page: currentPage=${currentPage}, totalPages=${totalPages}`);
         }
     });
 
@@ -374,7 +423,7 @@ function populateModal(initial = false) {
         .template-preview {
             max-width: ${imageConfig.thumbnailSize.width}px;
             max-height: ${imageConfig.thumbnailSize.height}px;
-            width: auto;
+            width:${imageConfig.thumbnailSize.width}px;
             height: auto;
             border-radius: 4px;
             cursor: pointer;
@@ -531,7 +580,7 @@ function populateModal(initial = false) {
     const endIndex = startIndex + itemsPerPage;
     const currentPageResults = filteredResults.slice(startIndex, endIndex);
 
-    console.log(`Pagination: Page ${currentPage} of ${totalPages}, showing items ${startIndex}-${Math.min(endIndex - 1, filteredResults.length - 1)} of ${filteredResults.length}`);
+    // console.log(`Pagination: Page ${currentPage} of ${totalPages}, showing items ${startIndex}-${Math.min(endIndex - 1, filteredResults.length - 1)} of ${filteredResults.length}`);
 
     // Update pagination controls
     const prevButton = document.getElementById('prevPage');
@@ -577,9 +626,10 @@ function populateModal(initial = false) {
         const row = document.createElement('tr');
         const labelsHTML = generateLabelHTML(item.labels_string);
 
-        // Generate preview image URL using base 36 conversion
+        // Generate preview image URL using base 36 conversion and detected account ID
         const templateCode = parseInt(item._id).toString(36);
-        const previewUrl = `https://sailthru-html-thumbnail-generator-prod-new.s3.amazonaws.com/705/template_${templateCode}.jpg`;
+        const detectedAccountId = detectAccountId();
+        const previewUrl = `https://sailthru-html-thumbnail-generator-prod-new.s3.amazonaws.com/${detectedAccountId}/template_${templateCode}.jpg`;
 
         row.innerHTML = `
             <td>
@@ -684,7 +734,7 @@ function loadTemplateUsageForCurrentPage() {
     usageLoadingInProgress = true;
 
     const usageFlags = document.querySelectorAll('.usageFlag[data-template-id]');
-    console.log(`Found ${usageFlags.length} usage flags to update`);
+    // console.log(`Found ${usageFlags.length} usage flags to update`);
 
     let completed = 0;
     const total = usageFlags.length;
@@ -701,7 +751,7 @@ function loadTemplateUsageForCurrentPage() {
     // Use the working approach from your legacy script
     usageFlags.forEach((flagDiv, index) => {
         const templateId = flagDiv.getAttribute('data-template-id');
-        console.log(`Processing template ${index + 1}/${total}: ${templateId}`);
+        // console.log(`Processing template ${index + 1}/${total}: ${templateId}`);
 
         const usageURL = `https://my.sailthru.com/uiapi/lifecycle/?template_id=${templateId}`;
         const hrefURL = `https://my.sailthru.com/email-composer/${templateId}/usage`;
@@ -723,10 +773,10 @@ function loadTemplateUsageForCurrentPage() {
             method: "GET",
             url: usageURL,
             onload: function(response) {
-                console.log(`Received response for template ${templateId}`);
+                // console.log(`Received response for template ${templateId}`);
                 try {
                     const data = JSON.parse(response.responseText);
-                    console.log(`Parsed data for ${templateId}:`, data);
+                    // console.log(`Parsed data for ${templateId}:`, data);
 
                     const activeItems = data.filter(item => item.status === 'active');
                     const inactiveItems = data.filter(item => item.status === 'inactive');
@@ -767,12 +817,12 @@ function loadTemplateUsageForCurrentPage() {
                     flagDiv.appendChild(flagElement);
 
                 } catch (error) {
-                    console.error(`Error parsing response for template ${templateId}:`, error);
+                    // console.error(`Error parsing response for template ${templateId}:`, error);
                     flagDiv.innerHTML = 'Error loading';
                 }
 
                 completed++;
-                console.log(`Completed ${completed}/${total} template usage lookups`);
+                // console.log(`Completed ${completed}/${total} template usage lookups`);
                 loadButton.textContent = `Loading... (${completed}/${total})`;
 
                 if (completed === total) {
@@ -784,7 +834,7 @@ function loadTemplateUsageForCurrentPage() {
                 }
             },
             onerror: function(error) {
-                console.error(`Error fetching usage data for template ${templateId}:`, error);
+                // console.error(`Error fetching usage data for template ${templateId}:`, error);
                 flagDiv.innerHTML = 'Error loading';
 
                 completed++;
@@ -884,7 +934,6 @@ function waitForTemplateInterface() {
 
                 for (const indicator of indicators) {
                     if (document.querySelector(indicator)) {
-                        console.log(`Template interface detected using indicator: ${indicator}`);
                         setTimeout(() => {
                             initializeAdvancedSearch();
                             observer.disconnect();
