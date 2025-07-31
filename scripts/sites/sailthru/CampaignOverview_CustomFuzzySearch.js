@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       https://my.sailthru.com/campaigns/overview*
 // @grant       GM_xmlhttpRequest
-// @version     1.1
+// @version     1.2
 // @author      Colin Whelan
 // @description Adds a fuzzy search filter for campaigns, makes searching past campaigns MUCH easier.
 // ==/UserScript==
@@ -13,11 +13,13 @@ let allTemplateInfo = {}
 
 function fetchSailthruCampaignInfo(status) {
     return new Promise((resolve, reject) => {
+      // should make the 'start_date' pull from the date input field
         GM_xmlhttpRequest({
             method: "GET",
-            url: `https://my.sailthru.com/uiapi/campaigns?search=&skip=0&limit=100&sort=-modify_time&status=${status}`,
+            url: `https://my.sailthru.com/uiapi/campaigns?search=&skip=0&limit=100&sort=-modify_time&status=${status}&filter[start_date]=January 1 2024`,
             onload: function(response) {
                 allTemplateInfo = JSON.parse(response.responseText);
+              console.log(allTemplateInfo)
                 resolve();
             },
             onerror: function(error) {
@@ -30,19 +32,25 @@ function fetchSailthruCampaignInfo(status) {
 
 
 function createSearchButton() {
-    const topPanel = document.querySelector('.pn--TopPanel-topPanel--ACLkw');
-    const existingButtonWrapper = document.querySelector('.ButtonDropdown__ButtonDropdownWrapper-sc-1jcg2ad-1');
-    if (topPanel && existingButtonWrapper) {
+    // Target the new button container div
+    const buttonContainer = document.querySelector('div.flex.mt3[style*="align-items: center"]');
+
+    if (buttonContainer) {
+        console.log('found button container')
+
         const button = document.createElement('button');
         button.innerHTML = 'Advanced Search';
         button.id = 'advancedSearchButton';
+
+        // Add classes to match the existing buttons
+        button.className = 'sc-iBdnpw fOwkIY sc-fLseNd fPVCNB mr3';
+        button.setAttribute('variant', 'secondary');
 
         // Add some inline styles for better appearance
         button.style.backgroundColor = '#00A2BE';
         button.style.color = 'white';
         button.style.border = 'none';
         button.style.padding = '10px 20px';
-        button.style.marginLeft = '10px';
         button.style.cursor = 'pointer';
 
         button.onclick = function() {
@@ -55,8 +63,8 @@ function createSearchButton() {
             document.getElementById('searchModal').style.display = 'block';
         }
 
-        // Insert the button before the existing button wrapper
-        topPanel.insertBefore(button, existingButtonWrapper);
+        // Append the button to the container (this will add it to the right of existing buttons)
+        buttonContainer.appendChild(button);
     }
 }
 
@@ -253,14 +261,11 @@ function initializeAdvancedSearch() {
 const observer = new MutationObserver((mutations, observer) => {
     for (const mutation of mutations) {
         if (mutation.addedNodes.length) {
-            for (const node of mutation.addedNodes) {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.querySelector('.pn--Table-sailthru-table--aICHj') || node.classList.contains('pn--Table-sailthru-table--aICHj')) {
-                        initializeAdvancedSearch();
-                        observer.disconnect(); // Stop observing once the target is found
-                        return;
-                    }
-                }
+            if (document.querySelector('#campaign-clone-btn')) {
+                console.log('found querySelector, adding button.')
+                initializeAdvancedSearch();
+                observer.disconnect(); // Stop observing once the target is found
+                return;
             }
         }
     }
