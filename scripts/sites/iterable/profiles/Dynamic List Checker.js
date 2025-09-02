@@ -22,7 +22,7 @@
         REQUEST_DELAY: 200, // ms between API calls
         PAGE_SIZE: 10,
         DEFAULT_BATCH_SIZE: 5,
-        CACHE_DURATION: 30 * 60 * 1000, // 30 minutes in milliseconds
+        CACHE_DURATION: 14 * 24 * 60 * 60 * 1000, // in milliseconds
     };
 
     // User configuration
