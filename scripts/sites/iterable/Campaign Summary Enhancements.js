@@ -98,6 +98,13 @@
 
         const css = `
             /* Reduce spacing between form fields */
+            .kJkNtP {
+            margin-bottom: 1rem !important;
+            }
+            .sc-jMakVo + .sc-jMakVo {
+  margin-top: 1rem !important;
+}
+
             .sc-Nxspf + .sc-Nxspf {
                 margin-top: 0.3rem !important;
             }
@@ -590,6 +597,87 @@
             validateSuppressionLists();
         }, 1000);
     }
+
+       // Update the default rate limit description
+    function updateDefaultDescription() {
+        const rateLimitField = document.querySelector('[data-test="form-readonly-field-sendRateLimit"]');
+        if (rateLimitField) {
+            const span = rateLimitField.querySelector('span');
+            if (span && span.textContent.includes('Default (1,000 messages per minute)')) {
+                span.textContent = 'Off – Sending as fast as server allows (~800k/hour)';
+            }
+        }
+    }
+ function setupSmartRateLimitMonitor() {
+    const targetSelector = '[data-test="form-readonly-field-sendRateLimit"]';
+    const defaultText = 'Default (1,000 messages per minute)';
+    const customText = 'Off – Sending as fast as server allows (~800k/hour)';
+
+    function updateText() {
+        const rateLimitField = document.querySelector(targetSelector);
+        if (rateLimitField) {
+            const span = rateLimitField.querySelector('span');
+            if (span && span.textContent.includes(defaultText)) {
+                span.textContent = customText;
+                console.log('Rate limit text updated to custom text');
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Initial update
+    updateText();
+
+    // Observer specifically watching the parent container
+    const observer = new MutationObserver((mutations) => {
+        let shouldCheck = false;
+
+        mutations.forEach((mutation) => {
+            // Check if any added nodes contain our target or if text changed
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches && node.matches(targetSelector)) {
+                            shouldCheck = true;
+                        } else if (node.querySelector && node.querySelector(targetSelector)) {
+                            shouldCheck = true;
+                        }
+                    }
+                });
+            } else if (mutation.type === 'characterData') {
+                // Check if the text change was in our target area
+                const target = mutation.target.parentElement;
+                if (target && target.closest(targetSelector)) {
+                    shouldCheck = true;
+                }
+            }
+        });
+
+        if (shouldCheck) {
+            // Small delay to ensure DOM is fully updated
+            setTimeout(updateText, 100);
+        }
+    });
+
+    // Observe with more specific options
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+
+    // Also set up a fallback periodic check (less frequent)
+    const fallbackInterval = setInterval(() => {
+        updateText();
+    }, 10000); // Every 10 seconds as fallback
+
+    // Return cleanup function
+    return () => {
+        observer.disconnect();
+        clearInterval(fallbackInterval);
+    };
+}
 
     // More robust element waiting with periodic checksaddPrepareScheduleButton
     function waitForElement(selector, callback, maxWaitTime = 30000) {
@@ -1415,6 +1503,7 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
                     targetElement.style.display = 'none';
                     log('Hidden original "Not launched" text');
 
+
                     addPrepareScheduleButton(targetElement);
 
                     // Run validations
@@ -1440,6 +1529,8 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
 
     // Load configuration
     loadConfig();
+
+    const cleanup = setupSmartRateLimitMonitor();
 
     // Register menu command
     GM_registerMenuCommand('Campaign Enhancement Settings', createSettingsModal);
