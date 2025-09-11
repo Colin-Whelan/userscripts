@@ -18,6 +18,7 @@
 
     let scheduledDateTime = null;
     let schedulePreviewUI = null;
+    let customSettingsAdded = false;
 
     // Global variable to track the relative time update interval
     let relativeTimeInterval = null;
@@ -48,8 +49,15 @@
                 requiredSuppressionLists: ["Daily Exclusions"],
                 isGlobal: true
             }
-        ]
+        ],
+        customRateLimit: 4000
     };
+
+
+    let customRateLimit = GM_getValue(config.customRateLimit, 4000);
+
+
+
 
     // Load configuration
     function loadConfig() {
@@ -103,6 +111,14 @@
             }
             .sc-jMakVo + .sc-jMakVo {
   margin-top: 1rem !important;
+}
+.eMLerN {
+  margin-bottom: 0.4rem !important;
+}
+.cmAsxg {
+  font-size: 0.9rem;
+  line-height: 1rem;
+  margin: 1rem 0px 1rem;
 }
 
             .sc-Nxspf + .sc-Nxspf {
@@ -247,6 +263,125 @@
                 font-size: 12px;
                 gap: 6px;
             }
+
+
+            /* Custom Send Rate */
+            .custom-rate-settings {
+            border-top: 1px solid #e5e5e5;
+            padding-top: 16px;
+            margin-top: 16px;
+        }
+        .custom-rate-header {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1f1d1e;
+            margin-bottom: 12px;
+        }
+        .custom-rate-field {
+            margin-bottom: 16px;
+        }
+        .custom-rate-label {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #1f1d1e;
+            margin-bottom: 8px;
+        }
+        .custom-toggle {
+            width: 44px;
+            height: 24px;
+            background: #e5e5e5;
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            margin-right: 12px;
+            transition: background-color 0.2s;
+        }
+        .custom-toggle.enabled {
+            background: #5A67D8;
+        }
+        .custom-toggle-handle {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 10px;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .custom-toggle.enabled .custom-toggle-handle {
+            transform: translateX(20px);
+        }
+        .custom-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .custom-input {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            width: 120px;
+        }
+        .custom-rate-apply {
+            margin-top: 15px;
+        }
+        .custom-input:disabled {
+            background: #f9fafb;
+            color: #6b7280;
+        }
+        .rate-math {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .description-text {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-active {
+            background-color: #10b981;
+        }
+        .status-inactive {
+            background-color: #ef4444;
+        }
+        .direct-api-badge {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .apply-button {
+            background: #5A67D8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .apply-button:hover {
+            background: #4c51bf;
+        }
+        .apply-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
         `;
 
         style.innerHTML = css;
@@ -340,6 +475,15 @@
                 </button>
             </div>
 
+            <div class="config-section">
+
+                <h3 style="color: #555;">Custom Send Rate</h3>
+                <div class="config-toggle">
+                    <input type="number" id="customRateLimit" value="${config.customRateLimit ? config.customRateLimit : 2000}">
+                    <label for="customRateLimit">Max number of sends <b>per minute</b></label>
+                </div>
+            </div>
+
             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
                 <button id="saveSettings" style="background: #2196F3; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer;">Save Settings</button>
                 <button id="cancelSettings" style="background: #666; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer;">Cancel</button>
@@ -429,6 +573,7 @@
         config.seedListCheck = modal.querySelector('#seedListCheck').checked;
         config.seedListKeyword = modal.querySelector('#seedListKeyword').value.trim() || 'Seed';
         config.suppressListCheck = modal.querySelector('#suppressListCheck').checked;
+        config.customRateLimit = modal.querySelector('#customRateLimit').value.trim() || 3000;
 
         // Update rules from table
         config.campaignRules = [];
@@ -608,6 +753,308 @@
             }
         }
     }
+
+        // Check if page is ready for custom settings
+    function isPageReady() {
+        const optimizeSection = document.querySelector('[data-test="optimize-section"]');
+        return !!optimizeSection;
+    }
+
+    // Create custom rate limit settings
+    function createCustomSettings() {
+        const campaignId = getCampaignId();
+
+        const container = document.createElement('div');
+        container.className = 'custom-rate-settings';
+        container.innerHTML = `
+            <div class="custom-rate-header">
+                Custom Rate Limit
+                <span class="direct-api-badge">DIRECT API</span>
+            </div>
+
+            <div class="custom-rate-field">
+                <div class="custom-rate-label">Custom rate limit</div>
+                <div class="custom-input-group">
+                    <input type="number" class="custom-input" id="custom-rate-input"
+                           value="${customRateLimit}" min="1" max="100000">
+                    <span>messages/min</span>
+                    <div class="rate-math" id="rate-math">≈ ${(customRateLimit * 60).toLocaleString()} messages/hour</div>
+                </div>
+                <div class="custom-rate-apply">
+                    <button class="apply-button" id="apply-rate-button" ${!campaignId ? 'disabled' : ''}>
+                        Apply Now
+                    </button>
+                </div>
+                ${!campaignId ? '<div class="description-text" style="color: #ef4444;">Campaign ID not found in URL</div>' : ''}
+            </div>
+        `;
+
+        return container;
+    }
+
+        // Extract campaign ID from current URL
+    function getCampaignId() {
+        const match = window.location.pathname.match(/\/campaigns\/(\d+)/);
+        return match ? match[1] : null;
+    }
+
+    // Extract list IDs from page elements
+    function extractListIds() {
+        const listIds = [];
+        const suppressionListIds = [];
+
+        try {
+            // Extract send list IDs
+            const sendListElement = document.querySelector('[data-test="form-readonly-field-sendLists"]');
+            if (sendListElement) {
+                const sendListLinks = sendListElement.querySelectorAll('a[href*="emailListId="]');
+                sendListLinks.forEach(link => {
+                    const match = link.href.match(/emailListId=(\d+)/);
+                    if (match) {
+                        listIds.push(parseInt(match[1]));
+                    }
+                });
+            }
+
+            // Extract suppression list IDs
+            const suppressionListElement = document.querySelector('[data-test="form-readonly-field-suppressionLists"]');
+            if (suppressionListElement) {
+                const suppressionListLinks = suppressionListElement.querySelectorAll('a[href*="emailListId="]');
+                suppressionListLinks.forEach(link => {
+                    const match = link.href.match(/emailListId=(\d+)/);
+                    if (match) {
+                        suppressionListIds.push(parseInt(match[1]));
+                    }
+                });
+            }
+
+        } catch (error) {
+            log(`Error extracting list IDs: ${error.message}`, 'error');
+        }
+
+        return { listIds, suppressionListIds };
+    }
+
+    // Get campaign name from page header
+    function getCampaignName() {
+        try {
+            const nameElement = document.querySelector('[data-input-type="pageHeader"]');
+            if (nameElement) {
+                const name = nameElement.textContent.trim();
+                return name;
+            }
+        } catch (error) {
+            log(`Error extracting campaign name: ${error.message}`, 'error');
+        }
+        return 'Updated Campaign';
+    }
+
+        // Handle input change
+    function handleInputChange(event) {
+        const newValue = parseInt(event.target.value) || 2000;
+        customRateLimit = newValue;
+        const rateMath = document.getElementById('rate-math');
+        if (rateMath) {
+            rateMath.textContent = `≈ ${(customRateLimit * 60).toLocaleString()}/hour`;
+        }
+    }
+
+        // Apply rate limit to current campaign
+    async function applyRateLimit() {
+        const campaignId = getCampaignId();
+        if (!campaignId) {
+            showNotification('Could not find campaign ID in URL', 'error');
+            return;
+        }
+
+        try {
+            const result = await updateCampaignRateLimit(campaignId, customRateLimit);
+
+            // Show success message
+            showNotification(`Rate limit set to ${customRateLimit}/min`, 'success');
+
+            // Refresh the page to show updated settings
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+
+        } catch (error) {
+            log(`Failed to apply rate limit: ${error.message}`, 'error');
+            showNotification(`Failed to set rate limit: ${error.message}`, 'error');
+        }
+    }
+
+    // Show notification to user
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        const colors = {
+            success: '#10b981',
+            error: '#ef4444',
+            warning: '#f59e0b',
+            info: '#3b82f6'
+        };
+
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${colors[type] || colors.info};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 400px;
+            word-wrap: break-word;
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // Get XSRF token from cookies or meta tags
+    function getXSRFToken() {
+        // Try to get from cookies first
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'XSRF-TOKEN' || name === '_csrf') {
+                return decodeURIComponent(value);
+            }
+        }
+
+        // Try to get from meta tag
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken) {
+            return metaToken.getAttribute('content');
+        }
+
+        return null;
+    }
+
+        // Check if required page elements are present
+    function areRequiredElementsPresent() {
+        const sendListElement = document.querySelector('[data-test="form-readonly-field-sendLists"]');
+        const suppressionListElement = document.querySelector('[data-test="form-readonly-field-suppressionLists"]');
+        const nameElement = document.querySelector('[data-input-type="pageHeader"]');
+
+        return !!(sendListElement && suppressionListElement && nameElement);
+    }
+
+    // Wait for required elements to be present
+    function waitForRequiredElements(timeout = 1000) {
+        return new Promise((resolve, reject) => {
+            if (areRequiredElementsPresent()) {
+                resolve();
+                return;
+            }
+
+            const startTime = Date.now();
+            const checkInterval = setInterval(() => {
+                if (areRequiredElementsPresent()) {
+                    clearInterval(checkInterval);
+                    resolve();
+                } else if (Date.now() - startTime > timeout) {
+                    clearInterval(checkInterval);
+                    reject(new Error('Timeout waiting for required page elements'));
+                }
+            }, 100);
+        });
+    }
+
+    // Make API call to update campaign rate limit
+    async function updateCampaignRateLimit(campaignId, rateLimit) {
+        // Wait for required elements
+        try {
+            await waitForRequiredElements();
+        } catch (error) {
+            throw new Error('Required page elements not found. Please wait for page to fully load.');
+        }
+
+        const xsrfToken = getXSRFToken();
+        if (!xsrfToken) {
+            log('Could not find XSRF token - API call may fail', 'error');
+        }
+
+        const campaignName = getCampaignName();
+        const { listIds, suppressionListIds } = extractListIds();
+
+        // Validate required data
+        if (!listIds || listIds.length === 0) {
+            throw new Error('No send lists found on page. Please ensure the campaign has send lists configured.');
+        }
+
+        // Build complete payload
+        const payload = {
+            customRateLimit: {
+                useRateLimit: true,
+                rateLimitPerMin: rateLimit,
+            },
+            messageMedium: "Email",
+            labels: [],
+            listIds: listIds,
+            suppressionListIds: suppressionListIds,
+            ignoreFrequencyCap: false,
+            mobileAppIds: [],
+            dataScienceOptimizations: [],
+            priorityLevel: null,
+            aiCreation: null,
+            customConversions: [],
+            schedulerMsgParams: null,
+            campaignType: "Blast",
+            name: campaignName,
+            campaignIdOpt: parseInt(campaignId)
+        };
+
+        const headers = {
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Content-Type': 'application/json',
+            'User-Agent': navigator.userAgent,
+            'Sec-GPC': '1',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'Priority': 'u=0'
+        };
+
+        // Add XSRF token if available
+        if (xsrfToken) {
+            headers['X-XSRF-TOKEN'] = xsrfToken;
+        }
+
+        try {
+            const response = await fetch('https://app.iterable.com/campaigns/createSubmit', {
+                method: 'POST',
+                credentials: 'include',
+                headers: headers,
+                referrer: window.location.href,
+                body: JSON.stringify(payload),
+                mode: 'cors'
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                log(`API error response: ${errorText}`, 'error');
+                throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
+            }
+
+            const result = await response.json();
+            return result;
+
+        } catch (error) {
+            log(`API call failed: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
  function setupSmartRateLimitMonitor() {
     const targetSelector = '[data-test="form-readonly-field-sendRateLimit"]';
     const defaultText = 'Default (1,000 messages per minute)';
@@ -678,6 +1125,44 @@
         clearInterval(fallbackInterval);
     };
 }
+
+        // Add custom settings to the optimize section
+    function addCustomSettingsToPage() {
+        if (customSettingsAdded || !isPageReady()) {0
+            return;
+        }
+
+        const optimizeSection = document.querySelector('[data-test="optimize-section"]');
+
+        const customSettings = createCustomSettings();0
+        optimizeSection.appendChild(customSettings);
+
+        // Add event listeners
+        const input = document.getElementById('custom-rate-input');
+        const applyButton = document.getElementById('apply-rate-button');
+
+        input.addEventListener('input', handleInputChange);
+        applyButton.addEventListener('click', () => applyRateLimit());
+
+        customSettingsAdded = true;
+    }
+
+        // Main observer to watch for page changes
+    function observePageChanges() {
+        const observer = new MutationObserver(() => {
+            updateDefaultDescription();
+            if (!customSettingsAdded) {
+                addCustomSettingsToPage();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+    }
+
 
     // More robust element waiting with periodic checksaddPrepareScheduleButton
     function waitForElement(selector, callback, maxWaitTime = 30000) {
@@ -1531,6 +2016,13 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
     loadConfig();
 
     const cleanup = setupSmartRateLimitMonitor();
+
+    // Start observing for UI changes
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', observePageChanges);
+    } else {
+        observePageChanges();
+    }
 
     // Register menu command
     GM_registerMenuCommand('Campaign Enhancement Settings', createSettingsModal);
