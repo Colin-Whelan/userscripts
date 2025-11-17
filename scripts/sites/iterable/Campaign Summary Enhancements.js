@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.3
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @description  Preview & prepare schedule times before launching, improved page layout with tighter spacing, and streamlined workflow for campaign scheduling.
+// @description  Preview & prepare schedule times before launching, improved page layout with tighter spacing, and streamlined workflow for campaign scheduling
 // ==/UserScript==
 
 (function() {
@@ -389,6 +389,20 @@
             background: #9ca3af;
             cursor: not-allowed;
         }
+        .sc-bDumWk.jXzEMT {
+  display: flex !important;
+  flex: 1 1 auto!important;
+  align-items: center!important; /* Optional: vertically center the items */
+  gap: 8px!important; /* Optional: add some space between the divs */
+}
+.validation-success {
+  flex-shrink: 0; /* Prevents the validation message from shrinking */
+}
+
+.sc-eyWdaR.kmwTOY {
+width: 100% !important;
+}
+
         `;
 
         style.innerHTML = css;
@@ -736,7 +750,7 @@
             const message = `Missing suppression lists: ${boldedMissingLists.join(', ')}`;
             displayValidationMessage(suppressListContainer, message);
         } else {
-            displayValidationMessage(suppressListContainer, 'Suppression validation passed', true);
+            displayValidationMessage(suppressListContainer, 'Suppressions are valid', true);
         }
     }
 
