@@ -776,7 +776,7 @@ width: 100% !important;
                                                      );
 
         if (foundInvalidChars.length === 0) {
-            displayValidationMessage(SlContainer, `Subject Line is valid.`, true);
+            displayValidationMessage(SlContainer, `Subject Line is valid`, true);
         } else {
             const charList = foundInvalidChars.map(item => item.name).join(', ');
             displayValidationMessage(
