@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
-// @description  Preview & prepare schedule times before launching, improved page layout with tighter spacing, and streamlined workflow for campaign scheduling
+// @description  Preview & prepare schedule times before launching, improved page layout with tighter spacing, and streamlined workflow for campaign scheduling.
 // ==/UserScript==
 
 (function() {
@@ -109,16 +109,23 @@
             .kJkNtP {
             margin-bottom: 1rem !important;
             }
-            .sc-jMakVo + .sc-jMakVo {
-  margin-top: 1rem !important;
-}
 .eMLerN {
-  margin-bottom: 0.4rem !important;
+  margin-bottom: 0.1rem !important;
 }
+.bfQKvs {
+  margin-bottom: 0.1rem !important;
+}
+
 .cmAsxg {
   font-size: 0.9rem;
   line-height: 1rem;
   margin: 1rem 0px 1rem;
+}
+
+[data-test="form-field"] {
+  font-size: 0.9rem;
+  line-height: 1rem;
+  margin-top: 0.1rem !important;
 }
 
             .sc-Nxspf + .sc-Nxspf {
@@ -733,6 +740,38 @@
         }
     }
 
+
+    // Validat Subject Line
+    function validateSubjectLine() {
+        const SlContainer = document.querySelector('[data-test="form-readonly-field-subject"]');
+        log('Validating Subject Line');
+
+        console.log(SlContainer);
+        console.log(SlContainer.innerHTML);
+
+        const invalidChars = [
+            { char: '\u2028', name: 'Line Separator' },
+            { char: '\u2029', name: 'Paragraph Separator' },
+            { char: '\n', name: 'Newline' },
+            { char: '\r', name: 'Carriage Return' },
+            { char: '\t', name: 'Tab' }
+        ];
+
+        const foundInvalidChars = invalidChars.filter(item =>
+                                                      SlContainer.innerHTML.includes(item.char)
+                                                     );
+
+        if (foundInvalidChars.length === 0) {
+            displayValidationMessage(SlContainer, `Subject Line is valid.`, true);
+        } else {
+            const charList = foundInvalidChars.map(item => item.name).join(', ');
+            displayValidationMessage(
+                SlContainer,
+                `Warning: Subject Line contains invalid chars: ${charList}`
+            );
+        }
+    }
+
     // Run all validations
     function runValidations() {
         log('Running all validations');
@@ -740,6 +779,7 @@
             // Always run validations so they can clean up warnings when disabled
             validateSeedLists();
             validateSuppressionLists();
+            validateSubjectLine()
         }, 1000);
     }
 
