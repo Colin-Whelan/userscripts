@@ -518,13 +518,15 @@
             threshold: 0.3,                         // 0 = perfect match, 1 = match anything
             includeScore: true,
             ignoreLocation: true,                   // Match anywhere in string
-            minMatchCharLength: 3,                  // Require at least N characters
+            minMatchCharLength: 2,                  // Require at least N characters
             distance: 50,                           // How far to search for pattern
             ignoreDiacritics: true,                 // Ignore accents
             useExtendedSearch: false
         });
 
+
         const results = fuse.search(query);
+        // console.log('fuse search: ', query, ' -- Results: ', results)
 
         log(`[Indigo Nav Finder] Fuse.js search for "${query}" returned ${results.length} results`);
         if (results.length > 0) {
