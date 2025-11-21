@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Indigo Navigation Link Finder
 // @namespace    http://tampermonkey.net/
-// @version      2.2
+// @version      2.3
 // @description  Search and find nested navigation links on Indigo.ca
 // @author       You
 // @match        https://www.indigo.ca/*
@@ -226,7 +226,6 @@
 
         .nav-finder-item-text {
             font-weight: 600;
-            margin-bottom: 6px;
             color: #111827;
             font-size: 15px;
         }
@@ -334,9 +333,309 @@
             font-weight: 500;
             border-top: 1px solid #e5e7eb;
         }
+
+        .nav-finder-tags {
+            display: inline-flex;
+            gap: 6px;
+            margin-left: 0px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .nav-finder-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 12px;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+        }
+
+        .nav-finder-item-text-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
     `);
 
-    // Extract navigation links with detailed logging
+    // French terms to English tags map
+    // Each French term can map to one or more English tags
+    const navigationTagMap = {
+        // Age groups
+        'ados': ['teen', 'teens'],
+        'jeune': ['young'],
+        'jeunes': ['young'],
+        'adulte': ['adult'],
+        'adultes': ['adults'],
+        'enfant': ['kids', 'children'],
+        'enfants': ['kids', 'children'],
+        'jeunesse': ['kids', 'youth'],
+        'bébé': ['baby'],
+        'bébés': ['baby'],
+
+        // Main categories
+        'livre': ['books'],
+        'livres': ['books'],
+        'roman': ['fiction', 'novel'],
+        'romans': ['fiction', 'novels'],
+        'papeterie': ['stationery'],
+        'cadeau': ['gifts'],
+        'cadeaux': ['gifts'],
+        'jouet': ['toys'],
+        'jouets': ['toys'],
+        'jeux': ['games'],
+        'maison': ['home'],
+        'jardin': ['garden'],
+        'électronique': ['electronics'],
+        'film': ['movies'],
+        'films': ['movies'],
+        'musique': ['music'],
+
+        // Fiction genres
+        'policier': ['mystery', 'crime'],
+        'policiers': ['mystery', 'crime'],
+        'suspense': ['thriller', 'suspense'],
+        'science-fiction': ['sci-fi', 'science fiction'],
+        'fantastique': ['fantasy'],
+        'romance': ['romance'],
+        'horreur': ['horror'],
+        'action': ['action'],
+        'aventure': ['adventure'],
+        'historique': ['historical'],
+        'littéraire': ['literary'],
+        'humour': ['humor'],
+        'poésie': ['poetry'],
+        'théâtre': ['drama', 'theatre'],
+        'nouvelle': ['short stories'],
+        'nouvelles': ['short stories'],
+
+        // Non-fiction
+        'biographie': ['biography'],
+        'biographies': ['biography'],
+        'mémoire': ['memoir'],
+        'mémoires': ['memoir'],
+        'autobiographie': ['autobiography'],
+        'histoire': ['history'],
+        'philosophie': ['philosophy'],
+        'religion': ['religion'],
+        'spiritualité': ['spirituality', 'spiritual'],
+        'psychologie': ['psychology'],
+        'science': ['science'],
+        'sciences': ['science'],
+        'social': ['social'],
+        'sociales': ['social'],
+        'politique': ['politics', 'political'],
+        'économie': ['economics', 'economy'],
+        'affaire': ['business'],
+        'affaires': ['business'],
+        'entreprise': ['business'],
+        'gestion': ['management'],
+        'marketing': ['marketing'],
+        'finance': ['finance'],
+        'carrière': ['career'],
+        'croissance': ['growth'],
+        'développement': ['development', 'self-help'],
+        'personnel': ['personal'],
+        'personnelle': ['personal'],
+        'motivation': ['motivation'],
+
+        // Reference & Education
+        'référence': ['reference'],
+        'éducation': ['education'],
+        'éducatif': ['educational'],
+        'dictionnaire': ['dictionary'],
+        'dictionnaires': ['dictionaries'],
+        'encyclopédie': ['encyclopedia'],
+        'encyclopédies': ['encyclopedias'],
+        'guide': ['guide'],
+        'guides': ['guides'],
+        'étude': ['study'],
+        'manuel': ['textbook'],
+        'manuels': ['textbooks'],
+        'scolaire': ['school'],
+        'scolaires': ['school'],
+        'apprentissage': ['learning'],
+        'langue': ['language'],
+        'langues': ['languages'],
+
+        // Lifestyle
+        'santé': ['health'],
+        'bien-être': ['wellness'],
+        'forme': ['fitness'],
+        'physique': ['fitness', 'physical'],
+        'exercice': ['exercise'],
+        'nutrition': ['nutrition'],
+        'alimentation': ['food'],
+        'cuisine': ['cooking'],
+        'recette': ['recipes'],
+        'recettes': ['recipes'],
+        'culinaire': ['culinary'],
+        'culinaires': ['culinary'],
+        'pâtisserie': ['baking'],
+        'vin': ['wine'],
+        'spiritueux': ['spirits'],
+
+        // Home & Crafts
+        'artisanat': ['crafts'],
+        'bricolage': ['diy'],
+        'décoration': ['decor', 'decoration'],
+        'intérieur': ['interior'],
+        'intérieure': ['interior'],
+        'architecture': ['architecture'],
+        'jardinage': ['gardening'],
+        'tricot': ['knitting'],
+        'crochet': ['crochet'],
+        'couture': ['sewing'],
+        'scrapbooking': ['scrapbooking'],
+
+        // Arts & Photography
+        'art': ['art'],
+        'arts': ['art'],
+        'beaux-arts': ['fine arts'],
+        'photographie': ['photography'],
+        'design': ['design'],
+        'graphique': ['graphic'],
+        'mode': ['fashion'],
+        'beauté': ['beauty'],
+
+        // Sports & Outdoors
+        'sport': ['sports'],
+        'sports': ['sports'],
+        'plein': ['outdoors'], // "plein air"
+        'air': ['outdoors'], // "plein air"
+        'chasse': ['hunting'],
+        'pêche': ['fishing'],
+        'camping': ['camping'],
+        'randonnée': ['hiking'],
+        'voyage': ['travel'],
+
+        // Technology & Science
+        'informatique': ['computers', 'computing'],
+        'technologie': ['technology', 'tech'],
+        'internet': ['internet'],
+        'programmation': ['programming'],
+        'mathématique': ['mathematics', 'math'],
+        'mathématiques': ['mathematics', 'math'],
+        'physique': ['physics'],
+        'chimie': ['chemistry'],
+        'biologie': ['biology'],
+        'astronomie': ['astronomy'],
+        'nature': ['nature'],
+        'environnement': ['environment'],
+
+        // Kids specific
+        'image': ['picture'],
+        'images': ['pictures'],
+        'album': ['picture book'],
+        'albums': ['picture books'],
+        'premier': ['early', 'first'],
+        'premiers': ['early', 'first'],
+        'lecteur': ['reader'],
+        'lecteurs': ['readers'],
+        'chapitre': ['chapter'],
+        'chapitres': ['chapters'],
+        'conte': ['fairy tale'],
+        'contes': ['fairy tales'],
+        'fable': ['fables'],
+        'fables': ['fables'],
+        'comptine': ['nursery rhymes'],
+        'comptines': ['nursery rhymes'],
+        'activité': ['activity'],
+        'activités': ['activities'],
+        'coloriage': ['colouring'],
+        'coloriages': ['colouring'],
+        'autocollant': ['stickers'],
+        'autocollants': ['stickers'],
+
+        // Puzzles
+        'casse-tête': ['puzzles', 'puzzle'],
+        'puzzle': ['puzzle'],
+        'puzzles': ['puzzles'],
+
+        // Formats & Special
+        'audio': ['audio', 'audiobooks'],
+        'numérique': ['digital', 'ebooks'],
+        'numériques': ['digital', 'ebooks'],
+        'luxe': ['deluxe'],
+        'nouveauté': ['new releases'],
+        'nouveautés': ['new releases'],
+        'meilleur': ['bestsellers', 'best'],
+        'meilleures': ['bestsellers', 'best'],
+        'vente': ['sales'],
+        'ventes': ['sales'],
+        'rabais': ['sale', 'discount'],
+        'solde': ['clearance', 'sale'],
+        'soldes': ['clearance', 'sale'],
+        'prix': ['awards', 'price'],
+        'collection': ['collections'],
+        'collections': ['collections'],
+        'série': ['series'],
+        'séries': ['series'],
+
+        // Gift categories
+        'noël': ['christmas'],
+        'anniversaire': ['birthday'],
+        'mariage': ['wedding'],
+        'elle': ['her'],
+        'lui': ['him'],
+
+        // Common adjectives/descriptors
+        'populaire': ['popular'],
+        'populaires': ['popular'],
+        'recommandé': ['recommended'],
+        'recommandés': ['recommended'],
+        'primé': ['award-winning'],
+        'primés': ['award-winning'],
+        'classique': ['classic'],
+        'classiques': ['classics'],
+        'contemporain': ['contemporary'],
+        'moderne': ['modern'],
+        'canadien': ['canadian'],
+        'québécois': ['quebec'],
+        'international': ['international'],
+        'tout': ['all'],
+        'tous': ['all'],
+        'toutes': ['all']
+    };
+
+    // Function to extract tags from French text
+    function extractTags(text) {
+        if (!text || !isFrenchSite()) return [];
+
+        const tags = new Set(); // Use Set to avoid duplicates
+        const lowerText = text.toLowerCase();
+
+        // Check each French term in the map
+        for (const [frenchTerm, englishTags] of Object.entries(navigationTagMap)) {
+            // Check if the French term appears in the text
+            // Use word boundaries to avoid partial matches
+            const regex = new RegExp(`\\b${frenchTerm}\\b`, 'i');
+            if (regex.test(lowerText)) {
+                // Add all associated English tags
+                englishTags.forEach(tag => tags.add(tag));
+            }
+        }
+
+        return Array.from(tags);
+    }
+
+    // Function to format tags for display
+    function formatTags(tags) {
+        if (!tags || tags.length === 0) return '';
+        return tags.map(tag => `|${tag}|`).join(' ');
+    }
+
+    // Check if we're on French site
+    function isFrenchSite() {
+        return window.location.href.includes('/fr-ca/');
+    }
+
+    // Modify extractLinks to add tags
     function extractLinks(container) {
         log('[Indigo Nav Finder] Extracting links...');
         log('[Indigo Nav Finder] Container:', container);
@@ -347,12 +646,10 @@
         function traverse(element, path = [], depth = 0) {
             log(`[Indigo Nav Finder] Traversing at depth ${depth}, path:`, path);
 
-            // Look for both nav-item and dropdown-item
             const items = element.querySelectorAll(':scope > li');
             log(`[Indigo Nav Finder] Found ${items.length} list items at depth ${depth}`);
 
             items.forEach((item, index) => {
-                // Find the primary link in this item
                 const link = item.querySelector(':scope > a');
 
                 if (!link) {
@@ -369,11 +666,9 @@
                     path: path.join(' > ')
                 });
 
-                // Skip javascript:void(0) and empty hrefs, but still traverse children
                 if (!href || href === '#' || href.startsWith('javascript:')) {
                     log('[Indigo Nav Finder] Skipping link (invalid href), checking for submenu...');
 
-                    // Check for submenus
                     const submenu = item.querySelector('ul.dropdown-menu, ul.level-2, ul.level-3');
                     if (submenu) {
                         log('[Indigo Nav Finder] Found submenu, traversing...');
@@ -382,18 +677,14 @@
                     return;
                 }
 
-                // Clean up the text
                 const cleanText = text.replace(/\s+/g, ' ').replace(/\t/g, '').trim();
-
-                // Clean up href - remove tabs, newlines, and extra whitespace
                 const cleanHref = href.replace(/[\t\n\r]/g, '').replace(/\s+/g, '').trim();
 
-                // Build full URL
                 let fullUrl = cleanHref;
                 if (!cleanHref.startsWith('http')) {
                     fullUrl = cleanHref.startsWith('/')
                         ? `https://www.indigo.ca${cleanHref}`
-                        : `https://www.indigo.ca/${cleanHref}`;
+                    : `https://www.indigo.ca/${cleanHref}`;
                 }
 
                 const linkData = {
@@ -402,10 +693,26 @@
                     url: fullUrl
                 };
 
+                // Add tags if on French site
+                if (isFrenchSite()) {
+                    // Extract tags from both path and text
+                    const pathTags = linkData.path ? extractTags(linkData.path) : [];
+                    const textTags = extractTags(linkData.text);
+
+                    // Combine and deduplicate tags
+                    const allTags = [...new Set([...pathTags, ...textTags])];
+
+                    if (allTags.length > 0) {
+                        linkData.tags = allTags;
+                        linkData.tagsDisplay = formatTags(allTags);
+                    }
+
+                    log('[Indigo Nav Finder] Extracted tags:', allTags);
+                }
+
                 links.push(linkData);
                 log('[Indigo Nav Finder] Added link:', linkData);
 
-                // Check for nested dropdowns
                 const submenu = item.querySelector('ul.dropdown-menu, ul.level-2, ul.level-3');
                 if (submenu) {
                     log('[Indigo Nav Finder] Found submenu after link, traversing...');
@@ -513,7 +820,8 @@
             keys: [
                 { name: 'text', weight: 0.5 },      // Prioritize link text
                 { name: 'path', weight: 0.3 },      // Then navigation path
-                { name: 'url', weight: 0.2 }        // Finally URL
+                { name: 'tags', weight: 0.2 },      // Search by tags applied
+                { name: 'url', weight: 0.15 }        // Finally URL
             ],
             threshold: 0.3,                         // 0 = perfect match, 1 = match anything
             includeScore: true,
@@ -567,6 +875,14 @@
     function isPinned(link) {
         const pins = getPins();
         return pins.some(p => p.url === link.url);
+    }
+
+    // text format helper
+    function convertToTitleCase(str) {
+        if (!str) {
+            return ""
+        }
+        return str.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
     }
 
     // Create UI
@@ -649,8 +965,8 @@
                 log(`[Indigo Nav Finder] Rendering results, tab: ${activeTab}`);
 
                 const links = activeTab === 'pinned'
-                    ? getPins()
-                    : allLinks;
+                ? getPins()
+                : allLinks;
 
                 log(`[Indigo Nav Finder] Base links count: ${links.length}`);
 
@@ -661,31 +977,42 @@
 
                 if (filtered.length === 0) {
                     resultsContainer.innerHTML = `
-                        <div class="nav-finder-empty">
-                            <div>No links found</div>
-                            <div style="margin-top: 8px; font-size: 12px;">
-                                ${links.length === 0 ? 'Try reloading the page or switching languages' : 'Try a different search term'}
-                            </div>
-                        </div>
-                    `;
+            <div class="nav-finder-empty">
+                <div>No links found</div>
+                <div style="margin-top: 8px; font-size: 12px;">
+                    ${links.length === 0 ? 'Try reloading the page or switching languages' : 'Try a different search term'}
+                </div>
+            </div>
+        `;
                     return;
                 }
 
                 resultsContainer.innerHTML = filtered.map(link => {
                     const pinned = isPinned(link);
+
+                    // Create tags HTML if available
+                    const tagsHTML = link.tags && link.tags.length > 0
+                    ? `<div class="nav-finder-tags">
+                ${link.tags.map(tag => `<span class="nav-finder-tag">${convertToTitleCase(tag)}</span>`).join('')}
+               </div>`
+                    : '';
+
                     return `
-                        <div class="nav-finder-item ${pinned ? 'pinned' : ''}">
-                            <div class="nav-finder-item-info">
-                                ${link.path ? `<div class="nav-finder-item-path">${link.path}</div>` : ''}
-                                <div class="nav-finder-item-text">${link.text}</div>
-                                <div class="nav-finder-item-url">${link.url}</div>
-                            </div>
-                            <div class="nav-finder-item-actions">
-                                <button class="nav-finder-btn nav-finder-btn-copy" data-url="${link.url}">📋</button>
-                                <button class="nav-finder-btn ${pinned ? 'nav-finder-btn-unpin' : 'nav-finder-btn-pin'}" data-link='${JSON.stringify(link).replace(/'/g, '&apos;')}'>${pinned ? '📍' : '📌'}</button>
-                            </div>
-                        </div>
-                    `;
+            <div class="nav-finder-item ${pinned ? 'pinned' : ''}">
+                <div class="nav-finder-item-info">
+                    ${link.path ? `<div class="nav-finder-item-path">${link.path}</div>` : ''}
+                    <div class="nav-finder-item-text-row">
+                        <div class="nav-finder-item-text">${link.text}</div>
+                        ${tagsHTML}
+                    </div>
+                    <div class="nav-finder-item-url">${link.url}</div>
+                </div>
+                <div class="nav-finder-item-actions">
+                    <button class="nav-finder-btn nav-finder-btn-copy" data-url="${link.url}">📋</button>
+                    <button class="nav-finder-btn ${pinned ? 'nav-finder-btn-unpin' : 'nav-finder-btn-pin'}" data-link='${JSON.stringify(link).replace(/'/g, '&apos;')}'>${pinned ? '📍' : '📌'}</button>
+                </div>
+            </div>
+        `;
                 }).join('');
 
                 // Attach event listeners
