@@ -184,7 +184,7 @@
         }
 
         .nav-finder-item {
-            padding: 16px 20px;
+            padding: 16px 20px 12px 20px;
             margin-bottom: 12px;
             background: #f9fafb;
             border: 2px solid #e5e7eb;
@@ -237,6 +237,9 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             font-family: 'Monaco', 'Courier New', monospace;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
         .nav-finder-item-actions {
@@ -360,6 +363,27 @@
             flex-wrap: wrap;
             gap: 8px;
             margin-bottom: 6px;
+        }
+        .nav-finder-link {
+            background: rgba(102, 126, 234, 0.1);
+            text-decoration: none;
+            padding: 5px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s;
+            color: #667eea;  /* Purple to match your theme */
+        }
+
+        .nav-finder-link:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: scale(1.1);
+            text-decoration: none;
+            color: #5568d3;  /* Darker purple on hover */
+        }
+
+        .nav-finder-link svg {
+            display: block;
         }
     `);
 
@@ -993,26 +1017,32 @@
                     // Create tags HTML if available
                     const tagsHTML = link.tags && link.tags.length > 0
                     ? `<div class="nav-finder-tags">
-                ${link.tags.map(tag => `<span class="nav-finder-tag">${convertToTitleCase(tag)}</span>`).join('')}
-               </div>`
+            ${link.tags.map(tag => `<span class="nav-finder-tag">${tag}</span>`).join('')}
+           </div>`
                     : '';
 
                     return `
-            <div class="nav-finder-item ${pinned ? 'pinned' : ''}">
-                <div class="nav-finder-item-info">
-                    ${link.path ? `<div class="nav-finder-item-path">${link.path}</div>` : ''}
-                    <div class="nav-finder-item-text-row">
-                        <div class="nav-finder-item-text">${link.text}</div>
-                        ${tagsHTML}
-                    </div>
-                    <div class="nav-finder-item-url">${link.url}</div>
+        <div class="nav-finder-item ${pinned ? 'pinned' : ''}">
+            <div class="nav-finder-item-info">
+                ${link.path ? `<div class="nav-finder-item-path">${link.path}</div>` : ''}
+                <div class="nav-finder-item-text-row">
+                    <div class="nav-finder-item-text">${link.text}</div>
+                    ${tagsHTML}
                 </div>
-                <div class="nav-finder-item-actions">
-                    <button class="nav-finder-btn nav-finder-btn-copy" data-url="${link.url}">📋</button>
-                    <button class="nav-finder-btn ${pinned ? 'nav-finder-btn-unpin' : 'nav-finder-btn-pin'}" data-link='${JSON.stringify(link).replace(/'/g, '&apos;')}'>${pinned ? '📍' : '📌'}</button>
-                </div>
+                <div class="nav-finder-item-url">
+    <span>${link.url}</span>
+    <a href="${link.url}" target="_blank" rel="noopener noreferrer" class="nav-finder-link" title="Open in new tab">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </a>
+</div>
             </div>
-        `;
+            <div class="nav-finder-item-actions">
+                <button class="nav-finder-btn nav-finder-btn-copy" data-url="${link.url}">📋</button>
+                <button class="nav-finder-btn ${pinned ? 'nav-finder-btn-unpin' : 'nav-finder-btn-pin'}" data-link='${JSON.stringify(link).replace(/'/g, '&apos;')}'>${pinned ? '📍' : '📌'}</button>
+            </div>
+        </div>
+    `;
                 }).join('');
 
                 // Attach event listeners
