@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
 // @grant        GM_registerMenuCommand
@@ -50,7 +50,8 @@
                 isGlobal: true
             }
         ],
-        customRateLimit: 4000
+        customRateLimit: 4000,
+        rateLimitsByMessageType: {}
     };
 
 
@@ -70,12 +71,19 @@
                 loadedConfig.seedListKeyword = "Seed";
             }
 
+            // ADD THIS: Ensure rateLimitsByMessageType exists
+            if (!loadedConfig.rateLimitsByMessageType) {
+                loadedConfig.rateLimitsByMessageType = {};
+            }
+
             config = loadedConfig;
             log('Configuration loaded', config);
         } catch (e) {
             log('Error loading config, using defaults', e);
             // Ensure seedListKeyword is set
             config.seedListKeyword = config.seedListKeyword || "Seed";
+            //Ensure rateLimitsByMessageType is set
+            config.rateLimitsByMessageType = config.rateLimitsByMessageType || {};
         }
     }
 
@@ -248,8 +256,6 @@
             }
 
             .validation-warning {
-                display: inline-flex;
-                align-items: center;
                 background: #fff3cd;
                 border: 1px solid #ffeaa7;
                 color: #856404;
@@ -495,9 +501,30 @@ width: 100% !important;
                     Add New Rule
                 </button>
             </div>
+            <div class="config-section">
+                <h3 style="color: #555;">Rate Limit Cache</h3>
+                <p style="color: #666; font-size: 12px; margin-bottom: 12px;">
+                    Cached rate limits from message type settings. Click refresh to update from current settings.
+                </p>
+
+                <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 12px;">
+                    <div id="rateLimitCache" style="font-family: monospace; font-size: 12px; max-height: 150px; overflow-y: auto;">
+                        ${Object.keys(config.rateLimitsByMessageType || {}).length === 0
+                            ? '<em style="color: #999;">No cached rate limits</em>'
+                            : Object.entries(config.rateLimitsByMessageType)
+                                .map(([name, limit]) => `<div style="padding: 4px 0;">${name}: ${limit === null ? 'Unlimited (~800k/hr)' : `${limit.toLocaleString()}/min`}</div>`)
+                                .join('')
+                        }
+                    </div>
+                </div>
+
+                <button id="refreshRateLimits" style="background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                    <span id="refreshButtonText">Refresh Rate Limits</span>
+                    <span id="refreshSpinner" style="display: none;">⟳ Refreshing...</span>
+                </button>
+            </div>
 
             <div class="config-section">
-
                 <h3 style="color: #555;">Custom Send Rate</h3>
                 <div class="config-toggle">
                     <input type="number" id="customRateLimit" value="${config.customRateLimit ? config.customRateLimit : 2000}">
@@ -588,6 +615,41 @@ width: 100% !important;
         applyRemoveButton(newRemoveButton);
     });
 
+        // Refresh rate limits
+    modal.querySelector('#refreshRateLimits').addEventListener('click', () => {
+        const button = modal.querySelector('#refreshRateLimits');
+        const buttonText = modal.querySelector('#refreshButtonText');
+        const spinner = modal.querySelector('#refreshSpinner');
+        const cacheDisplay = modal.querySelector('#rateLimitCache');
+
+        // Disable button and show spinner
+        button.disabled = true;
+        buttonText.style.display = 'none';
+        spinner.style.display = 'inline';
+
+        // Clear current cache
+        config.rateLimitsByMessageType = {};
+        saveConfig();
+
+        // Show loading state
+        cacheDisplay.innerHTML = '<em style="color: #999;">Loading...</em>';
+
+        // Extract rate limits
+        extractRateLimits(() => {
+            // Callback when extraction is complete
+            cacheDisplay.innerHTML = Object.entries(config.rateLimitsByMessageType)
+                .map(([name, limit]) => `<div style="padding: 4px 0;">${name}: ${limit === null ? 'Unlimited (~800k/hr)' : `${limit.toLocaleString()}/min`}</div>`)
+                .join('');
+
+            // Re-enable button
+            button.disabled = false;
+            buttonText.style.display = 'inline';
+            spinner.style.display = 'none';
+
+            log('Rate limits refreshed in settings modal');
+        });
+    });
+
     // Save settings
     modal.querySelector('#saveSettings').addEventListener('click', () => {
         // Save settings
@@ -636,6 +698,122 @@ width: 100% !important;
             modal.remove();
         }
     });
+}
+
+    // Extract rate limits from settings page
+function extractRateLimits(callback) {
+    log('Starting rate limit extraction');
+
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://app.iterable.com/settings/channels/email';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    iframe.onload = function() {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+        setTimeout(() => {
+            // Expand all collapsed channels
+            const toggleButtons = iframeDoc.querySelectorAll('[data-test="content-card-toggle"]');
+            toggleButtons.forEach(btn => {
+                const arrow = btn.querySelector('[data-iscollapsed="true"]');
+                if (arrow) btn.click();
+            });
+
+            setTimeout(() => {
+                const allRows = iframeDoc.querySelectorAll('[id^="row-"]');
+                const messageTypeRows = Array.from(allRows).filter(row => !row.id.includes('-options'));
+
+                log(`Found ${messageTypeRows.length} message types`);
+
+                let processed = 0;
+                const rateLimits = {};
+
+                messageTypeRows.forEach((row, index) => {
+                    setTimeout(() => {
+                        const messageTypeId = row.id.replace('row-', '');
+                        const messageTypeName = row.querySelector('[data-test="0-unmatched"]')?.textContent;
+
+                        const menuTrigger = row.querySelector('[data-test="action-menu-trigger"]');
+                        if (menuTrigger) {
+                            menuTrigger.click();
+
+                            setTimeout(() => {
+                                const rateLimitButton = iframeDoc.querySelector('[data-id="option-update-rate-limit"]');
+                                if (rateLimitButton) {
+                                    rateLimitButton.click();
+
+                                    setTimeout(() => {
+                                        const rateLimitInput = iframeDoc.querySelector('[data-test="rate-limit-input"]');
+                                        const isCustom = iframeDoc.querySelector('[data-test="radio-list-option-custom"][aria-checked="true"]');
+
+                                        if (rateLimitInput && isCustom) {
+                                            rateLimits[messageTypeName] = parseInt(rateLimitInput.value);
+                                        } else {
+                                            rateLimits[messageTypeName] = null; // unlimited
+                                        }
+
+                                        const closeButton = iframeDoc.querySelector('[data-test="modal-header"] [data-test="large-ghost-icon-button"]');
+                                        if (closeButton) closeButton.click();
+
+                                        processed++;
+                                        if (processed === messageTypeRows.length) {
+                                            config.rateLimitsByMessageType = rateLimits;
+                                            saveConfig();
+                                            updateRateLimitDisplay();
+                                            iframe.remove();
+                                            log('Rate limits extracted:', rateLimits);
+                                            if (callback) callback();
+                                        }
+                                    }, 500);
+                                }
+                            }, 300);
+                        }
+                    }, index * 1200);
+                });
+            }, 1000);
+        }, 2000);
+    };
+}
+
+// Update rate limit display on campaign page
+function updateRateLimitDisplay(attempts = 0, maxAttempts = 40) {
+    const rateLimitField = document.querySelector('[data-test="form-readonly-field-sendRateLimit"]');
+    const messageTypeField = document.querySelector('[data-test="form-readonly-field-messageType"]');
+
+    if (!rateLimitField || !messageTypeField) {
+        if (attempts < maxAttempts) {
+            log(`Rate limit fields not found, retrying (${attempts + 1}/${maxAttempts})...`);
+            setTimeout(() => updateRateLimitDisplay(attempts + 1, maxAttempts), 250);
+        } else {
+            log('Rate limit fields not found after maximum attempts');
+        }
+        return;
+    }
+
+    log('Rate limit fields found, updating display');
+
+    const messageTypeName = messageTypeField.textContent.trim();
+    const span = rateLimitField.querySelector('span');
+
+    if (!span) {
+        log('Span element not found in rate limit field');
+        return;
+    }
+
+    const limit = config.rateLimitsByMessageType[messageTypeName];
+
+    if (limit === undefined) {
+        // Haven't fetched yet, trigger extraction
+        log('Rate limits not cached, triggering extraction');
+        extractRateLimits();
+    } else if (limit === null) {
+        span.textContent = 'Off – Default (~800,000 messages per hour)';
+        log('Updated to unlimited rate');
+    } else {
+        span.textContent = `Off – Default (${limit.toLocaleString()} messages per minute)`;
+        log(`Updated to ${limit} messages per minute`);
+    }
 }
 
     // Display warning/success message to the right of an element
@@ -760,9 +938,6 @@ width: 100% !important;
         const SlContainer = document.querySelector('[data-test="form-readonly-field-subject"]');
         log('Validating Subject Line');
 
-        console.log(SlContainer);
-        console.log(SlContainer.innerHTML);
-
         const invalidChars = [
             { char: '\u2028', name: 'Line Separator' },
             { char: '\u2029', name: 'Paragraph Separator' },
@@ -786,6 +961,37 @@ width: 100% !important;
         }
     }
 
+    // Validat Preview Text
+    function validatePreviewText() {
+        const previewContainer = document.querySelector('[data-test="form-readonly-field-preheaderText"]');
+        log('Validating Preview Text');
+
+        console.log(previewContainer)
+        console.log(previewContainer.innerHTML)
+
+        const invalidChars = [
+            { char: '\u2028', name: 'Line Separator' },
+            { char: '\u2029', name: 'Paragraph Separator' },
+            { char: '\n', name: 'Newline' },
+            { char: '\r', name: 'Carriage Return' },
+            { char: '\t', name: 'Tab' }
+        ];
+
+        const foundInvalidChars = invalidChars.filter(item =>
+                                                      previewContainer.innerHTML.includes(item.char)
+                                                     );
+
+        if (foundInvalidChars.length === 0) {
+            displayValidationMessage(previewContainer, `Preheader is valid`, true);
+        } else {
+            const charList = foundInvalidChars.map(item => item.name).join(', ');
+            displayValidationMessage(
+                previewContainer,
+                `Warning: Preheader contains invalid chars: ${charList}`
+            );
+        }
+    }
+
     // Run all validations
     function runValidations() {
         log('Running all validations');
@@ -794,18 +1000,8 @@ width: 100% !important;
             validateSeedLists();
             validateSuppressionLists();
             validateSubjectLine()
+            //validatePreviewText()
         }, 1000);
-    }
-
-       // Update the default rate limit description
-    function updateDefaultDescription() {
-        const rateLimitField = document.querySelector('[data-test="form-readonly-field-sendRateLimit"]');
-        if (rateLimitField) {
-            const span = rateLimitField.querySelector('span');
-            if (span && span.textContent.includes('Default (1,000 messages per minute)')) {
-                span.textContent = 'Off – Sending as fast as server allows (~800k/hour)';
-            }
-        }
     }
 
         // Check if page is ready for custom settings
@@ -1109,77 +1305,6 @@ width: 100% !important;
         }
     }
 
- function setupSmartRateLimitMonitor() {
-    const targetSelector = '[data-test="form-readonly-field-sendRateLimit"]';
-    const defaultText = 'Default (1,000 messages per minute)';
-    const customText = 'Off – Sending as fast as server allows (~800k/hour)';
-
-    function updateText() {
-        const rateLimitField = document.querySelector(targetSelector);
-        if (rateLimitField) {
-            const span = rateLimitField.querySelector('span');
-            if (span && span.textContent.includes(defaultText)) {
-                span.textContent = customText;
-                console.log('Rate limit text updated to custom text');
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // Initial update
-    updateText();
-
-    // Observer specifically watching the parent container
-    const observer = new MutationObserver((mutations) => {
-        let shouldCheck = false;
-
-        mutations.forEach((mutation) => {
-            // Check if any added nodes contain our target or if text changed
-            if (mutation.type === 'childList') {
-                mutation.addedNodes.forEach((node) => {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        if (node.matches && node.matches(targetSelector)) {
-                            shouldCheck = true;
-                        } else if (node.querySelector && node.querySelector(targetSelector)) {
-                            shouldCheck = true;
-                        }
-                    }
-                });
-            } else if (mutation.type === 'characterData') {
-                // Check if the text change was in our target area
-                const target = mutation.target.parentElement;
-                if (target && target.closest(targetSelector)) {
-                    shouldCheck = true;
-                }
-            }
-        });
-
-        if (shouldCheck) {
-            // Small delay to ensure DOM is fully updated
-            setTimeout(updateText, 100);
-        }
-    });
-
-    // Observe with more specific options
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true
-    });
-
-    // Also set up a fallback periodic check (less frequent)
-    const fallbackInterval = setInterval(() => {
-        updateText();
-    }, 10000); // Every 10 seconds as fallback
-
-    // Return cleanup function
-    return () => {
-        observer.disconnect();
-        clearInterval(fallbackInterval);
-    };
-}
-
         // Add custom settings to the optimize section
     function addCustomSettingsToPage() {
         if (customSettingsAdded || !isPageReady()) {0
@@ -1204,7 +1329,6 @@ width: 100% !important;
         // Main observer to watch for page changes
     function observePageChanges() {
         const observer = new MutationObserver(() => {
-            updateDefaultDescription();
             if (!customSettingsAdded) {
                 addCustomSettingsToPage();
             }
@@ -2069,8 +2193,6 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
     // Load configuration
     loadConfig();
 
-    const cleanup = setupSmartRateLimitMonitor();
-
     // Start observing for UI changes
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', observePageChanges);
@@ -2082,6 +2204,7 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
     GM_registerMenuCommand('Campaign Enhancement Settings', createSettingsModal);
 
     initialize();
+    updateRateLimitDisplay();
 
     // Handle SPA navigation
     let lastUrl = location.href;
