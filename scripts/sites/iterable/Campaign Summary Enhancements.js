@@ -811,7 +811,7 @@ function updateRateLimitDisplay(attempts = 0, maxAttempts = 40) {
         span.textContent = 'Off – Default (~800,000 messages per hour)';
         log('Updated to unlimited rate');
     } else {
-        span.textContent = `Off – Default (${limit.toLocaleString()} messages per minute)`;
+        span.textContent = `Off – Default (${limit.toLocaleString()} messages per minute with beta feature)`;
         log(`Updated to ${limit} messages per minute`);
     }
 }
