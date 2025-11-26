@@ -51,14 +51,170 @@
             }
         ],
         customRateLimit: 4000,
-        rateLimitsByMessageType: {}
+        rateLimitsByMessageType: {},
+        htmlScan: {
+            enabled: true, // Can be made configurable
+            iframeCheck_interval: 1500,
+            iframeSelector: '[data-test="secure-iframe-full-doc"]',
+            contentSectionSelector: '[data-test="complete-step-Content"]'
+        }
     };
 
 
     let customRateLimit = GM_getValue(config.customRateLimit, 4000);
 
 
+// ============================================================================
+// HTML EXTRACTION & VALIDATION
+// ============================================================================
+const HtmlScanner = {
+    lastHtml: null,
 
+    /**
+     * Find the iframe element containing email HTML
+     */
+    findIframe() {
+        return document.querySelector(config.htmlScan.iframeSelector);
+    },
+
+    /**
+     * Extract HTML from iframe's srcdoc attribute
+     */
+    extractHtml(iframe) {
+        if (!iframe) return null;
+
+        const srcdoc = iframe.getAttribute('srcdoc');
+        if (!srcdoc) {
+            log('Iframe found but no srcdoc attribute');
+            return null;
+        }
+
+        // Unescape HTML entities
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = srcdoc;
+        return textarea.value;
+    },
+
+    /**
+     * Get HTML from the iframe
+     */
+    getHtml() {
+        const iframe = this.findIframe();
+        return this.extractHtml(iframe);
+    },
+
+    /**
+     * Check for double-quotes in alt text attributes
+     * Returns array of issues found
+     */
+    checkAltTextQuotes(html) {
+        const issues = [];
+
+        // Find all img tags
+        const imgTagRegex = /<img[^>]*>/gi;
+        const imgTags = html.match(imgTagRegex) || [];
+
+        for (let index = 0; index < imgTags.length; index++) {
+            const imgTag = imgTags[index];
+
+            // Check for the signature pattern "="" which indicates a broken attribute
+            if (imgTag.includes('"=""')) {
+                // Extract image src for identification
+                const srcMatch = imgTag.match(/src="([^"]+)"/);
+                let imageName = 'Unknown';
+                if (srcMatch && srcMatch[1]) {
+                    const url = srcMatch[1];
+                    const urlParts = url.split('/');
+                    imageName = urlParts[urlParts.length - 1];
+                    imageName = decodeURIComponent(imageName);
+                }
+
+                // Extract the problematic section
+                const altMatch = imgTag.match(/alt="[^"]*"[^>]{0,100}/);
+                const altSnippet = altMatch ? altMatch[0] : imgTag.substring(0, 100);
+
+                issues.push({
+                    type: 'alt-text-quotes',
+                    severity: 'error',
+                    message: `Image #${index + 1} has double-quotes in alt text (breaks HTML structure)`,
+                    imageName: imageName,
+                    altSnippet: altSnippet,
+                    element: imgTag.substring(0, 150) + '...',
+                    note: 'The quote character closes the alt attribute prematurely, potentially breaking images.'
+                });
+            }
+        }
+
+        return issues;
+    },
+
+    // Placeholder for future validation rules
+    // checkMissingAltText(html) { },
+    // checkBrokenLinks(html) { },
+
+    /**
+     * Run all HTML validation checks
+     */
+    validate(html) {
+        if (!html) {
+            return {
+                success: false,
+                issues: [{
+                    type: 'no-html',
+                    severity: 'warning',
+                    message: 'No HTML content found to validate'
+                }]
+            };
+        }
+
+        log('Running HTML validation checks...');
+
+        const allIssues = [];
+
+        // Run checkAltTextQuotes
+        try {
+            const altQuoteIssues = this.checkAltTextQuotes(html);
+            if (altQuoteIssues && altQuoteIssues.length > 0) {
+                allIssues.push(...altQuoteIssues);
+            }
+        } catch (error) {
+            log('Error running HTML validation:', error);
+        }
+
+        // Add more validation rules here as methods are created
+        // const missingAltIssues = this.checkMissingAltText(html);
+        // allIssues.push(...missingAltIssues);
+
+        return {
+            success: allIssues.length === 0,
+            issues: allIssues,
+            totalChecks: 1 // Update as you add more checks
+        };
+    },
+
+    /**
+     * Perform HTML scan and return results
+     */
+    scan() {
+        const html = this.getHtml();
+
+        if (!html) {
+            log('No HTML available for scanning');
+            return null;
+        }
+
+        // Only re-validate if HTML has changed
+        if (html === this.lastHtml) {
+            log('HTML unchanged, skipping validation');
+            return null;
+        }
+
+        this.lastHtml = html;
+        log(`HTML detected, running validation (${html.length} characters)`);
+
+        return this.validate(html);
+    }
+};
 
     // Load configuration
     function loadConfig() {
@@ -263,6 +419,7 @@
                 border-radius: 4px;
                 font-size: 12px;
                 gap: 6px;
+                min-width: 170px;
             }
 
             .validation-success {
@@ -409,6 +566,88 @@
 width: 100% !important;
 }
 
+.validation-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+    margin-left: auto;
+}
+
+.validation-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.toggle-icon {
+    transition: transform 0.2s;
+}
+
+.validation-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.validation-message-text {
+    flex: 1;
+}
+
+.validation-details {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.validation-details-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.issue-item {
+    background: rgba(0, 0, 0, 0.03);
+    padding: 6px 8px;
+    border-radius: 3px;
+    border-left: 2px solid rgba(133, 100, 4, 0.3);
+}
+
+.issue-message {
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.issue-image-name {
+    font-size: 10px;
+    opacity: 0.9;
+    margin-top: 4px;
+    color: #856404;
+    font-weight: 600;
+}
+
+.issue-code {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 4px 6px;
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.issue-note {
+    font-size: 10px;
+    opacity: 0.85;
+    margin-top: 4px;
+    font-style: italic;
+}
+
         `;
 
         style.innerHTML = css;
@@ -531,6 +770,15 @@ width: 100% !important;
                     <label for="customRateLimit">Max number of sends <b>per minute</b></label>
                 </div>
             </div>
+
+            <div class="config-section">
+    <h3 style="color: #555;">HTML Content Validation</h3>
+    <div class="config-toggle">
+        <input type="checkbox" id="htmlScanCheck" ${config.htmlScan?.enabled !== false ? 'checked' : ''}>
+        <label for="htmlScanCheck">Enable HTML content validation</label>
+    </div>
+    <p style="color: #666; font-size: 12px; margin: 8px 0 0 0;">Scans email HTML for structural issues like broken alt text attributes.</p>
+</div>
 
             <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
                 <button id="saveSettings" style="background: #2196F3; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer;">Save Settings</button>
@@ -677,6 +925,9 @@ width: 100% !important;
             }
         });
 
+        config.htmlScan = config.htmlScan || {};
+        config.htmlScan.enabled = modal.querySelector('#htmlScanCheck').checked;
+
         saveConfig();
         modal.remove();
         log('Settings saved');
@@ -816,34 +1067,120 @@ function updateRateLimitDisplay(attempts = 0, maxAttempts = 40) {
     }
 }
 
-    // Display warning/success message to the right of an element
-    function displayValidationMessage(targetElement, message, isSuccess = false) {
-        // Remove existing validation messages for this element
-        const parent = targetElement.closest('[data-test="form-field"]');
-        if (!parent) return;
+// Display warning/success message to the right of an element
+function displayValidationMessage(targetElement, message, isSuccess = false, details = null, validationType = null) {
+    // Remove existing validation messages for this element
+    let parent = targetElement.closest('[data-test="form-field"]');
+    if (validationType == 'htmlScan'){
+        parent = targetElement.closest('.sc-hhbVUl'); //backup for html scannerue
+    }
 
-        const existing = parent.querySelector('.validation-warning, .validation-success');
-        if (existing) {
-            existing.remove();
-        }
+    if (!parent) return
 
-        // If message is null/empty, just clear existing messages and return
-        if (!message) return;
+    const existing = parent.querySelector('.validation-warning, .validation-success');
+    if (existing) {
+        existing.remove();
+    }
 
-        const messageEl = document.createElement('div');
-        messageEl.className = isSuccess ? 'validation-success' : 'validation-warning';
-        messageEl.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                ${isSuccess ?
-                    '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>' :
-                    '<path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>'
-                }
-            </svg>
-            ${message}
+    // If message is null/empty, just clear existing messages and return
+    if (!message)return;
+
+    const messageEl = document.createElement('div');
+    messageEl.className = isSuccess ? 'validation-success' : 'validation-warning';
+
+    // Basic message HTML
+    let messageHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            ${isSuccess ?
+                '<path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>' :
+                '<path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>'
+            }
+        </svg>
+        <span class="validation-message-text">${message}</span>
+    `;
+
+
+
+    // Add expandable details section if provided (for HTML validation)
+    if (details && details.issues && details.issues.length > 0) {
+        messageHTML += `
+            <button class="validation-toggle" aria-label="Toggle details">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" class="toggle-icon">
+                    <path d="M7 10l5 5 5-5z"/>
+                </svg>
+            </button>
         `;
 
+        messageEl.innerHTML = `<div class="validation-summary">${messageHTML}</div>`;
+
+        // Build details section
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'validation-details';
+        detailsDiv.style.display = 'none';
+
+        let detailsHTML = '<div class="validation-details-list">';
+
+        details.issues.forEach(issue => {
+            detailsHTML += `<div class="issue-item">`;
+            detailsHTML += `<div class="issue-message">• ${escapeHtml(issue.message)}</div>`;
+
+            if (issue.imageName) {
+                detailsHTML += `<div class="issue-image-name">📷 ${escapeHtml(issue.imageName)}</div>`;
+            }
+
+            if (issue.altSnippet) {
+                detailsHTML += `<div class="issue-code">${escapeHtml(issue.altSnippet)}</div>`;
+            }
+
+            if (issue.note) {
+                detailsHTML += `<div class="issue-note">ℹ️ ${escapeHtml(issue.note)}</div>`;
+            }
+
+            detailsHTML += `</div>`;
+        });
+
+        detailsHTML += '</div>';
+        detailsDiv.innerHTML = detailsHTML;
+
+        messageEl.appendChild(detailsDiv);
+
+        // Add toggle functionality
+        const toggleBtn = messageEl.querySelector('.validation-toggle');
+        const toggleIcon = messageEl.querySelector('.toggle-icon');
+
+        toggleBtn.addEventListener('click', () => {
+            const isVisible = detailsDiv.style.display !== 'none';
+            detailsDiv.style.display = isVisible ? 'none' : 'block';
+            toggleIcon.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+    } else {
+        // Simple message without details
+        messageEl.innerHTML = messageHTML;
+    }
+
+
+    if(validationType == 'htmlScan'){
+        const editButtonSection = parent.querySelector('[data-test="content-edit-button-tooltip-test-id"]');
+
+        if (editButtonSection) {
+            // Insert before the edit button section
+            parent.insertBefore(messageEl, editButtonSection);
+        } else {
+            // Fallback: append at the end if we can't find the edit section
+            parent.appendChild(messageEl);
+        }
+    }
+    else {
         targetElement.parentElement.appendChild(messageEl);
     }
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
     // Validate seed lists
     function validateSeedLists() {
@@ -992,6 +1329,78 @@ function updateRateLimitDisplay(attempts = 0, maxAttempts = 40) {
         }
     }
 
+    // Validate HTML content in email
+function validateHtmlContent() {
+    console.log('config: ', config)
+    if (!config.htmlScan) {
+        config.htmlScan = {
+            enabled: true,
+            iframeCheck_interval: 1500,
+            iframeSelector: '[data-test="secure-iframe-full-doc"]',
+            contentSectionSelector: '[data-test="complete-step-Content"]'
+        }
+        log('HTML scanning config missing. Default created.');
+    }
+    if (!config.htmlScan.enabled) {
+        log('HTML scanning is disabled');
+        return;
+    }
+
+    const contentSection = document.querySelector(config.htmlScan.contentSectionSelector);
+    console.log('contentSection: ',contentSection);
+    if (!contentSection) {
+        log('Content section not found for HTML validation');
+        return;
+    }
+
+    log('Running HTML content validation');
+
+    const results = HtmlScanner.scan();
+    console.log('results: ', results);
+
+    if (!results) {
+        // No HTML available or unchanged
+        return;
+    }
+
+    if (results.success) {
+        displayValidationMessage(
+            contentSection,
+            `✓ HTML validation passed (${results.totalChecks} check${results.totalChecks > 1 ? 's' : ''})`,
+            true,
+            null,
+            'htmlScan'
+        );
+    } else {
+        const errorCount = results.issues.filter(i => i.severity === 'error').length;
+        const warningCount = results.issues.filter(i => i.severity === 'warning').length;
+
+        let message = errorCount > 0 ? `Found ${errorCount} HTML error(s)` : '';
+        if (warningCount > 0) {
+            message += (message ? ', ' : 'Found ') + `${warningCount} warning(s)`;
+        }
+
+        displayValidationMessage(
+            contentSection,
+            message,
+            false,
+            results, // Pass full results for details expansion
+            'htmlScan'
+        );
+
+        // Log to console for debugging
+        if (!results.success) {
+            console.group('[Campaign Enhancement] HTML Validation Issues');
+            results.issues.forEach(issue => {
+                console.warn(`[${issue.severity.toUpperCase()}] ${issue.message}`);
+                if (issue.imageName) console.log('Image:', issue.imageName);
+                if (issue.altSnippet) console.log('Snippet:', issue.altSnippet);
+            });
+            console.groupEnd();
+        }
+    }
+}
+
     // Run all validations
     function runValidations() {
         log('Running all validations');
@@ -1000,6 +1409,7 @@ function updateRateLimitDisplay(attempts = 0, maxAttempts = 40) {
             validateSeedLists();
             validateSuppressionLists();
             validateSubjectLine()
+            validateHtmlContent();
             //validatePreviewText()
         }, 1000);
     }
