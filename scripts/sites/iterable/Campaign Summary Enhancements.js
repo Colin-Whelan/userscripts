@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.4.1
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
 // @grant        GM_registerMenuCommand
@@ -1366,7 +1366,7 @@ function validateHtmlContent() {
     if (results.success) {
         displayValidationMessage(
             contentSection,
-            `✓ HTML validation passed (${results.totalChecks} check${results.totalChecks > 1 ? 's' : ''})`,
+            `HTML validation passed (${results.totalChecks} check${results.totalChecks > 1 ? 's' : ''})`,
             true,
             null,
             'htmlScan'
