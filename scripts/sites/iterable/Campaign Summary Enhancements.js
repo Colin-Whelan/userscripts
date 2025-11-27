@@ -227,7 +227,6 @@ const HtmlScanner = {
                 loadedConfig.seedListKeyword = "Seed";
             }
 
-            // ADD THIS: Ensure rateLimitsByMessageType exists
             if (!loadedConfig.rateLimitsByMessageType) {
                 loadedConfig.rateLimitsByMessageType = {};
             }
@@ -1067,20 +1066,28 @@ function updateRateLimitDisplay(attempts = 0, maxAttempts = 40) {
     }
 }
 
-// Display warning/success message to the right of an element
-function displayValidationMessage(targetElement, message, isSuccess = false, details = null, validationType = null) {
-    // Remove existing validation messages for this element
-    let parent = targetElement.closest('[data-test="form-field"]');
-    if (validationType == 'htmlScan'){
-        parent = targetElement.closest('.sc-hhbVUl'); //backup for html scannerue
-    }
-
-    if (!parent) return
-
+// Helper function to clear existing validation messages
+function clearValidationMessages(parent) {
     const existing = parent.querySelector('.validation-warning, .validation-success');
     if (existing) {
         existing.remove();
     }
+}
+
+// Display warning/success message to the right of an element
+function displayValidationMessage(targetElement, message, isSuccess = false, details = null, validationType = null) {
+    let parent;
+    switch(validationType) {
+        case 'htmlScan':
+            parent = targetElement.closest('.sc-hhbVUl');
+            break;
+        default:
+            parent = targetElement.closest('[data-test="form-field"]');
+    }
+
+    if (!parent) return
+
+    clearValidationMessages(parent)
 
     // If message is null/empty, just clear existing messages and return
     if (!message)return;
@@ -1331,7 +1338,6 @@ function escapeHtml(text) {
 
     // Validate HTML content in email
 function validateHtmlContent() {
-    console.log('config: ', config)
     if (!config.htmlScan) {
         config.htmlScan = {
             enabled: true,
@@ -1347,7 +1353,6 @@ function validateHtmlContent() {
     }
 
     const contentSection = document.querySelector(config.htmlScan.contentSectionSelector);
-    console.log('contentSection: ',contentSection);
     if (!contentSection) {
         log('Content section not found for HTML validation');
         return;
@@ -1356,7 +1361,6 @@ function validateHtmlContent() {
     log('Running HTML content validation');
 
     const results = HtmlScanner.scan();
-    console.log('results: ', results);
 
     if (!results) {
         // No HTML available or unchanged
@@ -1410,6 +1414,7 @@ function validateHtmlContent() {
             validateSuppressionLists();
             validateSubjectLine()
             validateHtmlContent();
+            updateRateLimitDisplay();
             //validatePreviewText()
         }, 1000);
     }
@@ -2508,7 +2513,6 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
                 log('Creating new schedule preview UI');
                 schedulePreviewUI = createSchedulePreviewUI(notLaunchedElement);
                 button.style.display = 'none'
-                // Note: Button text stays the same - status is shown in the right column
             }
         });
 
@@ -2523,6 +2527,7 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
 
         // Add CSS overrides first
         addCSSOverrides();
+
 
         if (!isOnSummaryView()) {
             log('Not on summary view, skipping initialization');
@@ -2614,7 +2619,6 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
     GM_registerMenuCommand('Campaign Enhancement Settings', createSettingsModal);
 
     initialize();
-    updateRateLimitDisplay();
 
     // Handle SPA navigation
     let lastUrl = location.href;
