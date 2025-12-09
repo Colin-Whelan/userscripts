@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Indigo Navigation Link Finder
 // @namespace    http://tampermonkey.net/
-// @version      2.3
+// @version      2.4
 // @description  Search and find nested navigation links on Indigo.ca
 // @author       You
 // @match        https://www.indigo.ca/*
@@ -660,118 +660,198 @@
     }
 
     // Modify extractLinks to add tags
-    function extractLinks(container) {
-        log('[Indigo Nav Finder] Extracting links...');
-        log('[Indigo Nav Finder] Container:', container);
+function extractLinks(container) {
+    log('[Indigo Nav Finder] Extracting links...');
+    log('[Indigo Nav Finder] Container:', container);
 
-        const links = [];
-        let processedCount = 0;
+    const links = [];
+    let processedCount = 0;
 
-        function traverse(element, path = [], depth = 0) {
-            log(`[Indigo Nav Finder] Traversing at depth ${depth}, path:`, path);
+    function traverse(element, path = [], depth = 0) {
+        log(`[Indigo Nav Finder] Traversing at depth ${depth}, path:`, path);
 
-            const items = element.querySelectorAll(':scope > li');
-            log(`[Indigo Nav Finder] Found ${items.length} list items at depth ${depth}`);
+        const items = element.querySelectorAll(':scope > li');
+        log(`[Indigo Nav Finder] Found ${items.length} list items at depth ${depth}`);
 
-            items.forEach((item, index) => {
-                const link = item.querySelector(':scope > a');
+        items.forEach((item, index) => {
+            const link = item.querySelector(':scope > a');
 
-                if (!link) {
-                    log(`[Indigo Nav Finder] No link found in item ${index}`);
-                    return;
-                }
+            if (!link) {
+                log(`[Indigo Nav Finder] No link found in item ${index}`);
+                return;
+            }
 
-                const text = (link.querySelector('span')?.textContent || link.textContent).trim();
-                const href = link.getAttribute('href');
+            const text = (link.querySelector('span')?.textContent || link.textContent).trim();
+            const href = link.getAttribute('href');
 
-                log(`[Indigo Nav Finder] Processing link ${processedCount++}:`, {
-                    text,
-                    href,
-                    path: path.join(' > ')
-                });
+            log(`[Indigo Nav Finder] Processing link ${processedCount++}:`, {
+                text,
+                href,
+                path: path.join(' > ')
+            });
 
-                if (!href || href === '#' || href.startsWith('javascript:')) {
-                    log('[Indigo Nav Finder] Skipping link (invalid href), checking for submenu...');
-
-                    const submenu = item.querySelector('ul.dropdown-menu, ul.level-2, ul.level-3');
-                    if (submenu) {
-                        log('[Indigo Nav Finder] Found submenu, traversing...');
-                        traverse(submenu, [...path, text], depth + 1);
-                    }
-                    return;
-                }
-
-                const cleanText = text.replace(/\s+/g, ' ').replace(/\t/g, '').trim();
-                const cleanHref = href.replace(/[\t\n\r]/g, '').replace(/\s+/g, '').trim();
-
-                let fullUrl = cleanHref;
-                if (!cleanHref.startsWith('http')) {
-                    fullUrl = cleanHref.startsWith('/')
-                        ? `https://www.indigo.ca${cleanHref}`
-                    : `https://www.indigo.ca/${cleanHref}`;
-                }
-
-                const linkData = {
-                    path: path.join(' > '),
-                    text: cleanText,
-                    url: fullUrl
-                };
-
-                // Add tags if on French site
-                if (isFrenchSite()) {
-                    // Extract tags from both path and text
-                    const pathTags = linkData.path ? extractTags(linkData.path) : [];
-                    const textTags = extractTags(linkData.text);
-
-                    // Combine and deduplicate tags
-                    const allTags = [...new Set([...pathTags, ...textTags])];
-
-                    if (allTags.length > 0) {
-                        linkData.tags = allTags;
-                        linkData.tagsDisplay = formatTags(allTags);
-                    }
-
-                    log('[Indigo Nav Finder] Extracted tags:', allTags);
-                }
-
-                links.push(linkData);
-                log('[Indigo Nav Finder] Added link:', linkData);
+            if (!href || href === '#' || href.startsWith('javascript:')) {
+                log('[Indigo Nav Finder] Skipping link (invalid href), checking for submenu...');
 
                 const submenu = item.querySelector('ul.dropdown-menu, ul.level-2, ul.level-3');
                 if (submenu) {
-                    log('[Indigo Nav Finder] Found submenu after link, traversing...');
-                    traverse(submenu, [...path, cleanText], depth + 1);
+                    log('[Indigo Nav Finder] Found submenu, traversing...');
+                    traverse(submenu, [...path, text], depth + 1);
                 }
-            });
-        }
-
-        // Try multiple selectors to find the navigation
-        const selectors = [
-            '.navbar-nav.level-1',
-            'ul.level-1[role="menu"]',
-            '[data-a8n="header_l1-categories-menu__panel"] ul.level-1',
-            '.menu-group ul.level-1'
-        ];
-
-        let navList = null;
-        for (const selector of selectors) {
-            navList = container.querySelector(selector);
-            if (navList) {
-                log(`[Indigo Nav Finder] Found navigation with selector: ${selector}`);
-                break;
+                return;
             }
-        }
 
-        if (navList) {
-            traverse(navList);
-            log(`[Indigo Nav Finder] Extraction complete. Found ${links.length} links`);
-        } else {
-            logError('[Indigo Nav Finder] Could not find navigation list!');
-            log('[Indigo Nav Finder] Available elements:', container.innerHTML.substring(0, 500));
-        }
+            const cleanText = text.replace(/\s+/g, ' ').replace(/\t/g, '').trim();
+            const cleanHref = href.replace(/[\t\n\r]/g, '').replace(/\s+/g, '').trim();
 
-        return links;
+            let fullUrl = cleanHref;
+            if (!cleanHref.startsWith('http')) {
+                fullUrl = cleanHref.startsWith('/')
+                    ? `https://www.indigo.ca${cleanHref}`
+                : `https://www.indigo.ca/${cleanHref}`;
+            }
+
+            const linkData = {
+                path: path.join(' > '),
+                text: cleanText,
+                url: fullUrl
+            };
+
+            // Add tags if on French site
+            if (isFrenchSite()) {
+                // Extract tags from both path and text
+                const pathTags = linkData.path ? extractTags(linkData.path) : [];
+                const textTags = extractTags(linkData.text);
+
+                // Combine and deduplicate tags
+                const allTags = [...new Set([...pathTags, ...textTags])];
+
+                if (allTags.length > 0) {
+                    linkData.tags = allTags;
+                    linkData.tagsDisplay = formatTags(allTags);
+                }
+
+                log('[Indigo Nav Finder] Extracted tags:', allTags);
+            }
+
+            links.push(linkData);
+            log('[Indigo Nav Finder] Added link:', linkData);
+
+            const submenu = item.querySelector('ul.dropdown-menu, ul.level-2, ul.level-3');
+            if (submenu) {
+                log('[Indigo Nav Finder] Found submenu after link, traversing...');
+                traverse(submenu, [...path, cleanText], depth + 1);
+            }
+        });
     }
+
+    // Try multiple selectors to find the navigation
+    const selectors = [
+        '.navbar-nav.level-1',
+        'ul.level-1[role="menu"]',
+        '[data-a8n="header_l1-categories-menu__panel"] ul.level-1',
+        '.menu-group ul.level-1'
+    ];
+
+    let navList = null;
+    for (const selector of selectors) {
+        navList = container.querySelector(selector);
+        if (navList) {
+            log(`[Indigo Nav Finder] Found navigation with selector: ${selector}`);
+            break;
+        }
+    }
+
+    if (navList) {
+        // Get all level-1 items
+        const level1Items = navList.querySelectorAll(':scope > li.nav-item.dropdown');
+
+        level1Items.forEach(level1Item => {
+            const level1Link = level1Item.querySelector(':scope > a');
+            if (!level1Link) return;
+
+            const level1Text = (level1Link.querySelector('span')?.textContent || level1Link.textContent).trim();
+
+            // Find the level-2 menu
+            const level2Menu = level1Item.querySelector('.dropdown-menu.level-2');
+            if (!level2Menu) return;
+
+            // Find the cat-nav-wrapper which contains all columns
+            const catNavWrapper = level2Menu.querySelector('.cat-nav-wrapper');
+            if (!catNavWrapper) {
+                // Fallback: if no cat-nav-wrapper, try processing level-2 directly
+                traverse(level2Menu, [level1Text], 1);
+                return;
+            }
+
+            // Process ALL custom columns
+            const columns = catNavWrapper.querySelectorAll('.custom-column');
+            log(`[Indigo Nav Finder] Found ${columns.length} columns for ${level1Text}`);
+
+            columns.forEach((column, columnIndex) => {
+                log(`[Indigo Nav Finder] Processing column ${columnIndex + 1} for ${level1Text}`);
+
+                // Each column has its own list items
+                const columnItems = column.querySelectorAll(':scope > li.dropdown-item');
+
+                columnItems.forEach(columnItem => {
+                    const columnLink = columnItem.querySelector(':scope > a');
+                    if (!columnLink) return;
+
+                    const columnText = (columnLink.querySelector('span')?.textContent || columnLink.textContent).trim();
+
+                    // Check if this is a category header (has level-3 submenu)
+                    const level3Menu = columnItem.querySelector('ul.level-3');
+                    if (level3Menu) {
+                        // This is a category header, traverse its submenu
+                        traverse(level3Menu, [level1Text, columnText], 2);
+                    } else {
+                        // This is a direct link at level 2
+                        const href = columnLink.getAttribute('href');
+                        if (href && href !== '#' && !href.startsWith('javascript:')) {
+                            const cleanText = columnText.replace(/\s+/g, ' ').replace(/\t/g, '').trim();
+                            const cleanHref = href.replace(/[\t\n\r]/g, '').replace(/\s+/g, '').trim();
+
+                            let fullUrl = cleanHref;
+                            if (!cleanHref.startsWith('http')) {
+                                fullUrl = cleanHref.startsWith('/')
+                                    ? `https://www.indigo.ca${cleanHref}`
+                                    : `https://www.indigo.ca/${cleanHref}`;
+                            }
+
+                            const linkData = {
+                                path: level1Text,
+                                text: cleanText,
+                                url: fullUrl
+                            };
+
+                            // Add tags if on French site
+                            if (isFrenchSite()) {
+                                const pathTags = extractTags(linkData.path);
+                                const textTags = extractTags(linkData.text);
+                                const allTags = [...new Set([...pathTags, ...textTags])];
+
+                                if (allTags.length > 0) {
+                                    linkData.tags = allTags;
+                                    linkData.tagsDisplay = formatTags(allTags);
+                                }
+                            }
+
+                            links.push(linkData);
+                        }
+                    }
+                });
+            });
+        });
+
+        log(`[Indigo Nav Finder] Extraction complete. Found ${links.length} links`);
+    } else {
+        logError('[Indigo Nav Finder] Could not find navigation list!');
+        log('[Indigo Nav Finder] Available elements:', container.innerHTML.substring(0, 500));
+    }
+
+    return links;
+}
 
     // Improved fuzzy search - matches characters in order anywhere in the string
     function fuzzyMatch(str, pattern) {
@@ -847,11 +927,11 @@
                 { name: 'tags', weight: 0.2 },      // Search by tags applied
                 { name: 'url', weight: 0.15 }        // Finally URL
             ],
-            threshold: 0.3,                         // 0 = perfect match, 1 = match anything
+            threshold: 0.2,                         // 0 = perfect match, 1 = match anything
             includeScore: true,
             ignoreLocation: true,                   // Match anywhere in string
             minMatchCharLength: 2,                  // Require at least N characters
-            distance: 50,                           // How far to search for pattern
+            distance: 20,                           // How far to search for pattern
             ignoreDiacritics: true,                 // Ignore accents
             useExtendedSearch: false
         });
@@ -908,6 +988,7 @@
         }
         return str.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
     }
+
 
     // Create UI
     function createUI() {
