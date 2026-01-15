@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Templates - Image Path Selector
+// @name         Iterable Image Path Selector
 // @namespace    https://github.com/ColinWhelan
-// @version      1.0.0
+// @version      2.0.0
 // @description  Custom folder navigator and image selector for Iterable template editor
 // @author       Colin Whelan
 // @match        https://app.iterable.com/templates/editor*
@@ -19,6 +19,7 @@
     const CONFIG = {
         // API Settings
         API_ENDPOINT: 'https://app.iterable.com/graphql',
+        UPLOAD_ENDPOINT: 'https://app.iterable.com/i/assetManager/images',
         FETCH_LIMIT: 9999,
 
         // Pagination
@@ -32,6 +33,7 @@
         STORAGE_LAST_FOLDER: 'iterableImageSelector_lastFolderId',
         STORAGE_SORT_BY: 'iterableImageSelector_sortBy',
         STORAGE_SORT_DIR: 'iterableImageSelector_sortDirection',
+        STORAGE_ITEMS_PER_PAGE: 'iterableImageSelector_itemsPerPage',
 
         // Selectors
         TARGET_SELECTOR: '[data-test="basic-select-email-editor-view"]',
@@ -55,7 +57,19 @@
         ],
 
         // Image Filters (only show these types)
-        IMAGE_MIME_TYPES: ['PNG', 'JPEG', 'GIF', 'WEBP', 'SVG']
+        IMAGE_MIME_TYPES: ['PNG', 'JPEG', 'GIF', 'WEBP', 'SVG'],
+
+        // Folder Name Validation
+        FOLDER_NAME_MIN_LENGTH: 1,
+        FOLDER_NAME_MAX_LENGTH: 100,
+        FOLDER_NAME_BLOCKED_CHARS: ['"', "'", '\\', '/', ','],
+
+        // Items Per Page Options
+        ITEMS_PER_PAGE_OPTIONS: [20, 30, 50, 100],
+
+        // Upload Settings
+        ACCEPTED_FILE_TYPES: '.png,.jpg,.jpeg,.gif,.webp,.svg',
+        ACCEPTED_MIME_TYPES: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']
     };
 
     // ============================================
@@ -98,6 +112,12 @@
         },
         setSortDirection(direction) {
             GM_setValue(CONFIG.STORAGE_SORT_DIR, direction);
+        },
+        getItemsPerPage() {
+    return GM_getValue(CONFIG.STORAGE_ITEMS_PER_PAGE, CONFIG.ITEMS_PER_PAGE);
+        },
+        setItemsPerPage(count) {
+            GM_setValue(CONFIG.STORAGE_ITEMS_PER_PAGE, count);
         }
     };
 
@@ -105,6 +125,72 @@
     // API SERVICE
     // ============================================
     const APIService = {
+        async createFolder(folderName, parentFolderId = null) {
+            const response = await fetch(CONFIG.API_ENDPOINT, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-xsrf-token': CookieUtils.getXsrfToken()
+                },
+                body: JSON.stringify({
+                    operationName: 'CreateAssetFolder',
+                    variables: {
+                        name: folderName,
+                        locationId: parentFolderId
+                    },
+                    query: `mutation CreateAssetFolder($name: String!, $locationId: Long) {
+                        createAssetFolder(name: $name, locationId: $locationId)
+                    }`
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.errors && data.errors.length > 0) {
+                throw new Error(data.errors[0].message || 'Failed to create folder');
+            }
+
+            return { success: true, folderId: data?.data?.createAssetFolder };
+        },
+
+        async uploadImage({ assetName, altText, height, width, source, destinationFolderId }) {
+            const bodyData = {
+                assetName,
+                height,
+                width,
+                source,
+                destinationFolderId
+            };
+
+            // Only include altText if provided
+            if (altText) {
+                bodyData.altText = altText;
+            }
+
+            const response = await fetch(CONFIG.UPLOAD_ENDPOINT, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*',
+                    'X-XSRF-TOKEN': CookieUtils.getXsrfToken()
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+            }
+
+            return await response.json();
+        },
+
         async fetchFolderContents(folderId = null, sortBy = 'UpdatedAt', sortDirection = 'Descending') {
             const variables = {
                 folderId: folderId,
@@ -272,6 +358,65 @@
                 console.error('Failed to copy:', err);
                 return false;
             }
+        },
+
+        readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(file);
+            });
+        },
+
+        getImageDimensions(base64Data) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve({ width: img.width, height: img.height });
+                img.onerror = () => reject(new Error('Failed to load image'));
+                img.src = base64Data;
+            });
+        },
+
+        getFileNameWithoutExtension(fileName) {
+            const lastDot = fileName.lastIndexOf('.');
+            return lastDot > 0 ? fileName.substring(0, lastDot) : fileName;
+        },
+
+        getFileExtension(fileName) {
+            const lastDot = fileName.lastIndexOf('.');
+            return lastDot > 0 ? fileName.substring(lastDot) : '';
+        },
+
+        stripBase64Prefix(base64Data) {
+            // Remove data URL prefix for any image type: data:image/png;base64, data:image/jpeg;base64, etc.
+            return base64Data.replace(/^data:image\/[^;]+;base64,/, '');
+        }
+    };
+
+    // ============================================
+    // VALIDATION UTILS
+    // ============================================
+    const ValidationUtils = {
+        validateFolderName(name) {
+            const trimmedName = name.trim();
+
+            if (trimmedName.length < CONFIG.FOLDER_NAME_MIN_LENGTH) {
+                return { valid: false, error: 'Folder name cannot be empty' };
+            }
+
+            if (trimmedName.length > CONFIG.FOLDER_NAME_MAX_LENGTH) {
+                return { valid: false, error: `Folder name cannot exceed ${CONFIG.FOLDER_NAME_MAX_LENGTH} characters` };
+            }
+
+            for (const char of CONFIG.FOLDER_NAME_BLOCKED_CHARS) {
+                if (trimmedName.includes(char)) {
+                    const charDisplay = char === ' ' ? 'space' : `"${char}"`;
+                    return { valid: false, error: `Folder name cannot contain ${charDisplay}` };
+                }
+            }
+
+            return { valid: true, name: trimmedName };
         }
     };
 
@@ -298,7 +443,7 @@
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.2s ease;
-                    margin-left: 12px;
+                    margin: auto 1rem auto auto;
                 }
                 .image-selector-btn:hover {
                     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
@@ -429,7 +574,7 @@
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    border: 1px solid #d1d5db;
+                    background: #f3f4f6;
                     border-radius: 6px;
                     padding: 6px 12px;
                     min-width: 200px;
@@ -483,6 +628,7 @@
                     overflow-y: auto;
                     padding: 20px;
                     background: #f9fafb;
+                    position: relative;
                 }
 
                 /* Loading State */
@@ -713,6 +859,411 @@
                     background: #ef4444;
                     color: white;
                 }
+
+                /* New Folder Button */
+                .image-selector-new-folder-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 12px;
+                    background: #f3f4f6;
+                    color: #374151;
+                    border: 1px solid #d1d5db;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .image-selector-new-folder-btn:hover {
+                    background: #e5e7eb;
+                    border-color: #9ca3af;
+                }
+                .image-selector-new-folder-btn svg {
+                    width: 16px;
+                    height: 16px;
+                }
+
+                /* Folder Creation Dialog (inline in toolbar) */
+                .image-selector-create-folder-dialog {
+                    display: none;
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                    right: 0;
+                    background: white;
+                    border-bottom: 1px solid #e5e7eb;
+                    padding: 16px 20px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    z-index: 10;
+                }
+                .image-selector-create-folder-dialog.image-selector-dialog-active {
+                    display: block;
+                }
+                .image-selector-create-folder-form {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 12px;
+                    max-width: 600px;
+                }
+                .image-selector-create-folder-input-wrapper {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .image-selector-create-folder-input {
+                    width: 100%;
+                    padding: 8px 12px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                }
+                .image-selector-create-folder-input:focus {
+                    outline: none;
+                    border-color: #6366f1;
+                    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+                }
+                .image-selector-create-folder-input.image-selector-input-error {
+                    border-color: #ef4444;
+                }
+                .image-selector-create-folder-input.image-selector-input-error:focus {
+                    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+                }
+                .image-selector-create-folder-error {
+                    color: #ef4444;
+                    font-size: 12px;
+                    margin-top: 4px;
+                    min-height: 18px;
+                }
+                .image-selector-create-folder-actions {
+                    display: flex;
+                    gap: 8px;
+                }
+                .image-selector-create-folder-actions button {
+                    padding: 8px 14px;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .image-selector-create-btn {
+                    background: #6366f1;
+                    color: white;
+                    border: none;
+                }
+                .image-selector-create-btn:hover:not(:disabled) {
+                    background: #4f46e5;
+                }
+                .image-selector-create-btn:disabled {
+                    background: #c7d2fe;
+                    cursor: not-allowed;
+                }
+                .image-selector-cancel-btn {
+                    background: #f3f4f6;
+                    color: #374151;
+                    border: 1px solid #d1d5db;
+                }
+                .image-selector-cancel-btn:hover {
+                    background: #e5e7eb;
+                }
+                .image-selector-toolbar-wrapper {
+                    position: relative;
+                }
+
+                /* Drag and Drop Overlay */
+                .image-selector-drop-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(139, 92, 246, 0.15);
+                    border: 3px dashed #8b5cf6;
+                    border-radius: 8px;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10;
+                    pointer-events: none;
+                }
+                .image-selector-drop-overlay.image-selector-drag-active {
+                    display: flex;
+                }
+                .image-selector-drop-text {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 12px;
+                    color: #7c3aed;
+                    font-size: 18px;
+                    font-weight: 600;
+                }
+                .image-selector-drop-text svg {
+                    width: 48px;
+                    height: 48px;
+                    opacity: 0.8;
+                }
+
+                /* Upload Button */
+                .image-selector-upload-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 12px;
+                    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .image-selector-upload-btn:hover {
+                    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+                    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+                }
+                .image-selector-upload-btn svg {
+                    width: 16px;
+                    height: 16px;
+                }
+
+                /* Skip Edit Checkbox */
+                .image-selector-skip-edit {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 12px;
+                    color: #6b7280;
+                    cursor: pointer;
+                    user-select: none;
+                }
+                .image-selector-skip-edit input[type="checkbox"] {
+                    width: 14px;
+                    height: 14px;
+                    cursor: pointer;
+                    accent-color: #8b5cf6;
+                }
+
+                /* Hidden File Input */
+                .image-selector-file-input {
+                    display: none;
+                }
+
+                /* Edit Modal Overlay */
+                .image-selector-edit-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.7);
+                    backdrop-filter: blur(4px);
+                    z-index: 100000;
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .image-selector-edit-overlay.image-selector-edit-active {
+                    display: flex;
+                }
+
+                /* Edit Modal */
+                .image-selector-edit-modal {
+                    width: 90vw;
+                    max-width: 900px;
+                    max-height: 85vh;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                }
+
+                .image-selector-edit-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #e5e7eb;
+                    background: #f9fafb;
+                }
+                .image-selector-edit-title {
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #111827;
+                    margin: 0;
+                }
+                .image-selector-edit-close {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: transparent;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    color: #6b7280;
+                    transition: all 0.15s ease;
+                }
+                .image-selector-edit-close:hover {
+                    background: #e5e7eb;
+                    color: #111827;
+                }
+
+                /* Edit Content */
+                .image-selector-edit-content {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 20px;
+                }
+
+                /* Image Edit Item */
+                .image-selector-edit-item {
+                    display: flex;
+                    gap: 16px;
+                    padding: 16px;
+                    background: #f9fafb;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    margin-bottom: 12px;
+                }
+                .image-selector-edit-item:last-child {
+                    margin-bottom: 0;
+                }
+                .image-selector-edit-preview {
+                    width: 120px;
+                    height: 120px;
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                }
+                .image-selector-edit-preview img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                }
+                .image-selector-edit-fields {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                }
+                .image-selector-edit-field {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+                .image-selector-edit-field label {
+                    font-size: 12px;
+                    font-weight: 500;
+                    color: #374151;
+                }
+                .image-selector-edit-field input {
+                    padding: 8px 12px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+                }
+                .image-selector-edit-field input:focus {
+                    outline: none;
+                    border-color: #8b5cf6;
+                    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+                }
+                .image-selector-edit-meta {
+                    font-size: 11px;
+                    color: #9ca3af;
+                }
+
+                /* Edit Footer */
+                .image-selector-edit-footer {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 16px 20px;
+                    border-top: 1px solid #e5e7eb;
+                    background: #f9fafb;
+                }
+                .image-selector-edit-info {
+                    font-size: 13px;
+                    color: #6b7280;
+                }
+                .image-selector-edit-actions {
+                    display: flex;
+                    gap: 12px;
+                }
+                .image-selector-edit-actions button {
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .image-selector-edit-cancel {
+                    background: #f3f4f6;
+                    color: #374151;
+                    border: 1px solid #d1d5db;
+                }
+                .image-selector-edit-cancel:hover {
+                    background: #e5e7eb;
+                }
+                .image-selector-edit-upload {
+                    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+                    color: white;
+                    border: none;
+                }
+                .image-selector-edit-upload:hover:not(:disabled) {
+                    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+                }
+                .image-selector-edit-upload:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
+                /* Upload Progress */
+                .image-selector-upload-progress {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .image-selector-progress-bar {
+                    width: 200px;
+                    height: 6px;
+                    background: #e5e7eb;
+                    border-radius: 3px;
+                    overflow: hidden;
+                }
+                .image-selector-progress-fill {
+                    height: 100%;
+                    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+                    border-radius: 3px;
+                    transition: width 0.3s ease;
+                }
+                .image-selector-progress-text {
+                    font-size: 13px;
+                    color: #6b7280;
+                }
+
+                /* Content Wrapper */
+.image-selector-content-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
             `;
 
             const style = document.createElement('style');
@@ -734,6 +1285,18 @@
 
         folder: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+        </svg>`,
+
+        folderPlus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            <line x1="12" y1="11" x2="12" y2="17"/>
+            <line x1="9" y1="14" x2="15" y2="14"/>
+        </svg>`,
+
+        upload: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>`,
 
         close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -788,26 +1351,90 @@
             this.modal.className = 'image-selector-modal';
             this.modal.innerHTML = `
                 <div class="image-selector-header">
-                    <h2 class="image-selector-title">Select Image</h2>
-                    <button class="image-selector-close" title="Close">${Icons.close}</button>
-                </div>
-                <div class="image-selector-toolbar">
-                    <div class="image-selector-breadcrumbs"></div>
-                    <div class="image-selector-search">
-                        ${Icons.search}
-                        <input type="text" placeholder="Filter items..." />
-                    </div>
-                    <div class="image-selector-sort">
-                        <label>Sort:</label>
-                        <select class="sort-by"></select>
-                        <select class="sort-dir"></select>
-                    </div>
-                </div>
-                <div class="image-selector-content"></div>
-                <div class="image-selector-pagination"></div>
+    <h2 class="image-selector-title">Select Image</h2>
+    <button class="image-selector-close" title="Close">${Icons.close}</button>
+</div>
+<div class="image-selector-toolbar-wrapper">
+    <div class="image-selector-toolbar">
+        <div class="image-selector-breadcrumbs"></div>
+        <button class="image-selector-new-folder-btn" title="Create new folder">
+            ${Icons.folderPlus}
+            <span>New Folder</span>
+        </button>
+        <button class="image-selector-upload-btn" title="Upload images">
+            ${Icons.upload}
+            <span>Upload</span>
+        </button>
+        <label class="image-selector-skip-edit" title="Skip the edit step and upload files with original names">
+            <input type="checkbox" class="image-selector-skip-edit-checkbox" />
+            <span>Skip Edit</span>
+        </label>
+        <input type="file" class="image-selector-file-input" style="display:none;" multiple accept="${CONFIG.ACCEPTED_FILE_TYPES}" />
+        <div class="image-selector-search">
+            ${Icons.search}
+            <input type="text" placeholder="Filter items..." />
+        </div>
+<div class="image-selector-sort">
+    <label>Show:</label>
+    <select class="items-per-page"></select>
+    <label>Sort:</label>
+    <select class="sort-by"></select>
+    <select class="sort-dir"></select>
+</div>
+
+    </div>
+    <div class="image-selector-create-folder-dialog">
+        <div class="image-selector-create-folder-form">
+            <div class="image-selector-create-folder-input-wrapper">
+                <input
+                    type="text"
+                    class="image-selector-create-folder-input"
+                    placeholder="Enter folder name..."
+                    maxlength="${CONFIG.FOLDER_NAME_MAX_LENGTH}"
+                    autocomplete="off"
+                />
+                <div class="image-selector-create-folder-error"></div>
+            </div>
+            <div class="image-selector-create-folder-actions">
+                <button class="image-selector-cancel-btn">Cancel</button>
+                <button class="image-selector-create-btn">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="image-selector-content-wrapper">
+    <div class="image-selector-drop-overlay">
+        <div class="image-selector-drop-text">
+            ${Icons.upload}
+            <span>Drop images here to upload</span>
+        </div>
+    </div>
+    <div class="image-selector-content"></div>
+</div>
+<div class="image-selector-pagination"></div>
             `;
 
             this.overlay.appendChild(this.modal);
+
+            // Create edit modal overlay
+            this.editOverlay = document.createElement('div');
+            this.editOverlay.className = 'image-selector-edit-overlay';
+            this.editOverlay.innerHTML = `
+                <div class="image-selector-edit-modal">
+                    <div class="image-selector-edit-header">
+                        <h2 class="image-selector-edit-title">Edit Images Before Upload</h2>
+                        <button class="image-selector-edit-close" title="Close">${Icons.close}</button>
+                    </div>
+                    <div class="image-selector-edit-content"></div>
+                    <div class="image-selector-edit-footer">
+                        <div class="image-selector-edit-info"></div>
+                        <div class="image-selector-edit-actions">
+                            <button class="image-selector-edit-cancel">Cancel</button>
+                            <button class="image-selector-edit-upload">Upload All</button>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             // Cache elements
             this.contentArea = this.modal.querySelector('.image-selector-content');
@@ -816,6 +1443,28 @@
             this.sortBySelect = this.modal.querySelector('.sort-by');
             this.sortDirSelect = this.modal.querySelector('.sort-dir');
             this.paginationEl = this.modal.querySelector('.image-selector-pagination');
+            this.itemsPerPageSelect = this.modal.querySelector('.items-per-page');
+
+            // New folder dialog elements
+            this.newFolderBtn = this.modal.querySelector('.image-selector-new-folder-btn');
+            this.createFolderDialog = this.modal.querySelector('.image-selector-create-folder-dialog');
+            this.createFolderInput = this.modal.querySelector('.image-selector-create-folder-input');
+            this.createFolderError = this.modal.querySelector('.image-selector-create-folder-error');
+            this.createBtn = this.modal.querySelector('.image-selector-create-btn');
+            this.cancelCreateBtn = this.modal.querySelector('.image-selector-cancel-btn');
+
+            // Upload elements
+            this.uploadBtn = this.modal.querySelector('.image-selector-upload-btn');
+            this.skipEditCheckbox = this.modal.querySelector('.image-selector-skip-edit-checkbox');
+            this.fileInput = this.modal.querySelector('.image-selector-file-input');
+            this.dropOverlay = this.modal.querySelector('.image-selector-drop-overlay');
+
+            // Edit modal elements
+            this.editContent = this.editOverlay.querySelector('.image-selector-edit-content');
+            this.editInfo = this.editOverlay.querySelector('.image-selector-edit-info');
+            this.editCancelBtn = this.editOverlay.querySelector('.image-selector-edit-cancel');
+            this.editUploadBtn = this.editOverlay.querySelector('.image-selector-edit-upload');
+            this.editCloseBtn = this.editOverlay.querySelector('.image-selector-edit-close');
 
             // Setup close button
             this.modal.querySelector('.image-selector-close').addEventListener('click', () => {
@@ -838,6 +1487,16 @@
                 FolderNavigator.reload();
             });
 
+
+            // Setup new folder dialog
+            this.setupNewFolderDialog();
+
+            // Setup upload functionality
+            this.setupUpload();
+
+            // Setup drag and drop
+            this.setupDragDrop();
+
             // Keyboard handling
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && this.overlay.classList.contains('image-selector-active')) {
@@ -846,11 +1505,13 @@
             });
 
             document.body.appendChild(this.overlay);
+            document.body.appendChild(this.editOverlay);
         },
 
         populateSortOptions() {
             const currentSortBy = StorageManager.getSortBy();
             const currentSortDir = StorageManager.getSortDirection();
+            const currentItemsPerPage = StorageManager.getItemsPerPage();
 
             CONFIG.SORT_OPTIONS.forEach(opt => {
                 const option = document.createElement('option');
@@ -867,17 +1528,382 @@
                 option.selected = opt.value === currentSortDir;
                 this.sortDirSelect.appendChild(option);
             });
+
+            CONFIG.ITEMS_PER_PAGE_OPTIONS.forEach(count => {
+                const option = document.createElement('option');
+                option.value = count;
+                option.textContent = count;
+                option.selected = count === currentItemsPerPage;
+                this.itemsPerPageSelect.appendChild(option);
+            });
+
+            this.itemsPerPageSelect.addEventListener('change', () => {
+                StorageManager.setItemsPerPage(parseInt(this.itemsPerPageSelect.value, 10));
+                FolderNavigator.filterAndRender();
+            });
+        },
+
+        setupNewFolderDialog() {
+            // Toggle dialog on button click
+            this.newFolderBtn.addEventListener('click', () => {
+                this.toggleCreateFolderDialog(true);
+            });
+
+            // Cancel button
+            this.cancelCreateBtn.addEventListener('click', () => {
+                this.toggleCreateFolderDialog(false);
+            });
+
+            // Create button
+            this.createBtn.addEventListener('click', () => {
+                this.handleCreateFolder();
+            });
+
+            // Input events
+            this.createFolderInput.addEventListener('input', () => {
+                this.createFolderInput.classList.remove('image-selector-input-error');
+                this.createFolderError.textContent = '';
+            });
+
+            this.createFolderInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.handleCreateFolder();
+                } else if (e.key === 'Escape') {
+                    this.toggleCreateFolderDialog(false);
+                }
+            });
+        },
+
+        toggleCreateFolderDialog(show) {
+            if (show) {
+                this.createFolderDialog.classList.add('image-selector-dialog-active');
+                this.createFolderInput.value = '';
+                this.createFolderError.textContent = '';
+                this.createFolderInput.classList.remove('image-selector-input-error');
+                this.createBtn.disabled = false;
+                this.createBtn.textContent = 'Create';
+                setTimeout(() => this.createFolderInput.focus(), 50);
+            } else {
+                this.createFolderDialog.classList.remove('image-selector-dialog-active');
+            }
+        },
+
+        async handleCreateFolder() {
+            const validation = ValidationUtils.validateFolderName(this.createFolderInput.value);
+
+            if (!validation.valid) {
+                this.createFolderInput.classList.add('image-selector-input-error');
+                this.createFolderError.textContent = validation.error;
+                this.createFolderInput.focus();
+                return;
+            }
+
+            // Disable button and show loading state
+            this.createBtn.disabled = true;
+            this.createBtn.textContent = 'Creating...';
+
+            try {
+                const parentFolderId = FolderNavigator.currentFolderId;
+                const result = await APIService.createFolder(validation.name, parentFolderId);
+
+                console.log('[Image Selector] Created folder:', validation.name, 'ID:', result.folderId);
+
+                // Close dialog and show success
+                this.toggleCreateFolderDialog(false);
+                ToastManager.success(`Folder "${validation.name}" created!`);
+
+                // Reload current folder to show the new folder
+                await FolderNavigator.reload();
+            } catch (error) {
+                console.error('[Image Selector] Failed to create folder:', error);
+                this.createFolderError.textContent = error.message || 'Failed to create folder';
+                this.createFolderInput.classList.add('image-selector-input-error');
+                this.createBtn.disabled = false;
+                this.createBtn.textContent = 'Create';
+            }
+        },
+
+        // Upload functionality
+        pendingFiles: [],
+
+        setupUpload() {
+            // Upload button click
+            this.uploadBtn.addEventListener('click', () => {
+                this.fileInput.click();
+            });
+
+            // File input change
+            this.fileInput.addEventListener('change', async (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                // Reset input for future selections
+                this.fileInput.value = '';
+
+                // Process files
+                await this.handleFilesSelected(files);
+            });
+
+            // Edit modal buttons
+            this.editCloseBtn.addEventListener('click', () => this.closeEditModal());
+            this.editCancelBtn.addEventListener('click', () => this.closeEditModal());
+            this.editUploadBtn.addEventListener('click', () => this.handleUploadAll());
+
+            // Close edit modal on overlay click
+            this.editOverlay.addEventListener('click', (e) => {
+                if (e.target === this.editOverlay) {
+                    this.closeEditModal();
+                }
+            });
+
+            // Escape to close edit modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.editOverlay.classList.contains('image-selector-edit-active')) {
+                    this.closeEditModal();
+                }
+            });
+        },
+
+        setupDragDrop() {
+            let dragCounter = 0;
+
+            // Prevent default drag behaviors on the modal
+            this.modal.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dragCounter++;
+
+                // Only show overlay if dragging files
+                if (e.dataTransfer.types.includes('Files')) {
+                    this.dropOverlay.classList.add('image-selector-drag-active');
+                }
+            });
+
+            this.modal.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dragCounter--;
+
+                // Only hide when truly leaving the modal
+                if (dragCounter === 0) {
+                    this.dropOverlay.classList.remove('image-selector-drag-active');
+                }
+            });
+
+            this.modal.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            this.modal.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dragCounter = 0;
+                this.dropOverlay.classList.remove('image-selector-drag-active');
+
+                const files = Array.from(e.dataTransfer.files);
+                if (files.length > 0) {
+                    await this.handleFilesSelected(files);
+                }
+            });
+        },
+
+        async handleFilesSelected(files) {
+            // Filter valid image files
+            const validFiles = files.filter(file =>
+                CONFIG.ACCEPTED_MIME_TYPES.includes(file.type)
+            );
+
+            if (validFiles.length === 0) {
+                ToastManager.error('No valid image files selected');
+                return;
+            }
+
+            if (validFiles.length !== files.length) {
+                ToastManager.error(`${files.length - validFiles.length} file(s) skipped (unsupported format)`);
+            }
+
+            // Process files to get base64 and dimensions
+            this.pendingFiles = [];
+
+            for (const file of validFiles) {
+                try {
+                    const base64Data = await Utils.readFileAsBase64(file);
+                    const dimensions = await Utils.getImageDimensions(base64Data);
+                    const baseName = Utils.getFileNameWithoutExtension(file.name);
+                    const extension = Utils.getFileExtension(file.name);
+
+                    this.pendingFiles.push({
+                        originalName: file.name,
+                        assetName: file.name,
+                        baseName: baseName,
+                        extension: extension,
+                        altText: '',
+                        base64Data: base64Data,
+                        width: dimensions.width,
+                        height: dimensions.height,
+                        size: file.size
+                    });
+                } catch (error) {
+                    console.error('[Image Selector] Failed to process file:', file.name, error);
+                    ToastManager.error(`Failed to process: ${file.name}`);
+                }
+            }
+
+            if (this.pendingFiles.length === 0) {
+                return;
+            }
+
+            // Check if skip edit is enabled
+            if (this.skipEditCheckbox.checked) {
+                await this.uploadFiles(this.pendingFiles);
+            } else {
+                this.showEditModal();
+            }
+        },
+
+        showEditModal() {
+            // Build edit items HTML
+            const itemsHtml = this.pendingFiles.map((file, index) => `
+                <div class="image-selector-edit-item" data-index="${index}">
+                    <div class="image-selector-edit-preview">
+                        <img src="${file.base64Data}" alt="Preview" />
+                    </div>
+                    <div class="image-selector-edit-fields">
+                        <div class="image-selector-edit-field">
+                            <label>File Name</label>
+                            <input type="text" class="image-selector-edit-name" value="${file.baseName}" data-extension="${file.extension}" />
+                        </div>
+                        <div class="image-selector-edit-field">
+                            <label>Alt Text (optional)</label>
+                            <input type="text" class="image-selector-edit-alt" value="${file.altText}" placeholder="Describe the image..." />
+                        </div>
+                        <div class="image-selector-edit-meta">
+                            ${Utils.formatDimensions(file.width, file.height)} • ${Utils.formatFileSize(file.size)} • ${file.originalName}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            this.editContent.innerHTML = itemsHtml;
+            this.editInfo.textContent = `${this.pendingFiles.length} image${this.pendingFiles.length !== 1 ? 's' : ''} ready to upload`;
+            this.editUploadBtn.disabled = false;
+            this.editUploadBtn.textContent = 'Upload All';
+
+            this.editOverlay.classList.add('image-selector-edit-active');
+        },
+
+        closeEditModal() {
+            this.editOverlay.classList.remove('image-selector-edit-active');
+            this.pendingFiles = [];
+        },
+
+        async handleUploadAll() {
+            // Gather updated values from inputs
+            const items = this.editContent.querySelectorAll('.image-selector-edit-item');
+
+            items.forEach((item, index) => {
+                const nameInput = item.querySelector('.image-selector-edit-name');
+                const altInput = item.querySelector('.image-selector-edit-alt');
+                const extension = nameInput.dataset.extension;
+
+                // Update pending file with edited values
+                this.pendingFiles[index].assetName = nameInput.value.trim() + extension;
+                this.pendingFiles[index].altText = altInput.value.trim();
+            });
+
+            await this.uploadFiles(this.pendingFiles);
+        },
+
+        async uploadFiles(files, showEditModal = true) {
+            const destinationFolderId = FolderNavigator.currentFolderId;
+            const totalFiles = files.length;
+            let uploaded = 0;
+            let failed = 0;
+
+            // If edit modal is open, show progress there
+            const isEditModalOpen = this.editOverlay.classList.contains('image-selector-edit-active');
+
+            if (isEditModalOpen) {
+                // Update UI for upload progress in edit modal
+                this.editUploadBtn.disabled = true;
+                this.editInfo.innerHTML = `
+                    <div class="image-selector-upload-progress">
+                        <div class="image-selector-progress-bar">
+                            <div class="image-selector-progress-fill" style="width: 0%"></div>
+                        </div>
+                        <span class="image-selector-progress-text">Uploading 0/${totalFiles}...</span>
+                    </div>
+                `;
+            } else {
+                // Show toast for skip edit mode
+                ToastManager.success(`Uploading ${totalFiles} image${totalFiles !== 1 ? 's' : ''}...`);
+            }
+
+            const progressFill = isEditModalOpen ? this.editInfo.querySelector('.image-selector-progress-fill') : null;
+            const progressText = isEditModalOpen ? this.editInfo.querySelector('.image-selector-progress-text') : null;
+
+            for (const file of files) {
+                try {
+                    const uploadData = {
+                        assetName: file.assetName,
+                        height: file.height,
+                        width: file.width,
+                        source: Utils.stripBase64Prefix(file.base64Data),
+                        destinationFolderId: destinationFolderId
+                    };
+
+                    // Only include altText if it has been set
+                    if (file.altText && file.altText.trim()) {
+                        uploadData.altText = file.altText.trim();
+                    }
+
+                    await APIService.uploadImage(uploadData);
+                    uploaded++;
+                } catch (error) {
+                    console.error('[Image Selector] Upload failed:', file.assetName, error);
+                    failed++;
+                }
+
+                // Update progress if edit modal is open
+                if (isEditModalOpen && progressFill && progressText) {
+                    const progress = ((uploaded + failed) / totalFiles) * 100;
+                    progressFill.style.width = `${progress}%`;
+                    progressText.textContent = `Uploading ${uploaded + failed}/${totalFiles}...`;
+                }
+            }
+
+            // Close edit modal if it was open
+            if (isEditModalOpen) {
+                this.closeEditModal();
+            }
+
+            // Show result toast
+            if (failed === 0) {
+                ToastManager.success(`${uploaded} image${uploaded !== 1 ? 's' : ''} uploaded successfully!`);
+            } else {
+                ToastManager.error(`${uploaded} uploaded, ${failed} failed`);
+            }
+
+            // Refresh folder view
+            await FolderNavigator.reload();
         },
 
         show() {
             if (!this.overlay) this.create();
             this.searchInput.value = '';
+            if (this.createFolderDialog) {
+                this.toggleCreateFolderDialog(false);
+            }
             this.overlay.classList.add('image-selector-active');
             this.searchInput.focus();
         },
 
         hide() {
             if (this.overlay) {
+                if (this.createFolderDialog) {
+                    this.toggleCreateFolderDialog(false);
+                }
                 this.overlay.classList.remove('image-selector-active');
             }
         },
@@ -1140,15 +2166,16 @@
 
             // Paginate
             const totalItems = folders.length + images.length;
-            const totalPages = Math.ceil(totalItems / CONFIG.ITEMS_PER_PAGE);
+            const itemsPerPage = StorageManager.getItemsPerPage();
+            const totalPages = Math.ceil(totalItems / itemsPerPage);
 
             // Ensure current page is valid
             if (this.currentPage > totalPages) {
                 this.currentPage = totalPages;
             }
 
-            const startIndex = (this.currentPage - 1) * CONFIG.ITEMS_PER_PAGE;
-            const endIndex = startIndex + CONFIG.ITEMS_PER_PAGE;
+            const startIndex = (this.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
 
             // Combine and slice for current page
             const allItems = [...folders, ...images];
@@ -1217,7 +2244,7 @@
             const button = document.createElement('button');
             button.id = 'image-selector-btn';
             button.className = 'image-selector-btn';
-            button.innerHTML = `${Icons.image} Get Image Path`;
+            button.innerHTML = `${Icons.image} Creative Library`;
             button.addEventListener('click', () => this.open());
 
             // Insert as sibling after target
