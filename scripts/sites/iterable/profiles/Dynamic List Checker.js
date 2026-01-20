@@ -4,7 +4,7 @@
 // @version      2.0.0
 // @description  Show dynamic lists that users belong
 // @author       Colin Whelan
-// @match        https://app.iterable.com/users/profiles/*/*
+// @match        https://app.iterable.com/users/profiles/*
 // @grant        GM_registerMenuCommand
 // @grant        GM_setValue
 // @grant        GM_getValue
