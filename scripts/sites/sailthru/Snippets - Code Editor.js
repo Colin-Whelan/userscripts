@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Sailthru - Snippet Code Editor
+// @name         Sailthru Snippet Code Editor
 // @namespace    https://my.sailthru.com
 // @version      1.1.0
 // @description  Replaces the plain textarea in Sailthru code snippets with a full CodeMirror editor (dark/light mode, HTML mixed-mode, customizable fonts/size)
@@ -124,6 +124,15 @@
       .stru-cm-wrap .CodeMirror {
         flex: 1 1 auto;
         height: auto;
+      }
+      /* Override Sailthru's @layer app { #app * { font-family: Figtree } } */
+      .stru-cm-wrap .CodeMirror,
+      .stru-cm-wrap .CodeMirror pre,
+      .stru-cm-wrap .CodeMirror textarea,
+      .stru-cm-wrap .CodeMirror-line,
+      .stru-cm-wrap .CodeMirror-line *,
+      #app * {
+        font-family: unset !important;
       }
       .stru-cm-wrap .CodeMirror-scroll {
         scrollbar-color: #555 #1e1e1e;
@@ -719,8 +728,9 @@
   function applyFontToEditor() {
     if (!cmInstance) return;
     const el = cmInstance.getWrapperElement();
-    el.style.fontFamily = getSetting('fontFamily');
-    el.style.fontSize = getSetting('fontSize') + 'px';
+    // Use setProperty with !important to override Sailthru's @layer app { #app * { font-family } }
+    el.style.setProperty('font-family', getSetting('fontFamily'), 'important');
+    el.style.setProperty('font-size', getSetting('fontSize') + 'px', 'important');
     el.style.lineHeight = String(getSetting('lineHeight'));
   }
 
