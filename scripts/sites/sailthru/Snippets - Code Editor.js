@@ -456,16 +456,13 @@
         title: 'Search & Navigation',
         binds: [
           { keys: [MOD, 'F'],          desc: 'Find' },
-          { keys: [MOD, 'H'],          desc: 'Find & Replace' },
-          { keys: [MOD, 'G'],          desc: 'Go to Line' },
-          { keys: [MOD, SHIFT, 'F'],   desc: 'Find Previous' },
+          { keys: [MOD, SHIFT, 'F'],   desc: 'Find & Replace' },
         ],
       },
       {
         title: 'Editing',
         binds: [
           { keys: [MOD, '/'],          desc: 'Toggle Comment' },
-          { keys: [MOD, 'Space'],      desc: 'Autocomplete (HTML / CSS)' },
           { keys: [MOD, 'J'],          desc: 'Jump to Matching Tag' },
           { keys: [MOD, 'D'],          desc: 'Delete Line' },
           { keys: [MOD, 'Z'],          desc: 'Undo' },
