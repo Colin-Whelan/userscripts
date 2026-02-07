@@ -302,7 +302,7 @@
         padding: 18px 22px 10px;
         font-size: 16px; font-weight: 600;
       }
-      .stru-keybinds-body { padding: 0 22px 20px; }
+      .stru-keybinds-body { padding: 0 20px; }
       .stru-kb-section { margin-bottom: 14px; }
       .stru-kb-section h3 {
         font-size: 11px; font-weight: 600; text-transform: uppercase;
