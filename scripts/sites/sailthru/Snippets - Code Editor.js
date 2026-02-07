@@ -118,8 +118,9 @@
         display: flex;
         flex-direction: column;
         flex-grow: 1;
-        height: 100%;
+        height: 70vh;
         position: relative;
+        overflow: scroll;
       }
       .stru-cm-wrap .CodeMirror {
         flex: 1 1 auto;
