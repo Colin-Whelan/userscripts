@@ -646,7 +646,10 @@ width: 100% !important;
     margin-top: 4px;
     font-style: italic;
 }
-
+.validation-warning svg {
+    vertical-align: middle;
+    position: relative; top: -2px
+}
         `;
 
         style.innerHTML = css;
