@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Super Search
-// @namespace    https://github.com/coco/super-search
+// @namespace    https://github.com/Colin-Whelan/userscripts/
+// @author       Colin Whelan
 // @version      1.1.0
 // @description  Persistent page search with live highlighting that updates as content changes
 // @match        *://*/*
