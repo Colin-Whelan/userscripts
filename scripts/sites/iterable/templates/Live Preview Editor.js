@@ -65,7 +65,7 @@
 
   const DEFAULT_CONFIG = {
     previewWidth: 50,
-    shortcut: 'Ctrl+Shift+Space',
+    shortcut: 'Ctrl+S',
     fontFamily: 'Fira Code',
     fontSize: 13,
     userDataEmail: '',
