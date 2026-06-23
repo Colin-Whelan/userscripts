@@ -23,18 +23,15 @@
         utm_term: {
             label: 'utm_term',
             categories: [
-                { name: 'General', color: '#2d6a4f', terms: ['promo', 'contest', 'awards', 'gm'] },
-                { name: 'Books', color: '#9b2226', terms: ['books', 'books-kids-books'] },
-                { name: 'Kids', color: '#e76f51', terms: ['kids-promo', 'kids-gifts', 'kids-books', 'kids-events', 'kids-trade'] },
+                { name: 'General', color: '#2d6a4f', terms: ['promo', 'contest', 'awards'] },
                 { name: 'Gifts', color: '#7b2d8b', terms: ['gifts'] },
-                { name: 'Events', color: '#0077b6', terms: ['events'] },
-                { name: 'Features', color: '#b08d19', terms: ['heathers-picks', 'recos'] }
+                { name: 'Events', color: '#0077b6', terms: ['events'] }
             ]
         },
         utm_id: {
             label: 'utm_id',
             categories: [
-                { name: 'Campaigns', color: '#1d3557', terms: ['spring-2025', 'summer-2025', 'fall-2025', 'holiday-2025'] },
+                { name: 'Campaigns', color: '#1d3557', terms: ['spring-2026', 'summer-2026', 'fall-2026', 'holiday-2026'] },
                 { name: 'Channels', color: '#457b9d', terms: ['email-promo', 'email-trigger', 'email-lifecycle'] }
             ]
         }
