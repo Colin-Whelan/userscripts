@@ -1,23 +1,32 @@
 // ==UserScript==
-// @name         User Lookup Bar
+// @name         Enhanced User Lookup Bar
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Adds a persistent user lookup bar to the Iterable navigation
+// @version      2.1
+// @description  Adds a persistent user lookup bar with auto-detection and enhanced preview
 // @author       Colin Whelan
 // @match        https://app.iterable.com/*
 // @grant        GM_addStyle
 // @grant        GM_xmlhttpRequest
+// @run-at       document-idle
 // ==/UserScript==
 
 (function() {
     'use strict';
-  console.log('[User Lookup Bar] STARTING')
+    console.log('[Enhanced User Lookup Bar] STARTING');
 
-    // Add styles for the lookup bar and messages
+    // ── Constants ───────────────────────────────────────────
+    const SELECTORS = {
+        navbar: '#navbar',
+        logo: '#navbar-logo',
+        container: '#iterable-user-lookup'
+    };
+
+    // Add styles for the lookup bar, preview, and messages
     GM_addStyle(`
         .user-lookup-container {
             display: flex;
             align-items: center;
+            grid-area: links;
             margin-left: 16px;
             position: relative;
             border-left: 1px solid #e0e0e0;
@@ -25,7 +34,7 @@
         }
         .user-lookup-input {
             height: 32px;
-            width: 250px;
+            width: 300px;
             border-radius: 4px;
             border: 1px solid #ccc;
             padding: 0 12px;
@@ -47,19 +56,20 @@
             font-size: 14px;
             cursor: pointer;
             transition: background-color 0.2s;
+            min-width: 70px;
         }
-        .user-lookup-button:hover {
+        .user-lookup-button:hover:not(:disabled) {
             background-color: #1565c0;
         }
-        .lookup-toggle {
-            display: flex;
-            align-items: center;
-            margin-right: 8px;
-            user-select: none;
+        .user-lookup-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
-        .lookup-toggle-label {
-            font-size: 14px;
-            margin-right: 4px;
+        .lookup-type-indicator {
+            font-size: 12px;
+            color: #666;
+            margin-left: 4px;
+            font-style: italic;
         }
         .lookup-message {
             position: absolute;
@@ -81,110 +91,138 @@
             color: #c62828;
             border: 1px solid #ef9a9a;
         }
-        .lookup-success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #a5d6a7;
-        }
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-            margin: 0 8px;
-        }
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .toggle-slider {
+        .user-preview {
             position: absolute;
+            top: 100%;
+            left: 16px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            margin-top: 4px;
+            min-width: 350px;
+            max-width: 500px;
+        }
+        .user-preview-header {
+            background: #f5f5f5;
+            padding: 12px 16px;
+            border-bottom: 1px solid #ddd;
+            border-radius: 8px 8px 0 0;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-preview-close {
+            background: none;
+            border: none;
+            font-size: 18px;
             cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .3s;
-            border-radius: 20px;
-        }
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .3s;
+            color: #666;
+            padding: 0;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        input:checked + .toggle-slider {
+        .user-preview-close:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .user-preview-content {
+            padding: 16px;
+        }
+        .user-preview-field {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .user-preview-field:last-child {
+            margin-bottom: 0;
+        }
+        .user-preview-label {
+            font-weight: 600;
+            color: #555;
+            min-width: 80px;
+            margin-right: 12px;
+            font-size: 14px;
+        }
+        .user-preview-value {
+            color: #333;
+            font-size: 14px;
+            word-break: break-all;
+            flex: 1;
+        }
+        .user-preview-actions {
+            padding: 12px 16px;
+            border-top: 1px solid #ddd;
+            background: #fafafa;
+            border-radius: 0 0 8px 8px;
+            display: flex;
+            gap: 8px;
+        }
+        .user-preview-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .user-preview-button.primary {
             background-color: #1976d2;
+            color: white;
         }
-        input:checked + .toggle-slider:before {
-            transform: translateX(20px);
+        .user-preview-button.primary:hover {
+            background-color: #1565c0;
+        }
+        .user-preview-button.secondary {
+            background-color: white;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        .user-preview-button.secondary:hover {
+            background-color: #f5f5f5;
         }
     `);
 
     // Function to create and add the lookup bar
     function addLookupBar() {
-        // Find the navbar links list
-        const navbarLinksList = document.querySelector('ul[id="navbar-links-list"]');
-        if (!navbarLinksList) return;
+        const navbar = document.querySelector(SELECTORS.navbar);
+        if (!navbar || !navbar.querySelector(SELECTORS.logo)) return;
+        if (navbar.querySelector(SELECTORS.container)) return;
 
         // Create lookup container
         const lookupContainer = document.createElement('div');
         lookupContainer.className = 'user-lookup-container';
         lookupContainer.id = 'iterable-user-lookup';
 
-        // Create toggle switch container
-        const toggleContainer = document.createElement('div');
-        toggleContainer.className = 'lookup-toggle';
-
-        // Add Email label
-        const emailLabel = document.createElement('span');
-        emailLabel.className = 'lookup-toggle-label';
-        emailLabel.textContent = 'Email';
-        toggleContainer.appendChild(emailLabel);
-
-        // Create toggle switch
-        const toggleSwitch = document.createElement('label');
-        toggleSwitch.className = 'toggle-switch';
-
-        const toggleInput = document.createElement('input');
-        toggleInput.type = 'checkbox';
-        toggleInput.id = 'lookup-type-toggle';
-
-        const toggleSlider = document.createElement('span');
-        toggleSlider.className = 'toggle-slider';
-
-        toggleSwitch.appendChild(toggleInput);
-        toggleSwitch.appendChild(toggleSlider);
-        toggleContainer.appendChild(toggleSwitch);
-
-        // Add UserId label
-        const userIdLabel = document.createElement('span');
-        userIdLabel.className = 'lookup-toggle-label';
-        userIdLabel.textContent = 'UserId';
-        toggleContainer.appendChild(userIdLabel);
-
-        // Add toggle container to lookup container
-        lookupContainer.appendChild(toggleContainer);
-
         // Create search input
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.className = 'user-lookup-input';
         searchInput.id = 'user-lookup-input';
-        searchInput.placeholder = 'Enter email address...';
+        searchInput.placeholder = 'Enter email or user ID...';
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 performLookup();
             }
         });
+
+        // Add input event listener to show lookup type
+        searchInput.addEventListener('input', updateLookupType);
+
         lookupContainer.appendChild(searchInput);
+
+        // Create type indicator
+        const typeIndicator = document.createElement('span');
+        typeIndicator.className = 'lookup-type-indicator';
+        typeIndicator.id = 'lookup-type-indicator';
+        lookupContainer.appendChild(typeIndicator);
 
         // Create search button
         const searchButton = document.createElement('button');
@@ -193,27 +231,36 @@
         searchButton.addEventListener('click', performLookup);
         lookupContainer.appendChild(searchButton);
 
-        // Add the lookup container after the last list item
-        navbarLinksList.parentNode.parentNode.appendChild(lookupContainer);
+        // Insert directly after the logo (same spot as quicklinks)
+        const logo = navbar.querySelector(SELECTORS.logo);
+        logo.insertAdjacentElement('afterend', lookupContainer);
+    }
 
-        // Update placeholder when toggle changes
-        toggleInput.addEventListener('change', () => {
-            searchInput.placeholder = toggleInput.checked
-                ? 'Enter user ID...'
-                : 'Enter email address...';
-        });
+    // Function to update lookup type indicator
+    function updateLookupType() {
+        const inputValue = document.getElementById('user-lookup-input').value.trim();
+        const typeIndicator = document.getElementById('lookup-type-indicator');
+
+        if (inputValue) {
+            const isEmail = inputValue.includes('@');
+            typeIndicator.textContent = isEmail ? '(email)' : '(user ID)';
+        } else {
+            typeIndicator.textContent = '';
+        }
     }
 
     // Function to perform the user lookup
     function performLookup() {
-        // Get input value and toggle state
+        // Get input value
         const inputValue = document.getElementById('user-lookup-input').value.trim();
-        const isUserIdLookup = document.getElementById('lookup-type-toggle').checked;
 
         if (!inputValue) {
-            showMessage('Please enter a ' + (isUserIdLookup ? 'user ID' : 'email address'), 'error');
+            showMessage('Please enter an email address or user ID', 'error');
             return;
         }
+
+        // Auto-detect if it's an email or user ID
+        const isEmail = inputValue.includes('@');
 
         // Show loading state
         const searchButton = document.querySelector('.user-lookup-button');
@@ -221,10 +268,13 @@
         searchButton.textContent = 'Loading...';
         searchButton.disabled = true;
 
+        // Hide any existing preview
+        hideUserPreview();
+
         // Build the URL
-        const url = isUserIdLookup
-            ? `https://app.iterable.com/users/profiles/getUserData?userId=${encodeURIComponent(inputValue)}`
-            : `https://app.iterable.com/users/profiles/getUserData?email=${encodeURIComponent(inputValue)}`;
+        const url = isEmail
+            ? `https://app.iterable.com/users/profiles/getUserData?email=${encodeURIComponent(inputValue)}`
+            : `https://app.iterable.com/users/profiles/getUserData?userId=${encodeURIComponent(inputValue)}`;
 
         // Make the request
         GM_xmlhttpRequest({
@@ -243,12 +293,9 @@
                     if (data.error) {
                         // User not found
                         showMessage(`User not found: ${data.message || 'Not found'}`, 'error');
-                    } else if (data.itblUserId) {
-                        // User found, redirect to profile
-                        showMessage(`Found user: ${data.email}`, 'success');
-                        setTimeout(() => {
-                            window.location.href = `https://app.iterable.com/users/profiles/${data.itblUserId}`;
-                        }, 500); // Short delay to show the success message
+                    } else if (data.itblUserId || data.email) {
+                        // User found, show preview
+                        showUserPreview(data);
                     } else {
                         // Unexpected response
                         showMessage('Unexpected response format', 'error');
@@ -269,13 +316,140 @@
         });
     }
 
-    // Function to show message
-    function showMessage(message, type) {
-        // Remove any existing message
+    // Function to show user preview
+    function showUserPreview(userData) {
+        // Remove any existing preview or message
+        hideUserPreview();
         const existingMessage = document.querySelector('.lookup-message');
         if (existingMessage) {
             existingMessage.remove();
         }
+
+        // Create preview element
+        const previewElement = document.createElement('div');
+        previewElement.className = 'user-preview';
+        previewElement.id = 'user-preview';
+
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'user-preview-header';
+        header.innerHTML = `
+            <span>User Found</span>
+            <button class="user-preview-close" onclick="document.getElementById('user-preview').remove()">×</button>
+        `;
+        previewElement.appendChild(header);
+
+        // Create content
+        const content = document.createElement('div');
+        content.className = 'user-preview-content';
+
+        // Add fields that exist
+        const userId = userData.userId || userData.itblUserId
+        if (userId) {
+            const userIdField = document.createElement('div');
+            userIdField.className = 'user-preview-field';
+            userIdField.innerHTML = `
+                <span class="user-preview-label">User ID:</span>
+                <span class="user-preview-value">${userId}</span>
+            `;
+            content.appendChild(userIdField);
+        }
+
+        if (userData.email) {
+            const emailField = document.createElement('div');
+            emailField.className = 'user-preview-field';
+            emailField.innerHTML = `
+                <span class="user-preview-label">Email:</span>
+                <span class="user-preview-value">${userData.email}</span>
+            `;
+            content.appendChild(emailField);
+        }
+
+        // Add other useful fields if they exist
+        const additionalFields = [
+            { key: 'firstName', label: 'First Name' },
+            { key: 'lastName', label: 'Last Name' },
+            { key: 'signupDate', label: 'Signup Date' },
+            { key: 'lastSeenDate', label: 'Last Seen' }
+        ];
+
+        additionalFields.forEach(field => {
+            if (userData[field.key]) {
+                const fieldElement = document.createElement('div');
+                fieldElement.className = 'user-preview-field';
+                let value = userData[field.key];
+
+                // Format dates
+                if (field.key.includes('Date') && value) {
+                    try {
+                        value = new Date(value).toLocaleDateString();
+                    } catch (e) {
+                        // Keep original value if date parsing fails
+                    }
+                }
+
+                fieldElement.innerHTML = `
+                    <span class="user-preview-label">${field.label}:</span>
+                    <span class="user-preview-value">${value}</span>
+                `;
+                content.appendChild(fieldElement);
+            }
+        });
+
+        previewElement.appendChild(content);
+
+        // Create actions
+        if (userData.itblUserId) {
+            const actions = document.createElement('div');
+            actions.className = 'user-preview-actions';
+
+            const goToProfileBtn = document.createElement('button');
+            goToProfileBtn.className = 'user-preview-button primary';
+            goToProfileBtn.textContent = 'Go to Profile';
+            goToProfileBtn.addEventListener('click', () => {
+                window.location.href = `https://app.iterable.com/users/profiles/${userData.itblUserId}`;
+            });
+            actions.appendChild(goToProfileBtn);
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'user-preview-button secondary';
+            closeBtn.textContent = 'Close';
+            closeBtn.addEventListener('click', () => {
+                previewElement.remove();
+            });
+            actions.appendChild(closeBtn);
+
+            previewElement.appendChild(actions);
+        }
+
+        // Add to container
+        const container = document.getElementById('iterable-user-lookup');
+        container.appendChild(previewElement);
+
+        // Auto-hide after 15 seconds
+        setTimeout(() => {
+            if (previewElement.parentNode) {
+                previewElement.remove();
+            }
+        }, 15000);
+    }
+
+    // Function to hide user preview
+    function hideUserPreview() {
+        const existingPreview = document.getElementById('user-preview');
+        if (existingPreview) {
+            existingPreview.remove();
+        }
+    }
+
+    // Function to show message
+    function showMessage(message, type) {
+        // Remove any existing message or preview
+        const existingMessage = document.querySelector('.lookup-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+        hideUserPreview();
 
         // Create message element
         const messageElement = document.createElement('div');
@@ -286,32 +460,41 @@
         const container = document.getElementById('iterable-user-lookup');
         container.appendChild(messageElement);
 
-        // Auto remove after 5 seconds for errors, 2 seconds for success
-        const timeout = type === 'error' ? 5000 : 2000;
+        // Auto remove after 5 seconds
         setTimeout(() => {
             if (messageElement.parentNode) {
                 messageElement.remove();
             }
-        }, timeout);
+        }, 5000);
     }
 
     // Function to initialize the script
     function init() {
-        // Check if we're on the right page
-        if (!document.querySelector('ul[id="navbar-links-list"]')) {
+        const navbar = document.querySelector(SELECTORS.navbar);
+        if (!navbar || !navbar.querySelector(SELECTORS.logo)) {
             // If the navbar isn't loaded yet, wait and try again
             setTimeout(init, 500);
             return;
         }
 
         // Check if lookup bar already exists
-        if (document.getElementById('iterable-user-lookup')) {
+        if (navbar.querySelector(SELECTORS.container)) {
             return;
         }
 
         // Add the lookup bar
         addLookupBar();
     }
+
+    // Hide preview when clicking outside
+    document.addEventListener('click', (e) => {
+        const preview = document.getElementById('user-preview');
+        const container = document.getElementById('iterable-user-lookup');
+
+        if (preview && container && !container.contains(e.target)) {
+            preview.remove();
+        }
+    });
 
     // Wait for the page to load
     window.addEventListener('load', init);
@@ -326,15 +509,11 @@
     }).observe(document, {subtree: true, childList: true});
 
     // Also try to handle dynamic UI updates
-    new MutationObserver((mutations) => {
-        // Check if any of the mutations added the navbar
-        for (const mutation of mutations) {
-            if (mutation.type === 'childList' &&
-                document.querySelector('ul[id="navbar-links-list"]') &&
-                !document.getElementById('iterable-user-lookup')) {
-                init();
-                break;
-            }
+    new MutationObserver(() => {
+        const navbar = document.querySelector(SELECTORS.navbar);
+        if (navbar && navbar.querySelector(SELECTORS.logo) &&
+            !navbar.querySelector(SELECTORS.container)) {
+            init();
         }
     }).observe(document.body, {childList: true, subtree: true});
 
