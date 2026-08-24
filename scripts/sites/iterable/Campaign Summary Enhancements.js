@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Campaign Preview Enhancements
 // @namespace    http://tampermonkey.net/
-// @version      1.4.1
+// @version      1.5.0
 // @author       Colin Whelan
 // @match        https://app.iterable.com/campaigns/*
 // @grant        GM_registerMenuCommand
@@ -23,45 +23,30 @@
     // Global variable to track the relative time update interval
     let relativeTimeInterval = null;
 
-    // Configuration with defaults
-    let config = {
+    const DEFAULT_RATE_LIMIT = 4000;
+
+    const DEFAULT_CONFIG = {
         seedListCheck: false,
-        seedListKeyword: "Seed", // Customizable seed list keyword
+        seedListKeyword: "Seed",
         suppressListCheck: false,
         campaignRules: [
-            {
-                keywords: ["mother", "mom"],
-                requiredSuppressionLists: ["Mothers Days"],
-                isGlobal: false
-            },
-            {
-                keywords: ["father", "dad"],
-                requiredSuppressionLists: ["Fathers Days"],
-                isGlobal: false
-            },
-            {
-                keywords: ["survey", "research"],
-                requiredSuppressionLists: ["explicitOptOut_Surveys"],
-                isGlobal: false
-            },
-            {
-                keywords: [],
-                requiredSuppressionLists: ["Daily Exclusions"],
-                isGlobal: true
-            }
+            { keywords: ["mother", "mom"],      requiredSuppressionLists: ["Mothers Days"],           isGlobal: false },
+            { keywords: ["father", "dad"],      requiredSuppressionLists: ["Fathers Days"],           isGlobal: false },
+            { keywords: ["survey", "research"], requiredSuppressionLists: ["explicitOptOut_Surveys"], isGlobal: false },
+            { keywords: [],                     requiredSuppressionLists: ["Daily Exclusions"],       isGlobal: true  }
         ],
-        customRateLimit: 4000,
+        customRateLimit: DEFAULT_RATE_LIMIT,
         rateLimitsByMessageType: {},
         htmlScan: {
-            enabled: true, // Can be made configurable
-            iframeCheck_interval: 1500,
+            enabled: true,
             iframeSelector: '[data-test="secure-iframe-full-doc"]',
             contentSectionSelector: '[data-test="complete-step-Content"]'
         }
     };
 
-
-    let customRateLimit = GM_getValue(config.customRateLimit, 4000);
+    let config = structuredClone(DEFAULT_CONFIG);
+    // NOTE: the separate `let customRateLimit = GM_getValue(...)` global is removed.
+    // Use `config.customRateLimit` everywhere.
 
 
 // ============================================================================
@@ -155,41 +140,23 @@ const HtmlScanner = {
     /**
      * Run all HTML validation checks
      */
+    checks: [
+        { name: 'alt-text-quotes', fn: 'checkAltTextQuotes' }
+    ],
+
     validate(html) {
         if (!html) {
-            return {
-                success: false,
-                issues: [{
-                    type: 'no-html',
-                    severity: 'warning',
-                    message: 'No HTML content found to validate'
-                }]
-            };
+            return { success: false, issues: [{ type: 'no-html', severity: 'warning', message: 'No HTML content found to validate' }] };
         }
-
-        log('Running HTML validation checks...');
-
         const allIssues = [];
-
-        // Run checkAltTextQuotes
-        try {
-            const altQuoteIssues = this.checkAltTextQuotes(html);
-            if (altQuoteIssues && altQuoteIssues.length > 0) {
-                allIssues.push(...altQuoteIssues);
+        for (const check of this.checks) {
+            try {
+                allIssues.push(...(this[check.fn](html) || []));
+            } catch (error) {
+                log(`Error in HTML check ${check.name}:`, error);
             }
-        } catch (error) {
-            log('Error running HTML validation:', error);
         }
-
-        // Add more validation rules here as methods are created
-        // const missingAltIssues = this.checkMissingAltText(html);
-        // allIssues.push(...missingAltIssues);
-
-        return {
-            success: allIssues.length === 0,
-            issues: allIssues,
-            totalChecks: 1 // Update as you add more checks
-        };
+        return { success: allIssues.length === 0, issues: allIssues, totalChecks: this.checks.length };
     },
 
     /**
@@ -219,26 +186,17 @@ const HtmlScanner = {
     // Load configuration
     function loadConfig() {
         try {
-            const savedConfig = GM_getValue('campaignConfig', JSON.stringify(config));
-            const loadedConfig = JSON.parse(savedConfig);
-
-            // Ensure seedListKeyword exists in loaded config
-            if (!loadedConfig.seedListKeyword) {
-                loadedConfig.seedListKeyword = "Seed";
-            }
-
-            if (!loadedConfig.rateLimitsByMessageType) {
-                loadedConfig.rateLimitsByMessageType = {};
-            }
-
-            config = loadedConfig;
+            const loaded = JSON.parse(GM_getValue('campaignConfig', '{}'));
+            config = {
+                ...structuredClone(DEFAULT_CONFIG),
+                ...loaded,
+                htmlScan: { ...DEFAULT_CONFIG.htmlScan, ...(loaded.htmlScan || {}) }
+            };
+            config.customRateLimit = parseInt(config.customRateLimit) || DEFAULT_RATE_LIMIT;
             log('Configuration loaded', config);
         } catch (e) {
             log('Error loading config, using defaults', e);
-            // Ensure seedListKeyword is set
-            config.seedListKeyword = config.seedListKeyword || "Seed";
-            //Ensure rateLimitsByMessageType is set
-            config.rateLimitsByMessageType = config.rateLimitsByMessageType || {};
+            config = structuredClone(DEFAULT_CONFIG);
         }
     }
 
@@ -646,10 +604,21 @@ width: 100% !important;
     margin-top: 4px;
     font-style: italic;
 }
-.validation-warning svg {
-    vertical-align: middle;
-    position: relative; top: -2px
-}
+        .validation-warning svg {
+            vertical-align: middle;
+            position: relative; top: -2px
+        }
+
+        /* Compact section headers */
+        .KbrDZ {
+            margin: 0.75rem 0px 0.5rem !important;
+        }
+
+        /* Compact form fields */
+        .eTKVxo {
+            margin-bottom: 0.75rem !important;
+        }
+
         `;
 
         style.innerHTML = css;
@@ -906,7 +875,7 @@ width: 100% !important;
         config.seedListCheck = modal.querySelector('#seedListCheck').checked;
         config.seedListKeyword = modal.querySelector('#seedListKeyword').value.trim() || 'Seed';
         config.suppressListCheck = modal.querySelector('#suppressListCheck').checked;
-        config.customRateLimit = modal.querySelector('#customRateLimit').value.trim() || 3000;
+        config.customRateLimit = parseInt(modal.querySelector('#customRateLimit').value) || DEFAULT_RATE_LIMIT;
 
         // Update rules from table
         config.campaignRules = [];
@@ -1075,6 +1044,13 @@ function clearValidationMessages(parent) {
     if (existing) {
         existing.remove();
     }
+}
+function reorderSections() {
+    const optimizeSection = document.querySelector('[data-test="optimize-section"]');
+    const sendingInfoSection = document.querySelector('[data-test="sending-information-section"]');
+    if (!optimizeSection || !sendingInfoSection) return;
+    optimizeSection.parentNode.insertBefore(sendingInfoSection, optimizeSection);
+    log('Sections reordered: sending-information before optimize');
 }
 
 // Display warning/success message to the right of an element
@@ -1283,6 +1259,7 @@ function escapeHtml(text) {
     // Validat Subject Line
     function validateSubjectLine() {
         const SlContainer = document.querySelector('[data-test="form-readonly-field-subject"]');
+        if (!SlContainer) return;
         log('Validating Subject Line');
 
         const invalidChars = [
@@ -1304,37 +1281,6 @@ function escapeHtml(text) {
             displayValidationMessage(
                 SlContainer,
                 `Warning: Subject Line contains invalid chars: ${charList}`
-            );
-        }
-    }
-
-    // Validat Preview Text
-    function validatePreviewText() {
-        const previewContainer = document.querySelector('[data-test="form-readonly-field-preheaderText"]');
-        log('Validating Preview Text');
-
-        console.log(previewContainer)
-        console.log(previewContainer.innerHTML)
-
-        const invalidChars = [
-            { char: '\u2028', name: 'Line Separator' },
-            { char: '\u2029', name: 'Paragraph Separator' },
-            { char: '\n', name: 'Newline' },
-            { char: '\r', name: 'Carriage Return' },
-            { char: '\t', name: 'Tab' }
-        ];
-
-        const foundInvalidChars = invalidChars.filter(item =>
-                                                      previewContainer.innerHTML.includes(item.char)
-                                                     );
-
-        if (foundInvalidChars.length === 0) {
-            displayValidationMessage(previewContainer, `Preheader is valid`, true);
-        } else {
-            const charList = foundInvalidChars.map(item => item.name).join(', ');
-            displayValidationMessage(
-                previewContainer,
-                `Warning: Preheader contains invalid chars: ${charList}`
             );
         }
     }
@@ -1413,12 +1359,12 @@ function validateHtmlContent() {
         log('Running all validations');
         setTimeout(() => {
             // Always run validations so they can clean up warnings when disabled
+            reorderSections();
             validateSeedLists();
             validateSuppressionLists();
             validateSubjectLine()
             validateHtmlContent();
             updateRateLimitDisplay();
-            //validatePreviewText()
         }, 1000);
     }
 
@@ -1519,12 +1465,10 @@ function validateHtmlContent() {
 
         // Handle input change
     function handleInputChange(event) {
-        const newValue = parseInt(event.target.value) || 2000;
-        customRateLimit = newValue;
+        config.customRateLimit = parseInt(event.target.value) || DEFAULT_RATE_LIMIT;
+        saveConfig();
         const rateMath = document.getElementById('rate-math');
-        if (rateMath) {
-            rateMath.textContent = `≈ ${(customRateLimit * 60).toLocaleString()}/hour`;
-        }
+        if (rateMath) rateMath.textContent = `≈ ${(config.customRateLimit * 60).toLocaleString()} messages/hour`;
     }
 
         // Apply rate limit to current campaign
@@ -1536,10 +1480,10 @@ function validateHtmlContent() {
         }
 
         try {
-            const result = await updateCampaignRateLimit(campaignId, customRateLimit);
+            const result = await updateCampaignRateLimit(campaignId, config.customRateLimit);
 
             // Show success message
-            showNotification(`Rate limit set to ${customRateLimit}/min`, 'success');
+            showNotification(`Rate limit set to ${config.customRateLimit}/min`, 'success');
 
             // Refresh the page to show updated settings
             setTimeout(() => {
@@ -1725,38 +1669,32 @@ function validateHtmlContent() {
 
         // Add custom settings to the optimize section
     function addCustomSettingsToPage() {
-        if (customSettingsAdded || !isPageReady()) {0
-            return;
-        }
+        if (customSettingsAdded || !isPageReady()) return;
 
         const optimizeSection = document.querySelector('[data-test="optimize-section"]');
+        if (!optimizeSection) return;
 
-        const customSettings = createCustomSettings();0
-        optimizeSection.appendChild(customSettings);
+        optimizeSection.appendChild(createCustomSettings());
 
-        // Add event listeners
-        const input = document.getElementById('custom-rate-input');
-        const applyButton = document.getElementById('apply-rate-button');
-
-        input.addEventListener('input', handleInputChange);
-        applyButton.addEventListener('click', () => applyRateLimit());
+        document.getElementById('custom-rate-input')?.addEventListener('input', handleInputChange);
+        document.getElementById('apply-rate-button')?.addEventListener('click', applyRateLimit);
 
         customSettingsAdded = true;
     }
 
         // Main observer to watch for page changes
+    let customSettingsObserver = null;
+
     function observePageChanges() {
-        const observer = new MutationObserver(() => {
-            if (!customSettingsAdded) {
-                addCustomSettingsToPage();
+        if (customSettingsObserver) customSettingsObserver.disconnect();
+        customSettingsObserver = new MutationObserver(() => {
+            if (customSettingsAdded) {
+                customSettingsObserver.disconnect();
+                return;
             }
+            addCustomSettingsToPage();
         });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
+        customSettingsObserver.observe(document.body, { childList: true, subtree: true });
     }
 
 
@@ -1989,9 +1927,10 @@ function validateHtmlContent() {
     `;
 
         // Set default values (current date, current time + 1 hour)
-        const now = new Date();
-        const defaultDate = now.toISOString().split('T')[0];
-        const defaultTime = new Date(now.getTime() + 61 * 60 * 1000).toTimeString().slice(0, 5);
+        const defaultDateTime = new Date(Date.now() + 61 * 60 * 1000);
+        const pad = n => String(n).padStart(2, '0');
+        const defaultDate = `${defaultDateTime.getFullYear()}-${pad(defaultDateTime.getMonth() + 1)}-${pad(defaultDateTime.getDate())}`;
+        const defaultTime = `${pad(defaultDateTime.getHours())}:${pad(defaultDateTime.getMinutes())}`;
 
         dateInput.value = defaultDate;
         timeInput.value = defaultTime;
@@ -2399,31 +2338,6 @@ function selectDateFromCalendar(dateInput, targetDay, formattedDate, callback) {
     findAndClickDate();
 }
 
-// Helper function to set time value (original working method)
-function setTimeValue(timeInput, formattedTime) {
-    log('Setting time input value:', formattedTime);
-
-    // Focus on time input
-    timeInput.focus();
-    timeInput.click();
-
-    // Clear and set value
-    timeInput.value = '';
-    timeInput.value = formattedTime;
-
-    // Trigger multiple events
-    ['input', 'change', 'blur', 'keyup', 'keydown', 'paste'].forEach(eventType => {
-        timeInput.dispatchEvent(new Event(eventType, { bubbles: true }));
-    });
-
-    // For React components, also try setting the React props
-    if (timeInput._valueTracker) {
-        timeInput._valueTracker.setValue('');
-    }
-
-    log('Time value set successfully');
-}
-
 // Helper function to navigate to the correct month if needed
 function navigateToCorrectMonth(calendar, targetDate, callback) {
     log('Attempting to navigate to correct month...');
@@ -2628,10 +2542,16 @@ function navigateToCorrectMonth(calendar, targetDate, callback) {
     new MutationObserver(() => {
         const url = location.href;
         if (url !== lastUrl) {
+
             log('URL changed, re-initializing', { from: lastUrl, to: url });
             lastUrl = url;
             // Give the page more time to load after navigation
             setTimeout(() => {
+                customSettingsAdded = false;
+                schedulePreviewUI = null;
+                HtmlScanner.lastHtml = null;
+                observePageChanges();
+
                 initialize();
             }, 2000);
         }
